@@ -117,8 +117,7 @@ function Auth() {
       if (r.user.role === 'admin') return nav('/admin');
       if (Number(r.user.onboarding_step) < 2) return nav('/onboarding/user');
       if (Number(r.user.onboarding_step) < 3) return nav('/onboarding/company');
-      if (localStorage.getItem('intent') === 'trial') return activateTrial(nav);
-      if (localStorage.getItem('intent') === 'buy') return nav('/plans');
+      if (localStorage.getItem('intent') === 'trial' || localStorage.getItem('intent') === 'buy') return nav('/plans');
       nav('/dashboard');
     } catch (e) {
       setError(e.message);
@@ -163,17 +162,6 @@ function Auth() {
       </div>
     </Onboard>
   );
-}
-
-async function activateTrial(nav) {
-  try {
-    await api('/trial', { method: 'POST' });
-    localStorage.removeItem('intent');
-    nav('/dashboard?trial=active');
-  } catch (e) {
-    if (e.message.includes('قبلاً')) nav('/dashboard');
-    else throw e;
-  }
 }
 
 function Onboard({ active, children }) {
@@ -231,8 +219,7 @@ function Company() {
         method: 'POST',
         body: JSON.stringify(f),
       });
-      if (localStorage.getItem('intent') === 'trial') await activateTrial(nav);
-      else nav('/plans');
+      nav('/plans');
     } catch (e) {
       setError(e.message);
     }
@@ -286,23 +273,58 @@ function Plans() {
   const nav = useNavigate();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api('/packages')
-      .then(r => setItems(r.data.filter(x => Number(x.price) > 0)))
+      .then(r => {
+        const pkgs = r.data || [];
+        setItems(pkgs);
+        const intent = localStorage.getItem('intent');
+        if (intent === 'trial') {
+          const trial = pkgs.find(p => p.slug === 'trial' || Number(p.price) === 0);
+          if (trial) {
+            setSelected(trial.id);
+            return;
+          }
+        }
+        // Default to featured or first package
+        const defaultChoice = pkgs.find(p => p.is_featured) || pkgs.find(p => Number(p.price) > 0) || pkgs[0];
+        if (defaultChoice) setSelected(defaultChoice.id);
+      })
       .catch(e => setError(e.message));
   }, []);
 
-  async function buy() {
+  const currentPkg = items.find(p => p.id === selected);
+  const isTrial = currentPkg && (currentPkg.slug === 'trial' || Number(currentPkg.price) === 0);
+
+  async function submit() {
+    if (!selected) return;
     try {
-      const r = await api('/orders', {
-        method: 'POST',
-        body: JSON.stringify({ package_id: selected }),
-      });
-      location.href = r.payment_url;
+      setLoading(true);
+      setError('');
+      if (isTrial) {
+        await api('/trial', { method: 'POST' });
+        localStorage.removeItem('intent');
+        nav('/dashboard?trial=active');
+      } else {
+        const r = await api('/orders', {
+          method: 'POST',
+          body: JSON.stringify({ package_id: selected }),
+        });
+        localStorage.removeItem('intent');
+        location.href = r.payment_url;
+      }
     } catch (e) {
-      setError(e.message);
+      if (isTrial && e.message.includes('قبلاً')) {
+        localStorage.removeItem('intent');
+        nav('/dashboard');
+      } else {
+        setError(e.message);
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -310,35 +332,41 @@ function Plans() {
     <Onboard active={3}>
       <div className="title-row">
         <div>
-          <h1>پکیج پیشنهادی برای شما</h1>
-          <p>پکیج را انتخاب یا قبل از پرداخت تغییر دهید.</p>
+          <h1>انتخاب پکیج نرم‌افزار کارویتا</h1>
+          <p>پکیج مد نظر خود را انتخاب کرده یا دوره رایگان ۵ روزه را فعال نمایید.</p>
         </div>
       </div>
       {error && <div className="alert error">{error}</div>}
       <div className="plan-grid">
-        {items.map(p => (
-          <article
-            key={p.id}
-            className={(selected === p.id ? 'selected ' : '') + (p.is_featured ? 'featured' : '')}
-            onClick={() => setSelected(p.id)}
-          >
-            {p.is_featured && <em>پیشنهاد ما</em>}
-            <h2>{p.name}</h2>
-            <strong>{money(p.price)}</strong>
-            <span>برای {p.duration_days} روز</span>
-            <p>{p.description}</p>
-            <ul>
-              {p.features.map(x => (
-                <li key={x}><CheckCircle2 /> {x}</li>
-              ))}
-            </ul>
-            <button>{selected === p.id ? 'انتخاب شد' : 'انتخاب پکیج'}</button>
-          </article>
-        ))}
+        {items.map(p => {
+          const isPkgTrial = p.slug === 'trial' || Number(p.price) === 0;
+          return (
+            <article
+              key={p.id}
+              className={(selected === p.id ? 'selected ' : '') + (p.is_featured ? 'featured' : '')}
+              onClick={() => setSelected(p.id)}
+            >
+              {p.is_featured && <em>پیشنهاد ما</em>}
+              {!p.is_featured && isPkgTrial && <em className="trial-badge">۵ روز رایگان</em>}
+              <h2>{p.name}</h2>
+              <strong>{Number(p.price) === 0 ? 'رایگان (۰ تومان)' : money(p.price)}</strong>
+              <span>برای {p.duration_days} روز</span>
+              <p>{p.description}</p>
+              <ul>
+                {(p.features || []).map(x => (
+                  <li key={x}><CheckCircle2 /> {x}</li>
+                ))}
+              </ul>
+              <button>{selected === p.id ? 'انتخاب شد' : 'انتخاب پکیج'}</button>
+            </article>
+          );
+        })}
       </div>
       <div className="checkout">
-        <button disabled={!selected} onClick={buy}>پرداخت و فعال‌سازی</button>
-        <button className="outline" onClick={() => nav('/dashboard')}>فعلاً بعداً</button>
+        <button disabled={!selected || loading} onClick={submit}>
+          {loading ? 'در حال پردازش…' : isTrial ? 'فعال‌سازی ۵ روز رایگان' : 'پرداخت و فعال‌سازی'}
+        </button>
+        <button className="outline" disabled={loading} onClick={() => nav('/dashboard')}>فعلاً بعداً</button>
       </div>
     </Onboard>
   );
