@@ -1,5 +1,0 @@
-<?php
-namespace App\Services;
-use RuntimeException;
-final class MedianaSmsService implements SmsService{public function sendOtp(string$m,string$c):array{$payload=['mobile'=>$m,'templateId'=>env('MEDIANA_PATTERN_CODE'),'parameters'=>[env('MEDIANA_CODE_PARAM','code')=>$c]];$ch=curl_init(env('MEDIANA_BASE_URL'));$auth=env('MEDIANA_AUTH_HEADER','Authorization').': '.trim(env('MEDIANA_AUTH_PREFIX','Bearer').' '.env('MEDIANA_API_KEY'));curl_setopt_array($ch,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>5,CURLOPT_TIMEOUT=>10,CURLOPT_HTTPHEADER=>['Content-Type: application/json','Accept: application/json',$auth],CURLOPT_POSTFIELDS=>json_encode($payload)]);$raw=curl_exec($ch);$status=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);$error=curl_error($ch);curl_close($ch);if($raw===false||$error||$status<200||$status>=300)throw new RuntimeException("Mediana failed: HTTP $status $error");$r=json_decode($raw,true)?:['raw'=>$raw];return['message_id'=>$r['messageId']??$r['id']??null,'request'=>$payload,'response'=>$r];}}
-
