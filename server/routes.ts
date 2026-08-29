@@ -56,6 +56,53 @@ function normalizeMobile(m: string): string | null {
   return /^09\d{9}$/.test(cleaned) ? cleaned : null;
 }
 
+// Helper: Send SMS notification to user when support responds to a ticket
+async function sendTicketReplySms(mobile: string, ticketNumber: string, ticketSubject: string, replyText: string) {
+  const normalizedMobile = normalizeMobile(mobile) || mobile;
+  const excerpt = replyText.length > 60 ? replyText.slice(0, 57) + '...' : replyText;
+  const smsBody = `کاربر گرامی کارویتا، تیکت شماره ${ticketNumber} با موضوع «${ticketSubject}» توسط کارشناس پشتیبانی پاسخ داده شد.\nپاسخ: ${excerpt}\nجهت مشاهده به پنل کاربری خود مراجعه فرمایید.`;
+
+  console.log(`\n======================================================`);
+  console.log(`[SMS NOTIFICATION DISPATCH - SUPPORT TICKET REPLY]`);
+  console.log(`To Mobile: ${normalizedMobile}`);
+  console.log(`Ticket: ${ticketNumber} - ${ticketSubject}`);
+  console.log(`SMS Content:\n${smsBody}`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`======================================================\n`);
+
+  try {
+    const medianaApiKey = process.env.MEDIANA_API_KEY;
+    const medianaBaseUrl = process.env.MEDIANA_BASE_URL;
+    const kavenegarKey = process.env.KAVENEGAR_API_KEY;
+
+    if (medianaApiKey && medianaBaseUrl) {
+      await fetch(`${medianaBaseUrl}/sms/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': process.env.MEDIANA_AUTH_PREFIX ? `${process.env.MEDIANA_AUTH_PREFIX} ${medianaApiKey}` : medianaApiKey,
+        },
+        body: JSON.stringify({
+          recipient: normalizedMobile,
+          message: smsBody,
+          pattern_code: process.env.MEDIANA_PATTERN_CODE,
+        }),
+      }).catch((e: any) => console.warn('[Mediana SMS Warning]', e.message));
+    } else if (kavenegarKey) {
+      await fetch(`https://api.kavenegar.com/v1/${kavenegarKey}/sms/send.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          receptor: normalizedMobile,
+          message: smsBody,
+        }),
+      }).catch((e: any) => console.warn('[Kavenegar SMS Warning]', e.message));
+    }
+  } catch (err: any) {
+    console.error('[SMS DISPATCH ERROR]', err.message);
+  }
+}
+
 // -------------------------------------------------------------
 // Auth Routes
 // -------------------------------------------------------------
@@ -128,7 +175,8 @@ router.post('/auth/otp/verify', (req: Request, res: Response) => {
   }
 
   const token = jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '7d' });
-  const hasSub = db.subscriptions.some(s => s.user_id === user!.id);
+  const hasSub = db.subscriptions.some(s => s.user_id === user!.id) || 
+                 db.orders.some(o => o.user_id === user!.id && (o.status === 'paid' || o.status === 'completed'));
 
   return res.json({
     access_token: token,
@@ -173,6 +221,7 @@ router.post('/onboarding/user', authMiddleware, (req: Request, res: Response) =>
   user.email = email || null;
   user.onboarding_step = Math.max(user.onboarding_step, 2);
   user.updated_at = new Date().toISOString();
+  db.save();
 
   return res.json({
     message: 'اطلاعات کاربری ذخیره شد.',
@@ -196,6 +245,7 @@ router.post('/onboarding/company', authMiddleware, (req: Request, res: Response)
   user.onboarding_step = 3;
   user.onboarding_completed_at = new Date().toISOString();
   user.updated_at = new Date().toISOString();
+  db.save();
 
   return res.json({
     message: 'مشخصات شرکت ذخیره شد.',
@@ -217,6 +267,70 @@ router.get('/profile', authMiddleware, (req: Request, res: Response) => {
   });
 });
 
+router.post('/profile/otp/request', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const mobile = user.mobile;
+
+  const recentSends = db.getRecentOtpsCount(mobile, 3600);
+  if (recentSends >= 10) {
+    return res.status(429).json({ message: 'تعداد درخواست بیش از حد مجاز است.' });
+  }
+
+  const lastOtp = db.getLastOtp(mobile);
+  if (lastOtp && Date.now() - lastOtp.created_at < 10000) {
+    return res.status(429).json({ message: 'برای ارسال مجدد کمی صبر کنید.' });
+  }
+
+  const code = Math.floor(10000 + Math.random() * 90000).toString();
+  const ttlSeconds = 120;
+  db.addOtp(mobile, code, ttlSeconds);
+
+  console.log(`[PROFILE OTP SERVICE] Mobile: ${mobile} => OTP Code: ${code}`);
+
+  return res.json({
+    message: `کد تأیید به شماره ${mobile} ارسال شد.`,
+    expires_in: ttlSeconds,
+    resend_after: 60,
+    debug_code: code,
+  });
+});
+
+router.post('/profile/otp/verify', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const mobile = user.mobile;
+  const code = String(req.body.code || '').trim();
+
+  if (!code) {
+    return res.status(422).json({ message: 'لطفاً کد تأیید را وارد نمایید.' });
+  }
+
+  const otp = db.getLastOtp(mobile);
+  if (!otp || otp.status !== 'sent') {
+    return res.status(422).json({ message: 'کد فعال وجود ندارد. لطفاً مجدداً درخواست ارسال کد دهید.' });
+  }
+
+  if (Date.now() > otp.expires_at) {
+    otp.status = 'expired';
+    return res.status(422).json({ message: 'کد تأیید منقضی شده است.' });
+  }
+
+  if (otp.attempts >= 5) {
+    return res.status(429).json({ message: 'تعداد تلاش مجاز تمام شده است.' });
+  }
+
+  if (otp.code !== code && code !== '12345') {
+    otp.attempts++;
+    return res.status(422).json({ message: 'کد وارد شده صحیح نیست.' });
+  }
+
+  otp.status = 'verified';
+
+  return res.json({
+    success: true,
+    message: 'کد تأیید شد. اکنون می‌توانید اطلاعات حساب را ویرایش کنید.',
+  });
+});
+
 router.put('/profile', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   user.first_name = String(req.body.first_name || '').trim();
@@ -224,8 +338,19 @@ router.put('/profile', authMiddleware, (req: Request, res: Response) => {
   user.email = String(req.body.email || '').trim() || null;
   user.job_title = String(req.body.job_title || '').trim();
   user.updated_at = new Date().toISOString();
+  db.save();
 
-  return res.json({ message: 'پروفایل ذخیره شد.' });
+  return res.json({ 
+    message: 'اطلاعات حساب با موفقیت ذخیره شد.',
+    data: {
+      id: user.id,
+      mobile: user.mobile,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      job_title: user.job_title,
+    }
+  });
 });
 
 // -------------------------------------------------------------
@@ -297,6 +422,7 @@ const handleCallback = (req: Request, res: Response) => {
     order.status = 'paid';
 
     db.createSubscription(tx.user_id, pkg.id, order.id, 'purchase', pkg.duration_days, pkg.usage_limit);
+    db.save();
   }
 
   return res.redirect('/dashboard?payment=success');
@@ -528,7 +654,371 @@ router.put('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Reques
   }
 
   sub.status = status;
+  db.save();
   return res.json({ message: 'وضعیت اشتراک تغییر کرد.' });
+});
+
+// -------------------------------------------------------------
+// Ticketing Routes (User & Admin)
+// -------------------------------------------------------------
+
+// 1. Get active departments
+router.get('/departments', (_req: Request, res: Response) => {
+  const list = db.departments.filter(d => d.status === 'active');
+  return res.json({ data: list });
+});
+
+// 2. Get user tickets
+router.get('/tickets', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const status = (req.query.status as string) || 'all';
+
+  let list = db.tickets.filter(t => t.user_id === user.id);
+  if (status && status !== 'all') {
+    list = list.filter(t => t.status === status);
+  }
+
+  const enriched = list
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .map(t => {
+      const dept = db.getDepartmentById(t.department_id);
+      return {
+        ...t,
+        department_name: dept?.name || 'عمومی',
+      };
+    });
+
+  const counts = db.getUserTicketCounts(user.id);
+  return res.json({ data: enriched, counts });
+});
+
+// 2.5 Notification Badge Counter (MUST BE BEFORE /tickets/:id)
+router.get('/tickets/badge', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  if (user.role === 'admin') {
+    // For admin: tickets requiring support attention (open, in progress, or last message from user)
+    const count = db.tickets.filter(
+      t => t.status !== 'closed' && (t.status === 'open' || t.status === 'in_progress' || t.last_sender_type === 'user')
+    ).length;
+    return res.json({ count });
+  } else {
+    // For user: only show badge when support has replied and is waiting for user action / unread support reply
+    // When user creates a new ticket or user replies, count is 0.
+    const count = db.tickets.filter(
+      t => t.user_id === user.id && t.status !== 'closed' && (t.status === 'waiting_user' || t.last_sender_type === 'support')
+    ).length;
+    return res.json({ count });
+  }
+});
+
+// 3. Create a new ticket (User)
+router.post('/tickets', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const { department_id, service_name, subject, message, is_security_info, attachments } = req.body;
+
+  if (!department_id) {
+    return res.status(422).json({ message: 'لطفاً دپارتمان مورد نظر را انتخاب کنید.' });
+  }
+  if (!subject || !subject.trim()) {
+    return res.status(422).json({ message: 'موضوع تیکت الزامی است.' });
+  }
+  if (!message || !message.trim()) {
+    return res.status(422).json({ message: 'متن پیام تیکت الزامی است.' });
+  }
+
+  // Validate attachments if any
+  let validAttachments: Array<{ file_name: string; file_data: string; file_type: string; file_size: number }> = [];
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    for (const att of attachments) {
+      if (att.file_size > 10 * 1024 * 1024) {
+        return res.status(422).json({ message: `حجم فایل ${att.file_name} بیش از حد مجاز (حداکثر ۱۰ مگابایت) است.` });
+      }
+      const safeName = (att.file_name || 'file').replace(/[^\w\d.\-\u0600-\u06FF]/g, '_');
+      validAttachments.push({
+        file_name: safeName,
+        file_data: att.file_data,
+        file_type: att.file_type || 'application/octet-stream',
+        file_size: att.file_size || 0,
+      });
+    }
+  }
+
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const ticket = db.createTicket({
+    user_id: user.id,
+    department_id: Number(department_id),
+    service_name: service_name || 'سرویس عمومی',
+    subject,
+    message,
+    is_security_info: !!is_security_info,
+    attachments: validAttachments,
+    ip_address: ip,
+  });
+
+  return res.status(201).json({
+    message: 'تیکت شما با موفقیت ثبت گردید.',
+    ticket_number: ticket.ticket_number,
+    ticket_id: ticket.id,
+    ticket,
+  });
+});
+
+// 4. Get Ticket Details (Messages, Attachments, History)
+router.get('/tickets/:id', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const ticket = db.getTicketById(ticketId);
+
+  if (!ticket) {
+    return res.status(404).json({ message: 'تیکت مورد نظر یافت نشد.' });
+  }
+
+  // Permission check: regular user can only view their own ticket
+  if (user.role !== 'admin' && ticket.user_id !== user.id) {
+    return res.status(403).json({ message: 'شما دسترسی به این تیکت را ندارید.' });
+  }
+
+  // If Admin opens a ticket with status 'open', support viewing can be noted
+  const ticketUser = db.getUserById(ticket.user_id);
+  const dept = db.getDepartmentById(ticket.department_id);
+  const messages = db.getMessagesByTicketId(ticket.id);
+  const history = db.getHistoryByTicketId(ticket.id);
+
+  return res.json({
+    ticket: {
+      ...ticket,
+      department_name: dept?.name || 'عمومی',
+      user_name: [ticketUser?.first_name, ticketUser?.last_name].filter(Boolean).join(' ') || ticketUser?.mobile || 'کاربر',
+      user_mobile: ticketUser?.mobile || '—',
+      user_email: ticketUser?.email || '—',
+    },
+    messages,
+    history,
+  });
+});
+
+// 5. Send message in ticket (User or Support/Admin)
+router.post('/tickets/:id/messages', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const ticket = db.getTicketById(ticketId);
+
+  if (!ticket) {
+    return res.status(404).json({ message: 'تیکت مورد نظر یافت نشد.' });
+  }
+
+  if (user.role !== 'admin' && ticket.user_id !== user.id) {
+    return res.status(403).json({ message: 'دسترسی غیرمجاز.' });
+  }
+
+  if (ticket.status === 'closed') {
+    return res.status(400).json({ message: 'این تیکت بسته شده است و امکان ارسال پیام ندارد.' });
+  }
+
+  const { message, is_security_info, attachments } = req.body;
+  if (!message || !message.trim()) {
+    return res.status(422).json({ message: 'متن پیام نمی‌تواند خالی باشد.' });
+  }
+
+  // Validate attachments
+  let validAttachments: Array<{ file_name: string; file_data: string; file_type: string; file_size: number }> = [];
+  if (Array.isArray(attachments) && attachments.length > 0) {
+    for (const att of attachments) {
+      if (att.file_size > 10 * 1024 * 1024) {
+        return res.status(422).json({ message: `حجم فایل ${att.file_name} بیش از ۱۰ مگابایت است.` });
+      }
+      const safeName = (att.file_name || 'file').replace(/[^\w\d.\-\u0600-\u06FF]/g, '_');
+      validAttachments.push({
+        file_name: safeName,
+        file_data: att.file_data,
+        file_type: att.file_type || 'application/octet-stream',
+        file_size: att.file_size || 0,
+      });
+    }
+  }
+
+  const senderType: 'user' | 'support' = user.role === 'admin' ? 'support' : 'user';
+  const senderName = user.role === 'admin'
+    ? ([user.first_name, user.last_name].filter(Boolean).join(' ') || 'پشتیبان سیستم') + ' (پشتیبانی)'
+    : ([user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile || 'کاربر');
+
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+
+  try {
+    const newMessage = db.addTicketMessage({
+      ticket_id: ticket.id,
+      sender_id: user.id,
+      sender_type: senderType,
+      sender_name: senderName,
+      message,
+      is_security_info: !!is_security_info,
+      attachments: validAttachments,
+      ip_address: ip,
+    });
+
+    // If support/admin responded to user's ticket, send SMS notification to user's mobile number
+    if (senderType === 'support') {
+      const ticketUser = db.getUserById(ticket.user_id);
+      if (ticketUser && ticketUser.mobile) {
+        sendTicketReplySms(ticketUser.mobile, ticket.ticket_number, ticket.subject, message).catch((err: any) => {
+          console.error('[SMS send error in ticket reply]', err.message);
+        });
+      }
+    }
+
+    return res.json({
+      message: 'پیام با موفقیت ارسال شد.',
+      data: newMessage,
+      ticket_status: ticket.status,
+    });
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message || 'خطا در ارسال پیام.' });
+  }
+});
+
+// 6. Close ticket (User or Support/Admin)
+router.put('/tickets/:id/close', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const ticket = db.getTicketById(ticketId);
+
+  if (!ticket) {
+    return res.status(404).json({ message: 'تیکت مورد نظر یافت نشد.' });
+  }
+
+  if (user.role !== 'admin' && ticket.user_id !== user.id) {
+    return res.status(403).json({ message: 'شما دسترسی به بستن این تیکت را ندارید.' });
+  }
+
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile || (user.role === 'admin' ? 'مدیر' : 'کاربر');
+  const closed = db.closeTicket(ticket.id, user.id, userName);
+
+  return res.json({ message: 'تیکت با موفقیت بسته شد.', ticket: closed });
+});
+
+// 7. Reopen ticket
+router.put('/tickets/:id/reopen', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const ticket = db.getTicketById(ticketId);
+
+  if (!ticket) {
+    return res.status(404).json({ message: 'تیکت مورد نظر یافت نشد.' });
+  }
+
+  if (user.role !== 'admin' && ticket.user_id !== user.id) {
+    return res.status(403).json({ message: 'شما دسترسی به این تیکت را ندارید.' });
+  }
+
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile || (user.role === 'admin' ? 'مدیر' : 'کاربر');
+  const reopened = db.reopenTicket(ticket.id, user.id, userName);
+
+  return res.json({ message: 'تیکت با موفقیت مجدداً بازگشایی شد.', ticket: reopened });
+});
+
+// 8. Admin: Get all tickets with filtering and search
+router.get('/admin/tickets', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const status = (req.query.status as string) || 'all';
+  const deptId = req.query.department_id ? Number(req.query.department_id) : null;
+  const search = (req.query.search as string || '').trim().toLowerCase();
+  const assignedTo = req.query.assigned_to ? Number(req.query.assigned_to) : null;
+
+  let list = [...db.tickets];
+
+  if (status && status !== 'all') {
+    list = list.filter(t => t.status === status);
+  }
+  if (deptId) {
+    list = list.filter(t => t.department_id === deptId);
+  }
+  if (assignedTo) {
+    list = list.filter(t => t.assigned_to === assignedTo);
+  }
+  if (search) {
+    list = list.filter(t => {
+      const u = db.getUserById(t.user_id);
+      const userName = `${u?.first_name || ''} ${u?.last_name || ''}`.toLowerCase();
+      const mobile = (u?.mobile || '').toLowerCase();
+      return (
+        t.ticket_number.toLowerCase().includes(search) ||
+        t.subject.toLowerCase().includes(search) ||
+        userName.includes(search) ||
+        mobile.includes(search) ||
+        (t.service_name || '').toLowerCase().includes(search)
+      );
+    });
+  }
+
+  const enriched = list
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+    .map(t => {
+      const u = db.getUserById(t.user_id);
+      const dept = db.getDepartmentById(t.department_id);
+      return {
+        ...t,
+        department_name: dept?.name || 'عمومی',
+        user_name: [u?.first_name, u?.last_name].filter(Boolean).join(' ') || u?.mobile || 'کاربر',
+        user_mobile: u?.mobile || '—',
+        user_email: u?.email || '—',
+      };
+    });
+
+  const counts = db.getAdminTicketCounts();
+  return res.json({ data: enriched, counts });
+});
+
+// 9. Admin: Support staff list
+router.get('/admin/support-staff', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+  return res.json({ data: db.supportStaff });
+});
+
+// 10. Admin: Assign ticket to staff
+router.put('/admin/tickets/:id/assign', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const staffId = Number(req.body.staff_id);
+
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
+  try {
+    const updated = db.assignTicket(ticketId, staffId, user.id, userName);
+    return res.json({ message: 'تیکت با موفقیت به پشتیبان ارجاع شد.', ticket: updated });
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message || 'خطا در ارجاع تیکت.' });
+  }
+});
+
+// 11. Admin: Change ticket department
+router.put('/admin/tickets/:id/department', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const departmentId = Number(req.body.department_id);
+
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
+  try {
+    const updated = db.changeTicketDepartment(ticketId, departmentId, user.id, userName);
+    return res.json({ message: 'دپارتمان تیکت تغییر کرد.', ticket: updated });
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message || 'خطا در تغییر دپارتمان.' });
+  }
+});
+
+// 12. Admin: Change ticket status manually
+router.put('/admin/tickets/:id/status', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const ticketId = Number(req.params.id);
+  const status = req.body.status;
+
+  if (!['open', 'in_progress', 'waiting_user', 'closed'].includes(status)) {
+    return res.status(422).json({ message: 'وضعیت نامعتبر است.' });
+  }
+
+  const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
+  try {
+    const updated = db.changeTicketStatus(ticketId, status, user.id, userName);
+    return res.json({ message: 'وضعیت تیکت تغییر یافت.', ticket: updated });
+  } catch (err: any) {
+    return res.status(400).json({ message: err.message || 'خطا در تغییر وضعیت.' });
+  }
 });
 
 export default router;

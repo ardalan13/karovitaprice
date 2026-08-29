@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, Menu, X, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus } from 'lucide-react';
 import { api } from './services/api';
+import { UserTicketsView } from './components/Tickets/UserTicketsView';
+import { AdminTicketsView } from './components/Tickets/AdminTicketsView';
+import { Welcome } from './components/Landing/Welcome';
 import './styles/app.css';
 
 const money = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
@@ -29,38 +32,6 @@ function Steps({ active }) {
   );
 }
 
-function Welcome() {
-  const nav = useNavigate();
-  function go(intent) {
-    localStorage.setItem('intent', intent);
-    nav('/auth');
-  }
-  return (
-    <main className="welcome">
-      <section className="welcome-copy">
-        <Logo />
-        <div>
-          <span className="eyebrow">نرم‌افزار مدیریت یکپارچه</span>
-          <h1>یک فضای کاری ساده، سریع و قابل توسعه</h1>
-          <p>از مدیریت مشتریان تا فروش و گزارش‌ها، همه‌چیز را در یک داشبورد حرفه‌ای کنترل کنید.</p>
-          <div className="hero-actions">
-            <button onClick={() => go('trial')}>۵ روز استفاده رایگان</button>
-            <button className="outline" onClick={() => go('buy')}>مشاهده و خرید پکیج</button>
-          </div>
-          <button className="text" onClick={() => go('login')}>قبلاً ثبت‌نام کرده‌ام؛ ورود به حساب</button>
-        </div>
-      </section>
-      <section className="welcome-art">
-        <div className="mock">
-          <div />
-          <div />
-          <div />
-        </div>
-      </section>
-    </main>
-  );
-}
-
 function toEnDigits(str) {
   return String(str || '')
     .replace(/[۰-۹]/g, d => String.fromCharCode(d.charCodeAt(0) - 1728))
@@ -70,7 +41,7 @@ function toEnDigits(str) {
 function Auth() {
   const nav = useNavigate();
   const [stage, setStage] = useState('mobile');
-  const [mobile, setMobile] = useState('');
+  const [mobile, setMobile] = useState(() => localStorage.getItem('draft_mobile') || '');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -89,6 +60,7 @@ function Auth() {
         method: 'POST',
         body: JSON.stringify({ mobile: cleanMobile }),
       });
+      localStorage.setItem('draft_mobile', cleanMobile);
       if (res.debug_code) {
         setHint(`کد تستی جهت ورود سریع: ${res.debug_code}`);
       }
@@ -114,10 +86,26 @@ function Auth() {
         body: JSON.stringify({ mobile: cleanMobile, code: cleanCode }),
       });
       localStorage.setItem('token', r.access_token);
+      localStorage.setItem('draft_mobile', cleanMobile);
       if (r.user.role === 'admin') return nav('/admin');
+
+      // If existing user already has a package / subscription, go directly to dashboard
+      if (r.user.has_subscription) {
+        localStorage.removeItem('intent');
+        return nav('/dashboard');
+      }
+
       if (Number(r.user.onboarding_step) < 2) return nav('/onboarding/user');
       if (Number(r.user.onboarding_step) < 3) return nav('/onboarding/company');
-      if (localStorage.getItem('intent') === 'trial' || localStorage.getItem('intent') === 'buy') return nav('/plans');
+
+      const intent = localStorage.getItem('intent');
+      if (intent === 'login') {
+        localStorage.removeItem('intent');
+        return nav('/dashboard');
+      }
+      if (intent === 'trial' || intent === 'buy') {
+        return nav('/plans');
+      }
       nav('/dashboard');
     } catch (e) {
       setError(e.message);
@@ -142,6 +130,7 @@ function Auth() {
               const converted = toEnDigits(e.target.value);
               if (stage === 'mobile') {
                 setMobile(converted);
+                localStorage.setItem('draft_mobile', converted);
               } else {
                 setCode(converted.replace(/\D/g, ''));
               }
@@ -151,11 +140,12 @@ function Auth() {
         </label>
         {hint && <div className="alert" style={{ background: '#eef6ff', color: '#0759a8' }}>{hint}</div>}
         {error && <div className="alert error">{error}</div>}
-        <button disabled={loading} onClick={stage === 'mobile' ? send : verify}>
-          {loading ? 'در حال ارسال…' : stage === 'mobile' ? 'دریافت کد' : 'تأیید و ادامه'} <ArrowLeft />
+        <button className="btn-primary" disabled={loading} onClick={stage === 'mobile' ? send : verify}>
+          <span>{loading ? 'در حال ارسال…' : stage === 'mobile' ? 'دریافت کد' : 'تأیید و ادامه'}</span>
+          <ArrowLeft size={18} />
         </button>
         {stage === 'code' && (
-          <button className="text" disabled={loading} onClick={() => setStage('mobile')}>
+          <button className="text btn-text" disabled={loading} onClick={() => setStage('mobile')}>
             ویرایش شماره
           </button>
         )}
@@ -178,19 +168,64 @@ function Onboard({ active, children }) {
 
 function UserInfo() {
   const nav = useNavigate();
-  const [f, setF] = useState({ first_name: '', last_name: '', email: '' });
+  const [f, setF] = useState(() => {
+    try {
+      const saved = localStorage.getItem('draft_onboard_user');
+      return saved ? JSON.parse(saved) : { first_name: '', last_name: '', email: '' };
+    } catch {
+      return { first_name: '', last_name: '', email: '' };
+    }
+  });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api('/onboarding')
+      .then(r => {
+        if (r && r.user) {
+          setF(prev => {
+            const next = {
+              first_name: prev.first_name || r.user.first_name || '',
+              last_name: prev.last_name || r.user.last_name || '',
+              email: prev.email || r.user.email || '',
+            };
+            localStorage.setItem('draft_onboard_user', JSON.stringify(next));
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleChange = (key, val) => {
+    const next = { ...f, [key]: val };
+    setF(next);
+    localStorage.setItem('draft_onboard_user', JSON.stringify(next));
+  };
 
   async function submit() {
+    if (!f.first_name?.trim() || !f.last_name?.trim()) {
+      return setError('لطفاً نام و نام خانوادگی را وارد کنید.');
+    }
     try {
+      setLoading(true);
+      setError('');
       await api('/onboarding/user', {
         method: 'POST',
         body: JSON.stringify(f),
       });
+      localStorage.setItem('draft_onboard_user', JSON.stringify(f));
       nav('/onboarding/company');
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function goBack() {
+    localStorage.setItem('draft_onboard_user', JSON.stringify(f));
+    nav('/auth');
   }
 
   return (
@@ -198,31 +233,86 @@ function UserInfo() {
       <h1>اطلاعات کاربری</h1>
       <p>اطلاعات پایه حساب خود را وارد کنید.</p>
       <div className="form-grid">
-        <Field label="نام" value={f.first_name} set={v => setF({ ...f, first_name: v })} />
-        <Field label="نام خانوادگی" value={f.last_name} set={v => setF({ ...f, last_name: v })} />
-        <Field wide label="ایمیل (اختیاری)" value={f.email} set={v => setF({ ...f, email: v })} />
+        <Field label="نام" value={f.first_name} set={v => handleChange('first_name', v)} />
+        <Field label="نام خانوادگی" value={f.last_name} set={v => handleChange('last_name', v)} />
+        <Field wide label="ایمیل (اختیاری)" type="email" value={f.email} set={v => handleChange('email', v)} />
       </div>
       {error && <div className="alert error">{error}</div>}
-      <button onClick={submit}>ادامه <ArrowLeft /></button>
+      <div className="step-actions">
+        <button type="button" className="btn-secondary" onClick={goBack} disabled={loading}>
+          <ArrowRight size={18} />
+          <span>قبلی</span>
+        </button>
+        <button type="button" className="btn-primary" onClick={submit} disabled={loading}>
+          <span>{loading ? 'در حال ذخیره…' : 'ادامه'}</span>
+          <ArrowLeft size={18} />
+        </button>
+      </div>
     </Onboard>
   );
 }
 
 function Company() {
   const nav = useNavigate();
-  const [f, setF] = useState({ name: '', industry: '', employee_count: '', job_title: '' });
+  const [f, setF] = useState(() => {
+    try {
+      const saved = localStorage.getItem('draft_onboard_company');
+      return saved ? JSON.parse(saved) : { name: '', industry: '', employee_count: '', job_title: '' };
+    } catch {
+      return { name: '', industry: '', employee_count: '', job_title: '' };
+    }
+  });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    api('/onboarding')
+      .then(r => {
+        if (r && (r.company || r.user)) {
+          setF(prev => {
+            const next = {
+              name: prev.name || r.company?.name || '',
+              industry: prev.industry || r.company?.industry || '',
+              employee_count: prev.employee_count || r.company?.employee_count || '',
+              job_title: prev.job_title || r.user?.job_title || '',
+            };
+            localStorage.setItem('draft_onboard_company', JSON.stringify(next));
+            return next;
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleChange = (key, val) => {
+    const next = { ...f, [key]: val };
+    setF(next);
+    localStorage.setItem('draft_onboard_company', JSON.stringify(next));
+  };
 
   async function submit() {
+    if (!f.name?.trim() || !f.industry || !f.employee_count || !f.job_title) {
+      return setError('لطفاً مشخصات شرکت و سمت خود را به طور کامل وارد کنید.');
+    }
     try {
+      setLoading(true);
+      setError('');
       await api('/onboarding/company', {
         method: 'POST',
         body: JSON.stringify(f),
       });
+      localStorage.setItem('draft_onboard_company', JSON.stringify(f));
       nav('/plans');
     } catch (e) {
       setError(e.message);
+    } finally {
+      setLoading(false);
     }
+  }
+
+  function goBack() {
+    localStorage.setItem('draft_onboard_company', JSON.stringify(f));
+    nav('/onboarding/user');
   }
 
   return (
@@ -230,11 +320,11 @@ function Company() {
       <h1>مشخصات شرکت</h1>
       <p>برای پیشنهاد بهترین پکیج، کسب‌وکار خود را معرفی کنید.</p>
       <div className="form-grid">
-        <Field label="نام شرکت" value={f.name} set={v => setF({ ...f, name: v })} />
-        <Field label="تعداد کارکنان" type="number" value={f.employee_count} set={v => setF({ ...f, employee_count: v })} />
+        <Field label="نام شرکت" value={f.name} set={v => handleChange('name', v)} />
+        <Field label="تعداد کارکنان" type="number" value={f.employee_count} set={v => handleChange('employee_count', v)} />
         <label>
           حوزه فعالیت
-          <select value={f.industry} onChange={e => setF({ ...f, industry: e.target.value })}>
+          <select value={f.industry} onChange={e => handleChange('industry', e.target.value)}>
             <option value="">انتخاب کنید</option>
             <option>فروش و بازرگانی</option>
             <option>خدمات حرفه‌ای</option>
@@ -245,27 +335,347 @@ function Company() {
         </label>
         <label>
           سمت شما
-          <select value={f.job_title} onChange={e => setF({ ...f, job_title: e.target.value })}>
+          <select value={f.job_title} onChange={e => handleChange('job_title', e.target.value)}>
             <option value="">انتخاب کنید</option>
-            <option>مدیرعامل</option>
-            <option>مدیر فروش</option>
-            <option>مدیر بازاریابی</option>
-            <option>کارشناس</option>
+            {JOB_TITLE_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
           </select>
         </label>
       </div>
       {error && <div className="alert error">{error}</div>}
-      <button onClick={submit}>ادامه <ArrowLeft /></button>
+      <div className="step-actions">
+        <button type="button" className="btn-secondary" onClick={goBack} disabled={loading}>
+          <ArrowRight size={18} />
+          <span>قبلی</span>
+        </button>
+        <button type="button" className="btn-primary" onClick={submit} disabled={loading}>
+          <span>{loading ? 'در حال ذخیره…' : 'ادامه'}</span>
+          <ArrowLeft size={18} />
+        </button>
+      </div>
     </Onboard>
   );
 }
 
-function Field({ label, value, set, type = 'text', wide }) {
+function Field({ label, value, set, type = 'text', wide, disabled = false, placeholder = '' }) {
   return (
     <label className={wide ? 'wide' : ''}>
       {label}
-      <input type={type} value={value} onChange={e => set(e.target.value)} />
+      <input 
+        type={type} 
+        value={value ?? ''} 
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={e => set && set(e.target.value)} 
+      />
     </label>
+  );
+}
+
+const JOB_TITLE_OPTIONS = [
+  'مدیرعامل',
+  'مدیر فروش',
+  'مدیر بازاریابی',
+  'مدیر مالی',
+  'مدیر فنی / IT',
+  'مدیر منابع انسانی',
+  'کارشناس فروش',
+  'کارشناس پشتیبانی',
+  'کارشناس مالی',
+  'کارشناس بازاریابی',
+  'مشاور',
+  'سایر'
+];
+
+function ProfileSettings({ user, onUpdateUser }) {
+  const [profile, setProfile] = useState({
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
+    email: user?.email || '',
+    mobile: user?.mobile || '',
+    job_title: user?.job_title || '',
+  });
+  const [backup, setBackup] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  // Modal & OTP states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpDebug, setOtpDebug] = useState('');
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        email: user.email || '',
+        mobile: user.mobile || '',
+        job_title: user.job_title || '',
+      });
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  async function requestOtp() {
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await api('/profile/otp/request', { method: 'POST' });
+      if (res.debug_code) setOtpDebug(res.debug_code);
+      setCountdown(res.resend_after || 60);
+      setIsModalOpen(true);
+      setOtpCode('');
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  function handleStartEdit() {
+    setMsg('');
+    setError('');
+    requestOtp();
+  }
+
+  async function handleVerifyOtp(e) {
+    if (e) e.preventDefault();
+    if (!otpCode || otpCode.length < 5) {
+      setOtpError('لطفاً کد ۵ رقمی را کامل وارد نمایید.');
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      await api('/profile/otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ code: otpCode }),
+      });
+      // Verification success
+      setBackup({ ...profile });
+      setIsModalOpen(false);
+      setIsEditing(true);
+      setOtpCode('');
+      setOtpDebug('');
+      setMsg('احراز هویت موفقیت‌آمیز بود. اکنون می‌توانید اطلاعات حساب را ویرایش و ذخیره کنید.');
+    } catch (e) {
+      setOtpError(e.message || 'کد وارد شده صحیح نیست.');
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function handleSaveProfile() {
+    if (!profile.first_name?.trim() || !profile.last_name?.trim()) {
+      setError('نام و نام خانوادگی الزامی است.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const res = await api('/profile', {
+        method: 'PUT',
+        body: JSON.stringify({
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          email: profile.email,
+          job_title: profile.job_title,
+        }),
+      });
+      setMsg(res.message || 'اطلاعات حساب با موفقیت ذخیره شد.');
+      setIsEditing(false);
+      setBackup(null);
+      if (onUpdateUser) {
+        onUpdateUser({
+          ...user,
+          ...profile,
+        });
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCancelEdit() {
+    if (backup) {
+      setProfile({ ...backup });
+    }
+    setIsEditing(false);
+    setBackup(null);
+    setMsg('');
+    setError('');
+  }
+
+  return (
+    <Panel title="تنظیمات حساب کاربری">
+      {msg && <div className="alert success">{msg}</div>}
+      {error && <div className="alert error">{error}</div>}
+
+      <div className="form-grid profile" style={{ marginTop: '16px' }}>
+        <Field 
+          label="نام" 
+          value={profile.first_name} 
+          disabled={!isEditing}
+          set={v => setProfile({ ...profile, first_name: v })} 
+        />
+        <Field 
+          label="نام خانوادگی" 
+          value={profile.last_name} 
+          disabled={!isEditing}
+          set={v => setProfile({ ...profile, last_name: v })} 
+        />
+        <Field 
+          label="شماره تلفن همراه (شناسه حساب)" 
+          value={profile.mobile} 
+          disabled={true}
+          placeholder="09xxxxxxxxx"
+        />
+        <Field 
+          label="ایمیل" 
+          type="email"
+          value={profile.email} 
+          disabled={!isEditing}
+          placeholder="example@domain.com"
+          set={v => setProfile({ ...profile, email: v })} 
+        />
+
+        <label>
+          سمت سازمانی
+          <select 
+            value={profile.job_title || ''} 
+            disabled={!isEditing}
+            onChange={e => setProfile({ ...profile, job_title: e.target.value })}
+          >
+            <option value="">انتخاب سمت...</option>
+            {JOB_TITLE_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+            {profile.job_title && !JOB_TITLE_OPTIONS.includes(profile.job_title) && (
+              <option value={profile.job_title}>{profile.job_title}</option>
+            )}
+          </select>
+        </label>
+
+        <div className="wide" style={{ marginTop: '10px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {!isEditing ? (
+            <button type="button" className="btn-primary" onClick={handleStartEdit} disabled={otpLoading}>
+              <Edit3 size={18} />
+              <span>{otpLoading ? 'در حال ارسال کد…' : 'ویرایش اطلاعات'}</span>
+            </button>
+          ) : (
+            <>
+              <button type="button" className="btn-primary" onClick={handleSaveProfile} disabled={saving}>
+                <Save size={18} />
+                <span>{saving ? 'در حال ذخیره‌سازی…' : 'ذخیره اطلاعات'}</span>
+              </button>
+              <button type="button" className="btn-secondary outline" onClick={handleCancelEdit} disabled={saving}>
+                <span>انصراف</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* OTP Authentication Modal */}
+      {isModalOpen && (
+        <div className="modal-backdrop" onClick={() => !otpLoading && setIsModalOpen(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>تأیید ویرایش اطلاعات</h3>
+              <button 
+                type="button"
+                className="modal-close" 
+                onClick={() => !otpLoading && setIsModalOpen(false)}
+                title="بستن"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                جهت حفظ امنیت حساب کاربری و تأیید هویت شما، کد تأیید ۵ رقمی به شماره همراه <strong>{profile.mobile}</strong> ارسال گردید. لطفاً کد را در کادر زیر وارد نمایید.
+              </p>
+
+              {otpDebug && (
+                <div className="alert" style={{ background: '#eef6ff', color: '#0759a8', fontSize: '13px', marginBottom: '14px' }}>
+                  کد پیامک‌شده: <strong>{otpDebug}</strong>
+                </div>
+              )}
+
+              {otpError && <div className="alert error">{otpError}</div>}
+
+              <form onSubmit={handleVerifyOtp} style={{ display: 'grid', gap: '12px' }}>
+                <input 
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  autoFocus
+                  placeholder="• • • • •"
+                  className="otp-input"
+                  value={otpCode}
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^\d]/g, '');
+                    setOtpCode(val);
+                    if (otpError) setOtpError('');
+                  }}
+                />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#64748b' }}>
+                  <span>زمان باقی‌مانده:</span>
+                  {countdown > 0 ? (
+                    <span style={{ direction: 'ltr', fontWeight: 600 }}>{countdown} ثانیه</span>
+                  ) : (
+                    <button 
+                      type="button" 
+                      className="resend-btn"
+                      onClick={requestOtp}
+                      disabled={otpLoading}
+                    >
+                      ارسال مجدد کد
+                    </button>
+                  )}
+                </div>
+
+                <div className="modal-foot">
+                  <button 
+                    type="submit" 
+                    className="btn-primary"
+                    disabled={otpLoading || otpCode.length < 5}
+                  >
+                    <span>{otpLoading ? 'در حال بررسی…' : 'تأیید و فعال‌سازی ویرایش'}</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-secondary outline" 
+                    disabled={otpLoading}
+                    onClick={() => setIsModalOpen(false)}
+                  >
+                    <span>انصراف</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }
 
@@ -275,8 +685,17 @@ function Plans() {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
 
   useEffect(() => {
+    api('/onboarding')
+      .then(r => {
+        if (r && r.user && (r.user.onboarding_step >= 3 || r.user.onboarding_completed_at)) {
+          setHasCompletedOnboarding(true);
+        }
+      })
+      .catch(() => {});
+
     api('/packages')
       .then(r => {
         const pkgs = r.data || [];
@@ -330,11 +749,22 @@ function Plans() {
 
   return (
     <Onboard active={3}>
-      <div className="title-row">
-        <div>
-          <h1>انتخاب پکیج نرم‌افزار کارویتا</h1>
-          <p>پکیج مد نظر خود را انتخاب کرده یا دوره رایگان ۵ روزه را فعال نمایید.</p>
+      <div className="title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'right' }}>
+          <h1>{hasCompletedOnboarding ? 'خرید و ارتقای پکیج کارویتا' : 'انتخاب پکیج نرم‌افزار کارویتا'}</h1>
+          <p>{hasCompletedOnboarding ? 'پکیج مد نظر خود را برای تمدید یا ارتقای دسترسی انتخاب نمایید.' : 'پکیج مد نظر خود را انتخاب کرده یا دوره رایگان ۵ روزه را فعال نمایید.'}</p>
         </div>
+        {hasCompletedOnboarding && (
+          <button 
+            type="button" 
+            className="btn-secondary outline" 
+            onClick={() => nav('/dashboard')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <ArrowRight size={18} />
+            <span>بازگشت به داشبورد</span>
+          </button>
+        )}
       </div>
       {error && <div className="alert error">{error}</div>}
       <div className="plan-grid">
@@ -357,16 +787,37 @@ function Plans() {
                   <li key={x}><CheckCircle2 /> {x}</li>
                 ))}
               </ul>
-              <button>{selected === p.id ? 'انتخاب شد' : 'انتخاب پکیج'}</button>
+              <button type="button">{selected === p.id ? '✓ انتخاب شد' : 'انتخاب پکیج'}</button>
             </article>
           );
         })}
       </div>
-      <div className="checkout">
-        <button disabled={!selected || loading} onClick={submit}>
-          {loading ? 'در حال پردازش…' : isTrial ? 'فعال‌سازی ۵ روز رایگان' : 'پرداخت و فعال‌سازی'}
+      <div className="step-actions checkout">
+        {hasCompletedOnboarding ? (
+          <button 
+            type="button" 
+            className="btn-secondary outline" 
+            disabled={loading} 
+            onClick={() => nav('/dashboard')}
+          >
+            <ArrowRight size={18} />
+            <span>بازگشت به داشبورد</span>
+          </button>
+        ) : (
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            disabled={loading} 
+            onClick={() => nav('/onboarding/company')}
+          >
+            <ArrowRight size={18} />
+            <span>قبلی</span>
+          </button>
+        )}
+        <button type="button" className="btn-primary" disabled={!selected || loading} onClick={submit}>
+          <CheckCircle2 size={18} />
+          <span>{loading ? 'در حال ثبت…' : isTrial ? 'شروع ۵ روز رایگان' : hasCompletedOnboarding ? 'تأیید و پرداخت آنلاین' : 'ثبت‌نام و پرداخت'}</span>
         </button>
-        <button className="outline" disabled={loading} onClick={() => nav('/dashboard')}>فعلاً بعداً</button>
       </div>
     </Onboard>
   );
@@ -376,17 +827,37 @@ const userNav = [
   ['overview', 'داشبورد', LayoutDashboard],
   ['packages', 'پکیج‌های من', Package],
   ['payments', 'پرداخت‌ها', Receipt],
+  ['support', 'پشتیبانی', Headphones],
   ['profile', 'تنظیمات حساب', Settings],
 ];
 
 function Shell({ admin = false, tab, setTab, children, name }) {
   const [open, setOpen] = useState(false);
+  const [badgeCount, setBadgeCount] = useState(0);
+
+  const fetchBadge = () => {
+    api('/tickets/badge')
+      .then(res => setBadgeCount(res.count || 0))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    fetchBadge();
+    const timer = setInterval(fetchBadge, 8000);
+    window.addEventListener('ticket-updated', fetchBadge);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('ticket-updated', fetchBadge);
+    };
+  }, [tab]);
+
   const nav = admin ? [
     ['overview', 'نمای کلی', LayoutDashboard],
     ['users', 'کاربران و شرکت‌ها', Users],
     ['packages', 'پکیج‌ها و قیمت‌ها', Package],
     ['orders', 'خرید و تراکنش‌ها', CreditCard],
     ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
+    ['tickets', 'تیکت‌های پشتیبانی', Headphones],
   ] : userNav;
 
   return (
@@ -397,12 +868,20 @@ function Shell({ admin = false, tab, setTab, children, name }) {
           <button onClick={() => setOpen(false)}><X /></button>
         </div>
         <nav>
-          {nav.map(([id, label, Icon]) => (
-            <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setOpen(false); }}>
-              <Icon />
-              {label}
-            </button>
-          ))}
+          {nav.map(([id, label, Icon]) => {
+            const hasBadge = (id === 'support' || id === 'tickets') && badgeCount > 0;
+            return (
+              <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setOpen(false); }}>
+                <Icon />
+                <span style={{ flex: 1, textAlign: 'right' }}>{label}</span>
+                {hasBadge && (
+                  <span className="nav-badge" title={`${Number(badgeCount).toLocaleString('fa-IR')} تیکت باز یا پاسخ‌داده‌نشده`}>
+                    {Number(badgeCount).toLocaleString('fa-IR')}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
         <button className="logout" onClick={() => { localStorage.clear(); location.href = '/'; }}>
           <LogOut />
@@ -425,17 +904,15 @@ function Shell({ admin = false, tab, setTab, children, name }) {
 }
 
 function Dashboard() {
+  const nav = useNavigate();
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('overview');
-  const [profile, setProfile] = useState({});
-  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     api('/dashboard')
       .then(r => {
         if (r.user.role === 'admin') return location.href = '/admin';
         setD(r);
-        setProfile(r.user);
       })
       .catch(() => location.href = '/');
   }, []);
@@ -445,13 +922,18 @@ function Dashboard() {
 
   return (
     <Shell tab={tab} setTab={setTab} name={d.user.first_name}>
-      <div className="page-head">
-        <div>
-          <h1>سلام {d.user.first_name || 'کاربر عزیز'} 👋</h1>
-          <p>وضعیت حساب و سرویس‌های خود را از اینجا مدیریت کنید.</p>
+      {tab !== 'support' && (
+        <div className="page-head">
+          <div>
+            <h1>سلام {d.user.first_name || 'کاربر عزیز'} 👋</h1>
+            <p>وضعیت حساب و سرویس‌های خود را از اینجا مدیریت کنید.</p>
+          </div>
+          <button className="btn-primary" onClick={() => nav('/plans')}>
+            <Plus size={16} />
+            <span>خرید پکیج جدید</span>
+          </button>
         </div>
-        <button onClick={() => location.href = '/plans'}>خرید پکیج جدید</button>
-      </div>
+      )}
       {tab === 'overview' && (
         <>
           <div className="stats">
@@ -483,26 +965,14 @@ function Dashboard() {
           />
         </Panel>
       )}
+      {tab === 'support' && (
+        <UserTicketsView />
+      )}
       {tab === 'profile' && (
-        <Panel title="تنظیمات حساب">
-          <div className="form-grid profile">
-            <Field label="نام" value={profile.first_name || ''} set={v => setProfile({ ...profile, first_name: v })} />
-            <Field label="نام خانوادگی" value={profile.last_name || ''} set={v => setProfile({ ...profile, last_name: v })} />
-            <Field label="ایمیل" value={profile.email || ''} set={v => setProfile({ ...profile, email: v })} />
-            <Field label="سمت" value={profile.job_title || ''} set={v => setProfile({ ...profile, job_title: v })} />
-            <button onClick={async () => {
-              try {
-                const res = await api('/profile', { method: 'PUT', body: JSON.stringify(profile) });
-                setMsg(res.message);
-              } catch (e) {
-                setMsg(e.message);
-              }
-            }}>
-              ذخیره تغییرات
-            </button>
-            {msg && <div className="alert">{msg}</div>}
-          </div>
-        </Panel>
+        <ProfileSettings 
+          user={d.user} 
+          onUpdateUser={u => setD({ ...d, user: u })} 
+        />
       )}
     </Shell>
   );
@@ -585,6 +1055,11 @@ function Admin() {
   const [error, setError] = useState('');
 
   async function load(currentTab = tab) {
+    if (currentTab === 'tickets') {
+      setLoading(false);
+      setData({});
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -605,15 +1080,24 @@ function Admin() {
 
   return (
     <Shell admin tab={tab} setTab={setTab} name="مدیر سیستم">
-      <div className="page-head">
-        <div>
-          <h1>{adminTitle(tab)}</h1>
-          <p>مدیریت یکپارچه کاربران، فروش و سرویس‌ها</p>
+      {tab !== 'tickets' && (
+        <div className="page-head">
+          <div>
+            <h1>{adminTitle(tab)}</h1>
+            <p>مدیریت یکپارچه کاربران، فروش و سرویس‌ها</p>
+          </div>
+          {tab === 'packages' && (
+            <button className="btn-primary" onClick={() => editPackage(null, () => load('packages'))}>
+              <Plus size={16} />
+              <span>افزودن پکیج</span>
+            </button>
+          )}
         </div>
-        {tab === 'packages' && <button onClick={() => editPackage(null, () => load('packages'))}>افزودن پکیج</button>}
-      </div>
+      )}
       {error && <div className="alert error">{error}</div>}
-      {loading ? (
+      {tab === 'tickets' ? (
+        <AdminTicketsView />
+      ) : loading ? (
         <Loader />
       ) : !data ? (
         <Empty />
@@ -805,7 +1289,8 @@ function adminTitle(t) {
     users: 'کاربران و شرکت‌ها',
     packages: 'پکیج‌ها و قیمت‌ها',
     orders: 'خریدها و تراکنش‌ها',
-    subscriptions: 'اشتراک‌ها و دوره‌های آزمایشی'
+    subscriptions: 'اشتراک‌ها و دوره‌های آزمایشی',
+    tickets: 'تیکت‌های پشتیبانی'
   })[t] || '';
 }
 
