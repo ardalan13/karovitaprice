@@ -1,11 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Component } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus } from 'lucide-react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus, Eye, LogIn, ExternalLink, FileText } from 'lucide-react';
 import { api } from './services/api';
+import { initSentry, logErrorToSentry, Sentry } from './services/sentry';
 import { UserTicketsView } from './components/Tickets/UserTicketsView';
+
+// Initialize Sentry immediately at application startup
+initSentry();
+
 import { AdminTicketsView } from './components/Tickets/AdminTicketsView';
+import { AuditLogsView } from './components/Admin/AuditLogsView';
 import { Welcome } from './components/Landing/Welcome';
+import { PricingConfigurator } from './components/PricingConfigurator/PricingConfigurator';
+import { SubscriptionDetailsModal } from './components/Subscription/SubscriptionDetailsModal';
+import { ERPWorkspaceView } from './components/Subscription/ERPWorkspaceView';
+import { ERPAdminPricingManagement } from './components/Admin/ERPAdminPricingManagement';
 import './styles/app.css';
 
 const money = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
@@ -46,37 +56,62 @@ function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
+  const [debugCode, setDebugCode] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const codeInputRef = useRef(null);
+
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown(c => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  useEffect(() => {
+    if (stage === 'code' && codeInputRef.current) {
+      codeInputRef.current.focus();
+    }
+  }, [stage]);
 
   async function send() {
     const cleanMobile = toEnDigits(mobile).trim();
     if (!cleanMobile) {
       return setError('لطفاً شماره موبایل خود را وارد کنید.');
     }
+    if (cleanMobile.length < 10) {
+      return setError('شماره موبایل باید حداقل ۱۰ یا ۱۱ رقم باشد.');
+    }
     try {
       setLoading(true);
       setError('');
       setHint('');
+      setDebugCode('');
       const res = await api('/auth/otp/request', {
         method: 'POST',
         body: JSON.stringify({ mobile: cleanMobile }),
       });
       localStorage.setItem('draft_mobile', cleanMobile);
       if (res.debug_code) {
+        setDebugCode(res.debug_code);
         setHint(`کد تستی جهت ورود سریع: ${res.debug_code}`);
       }
+      setCountdown(res.resend_after || 60);
+      setCode('');
       setStage('code');
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'خطا در ارسال کد تأیید');
     } finally {
       setLoading(false);
     }
   }
 
-  async function verify() {
-    const cleanCode = toEnDigits(code).trim();
+  async function verify(codeArg) {
+    const targetCode = typeof codeArg === 'string' ? codeArg : code;
+    const cleanCode = toEnDigits(targetCode).trim().replace(/\D/g, '');
     const cleanMobile = toEnDigits(mobile).trim();
-    if (!cleanCode) {
-      return setError('لطفاً کد تأیید را وارد کنید.');
+    if (!cleanCode || cleanCode.length !== 5) {
+      return setError('لطفاً کد ۵ رقمی تأیید را وارد کنید.');
     }
     try {
       setLoading(true);
@@ -108,45 +143,202 @@ function Auth() {
       }
       nav('/dashboard');
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'کد وارد شده صحیح نیست یا منقضی شده است.');
+      // Keep input focused so user can correct or re-enter
+      if (codeInputRef.current) {
+        codeInputRef.current.focus();
+        codeInputRef.current.select();
+      }
     } finally {
       setLoading(false);
     }
   }
 
+  const handleCodeChange = (e) => {
+    const rawVal = e.target.value;
+    const converted = toEnDigits(rawVal).replace(/\D/g, '').slice(0, 5);
+    setCode(converted);
+    if (error) setError('');
+    
+    // Auto-verify when 5 digits are entered!
+    if (converted.length === 5 && !loading) {
+      verify(converted);
+    }
+  };
+
   return (
     <Onboard active={0}>
       <h1>{stage === 'mobile' ? 'ورود یا ثبت‌نام' : 'تأیید شماره همراه'}</h1>
-      <p>{stage === 'mobile' ? 'برای ادامه شماره موبایل خود را وارد کنید (مثلاً 09120000000 برای ادمین یا شماره شخصی).' : `کد ارسال‌شده به ${mobile} را وارد کنید.`}</p>
+      <p>
+        {stage === 'mobile' 
+          ? 'برای ادامه شماره موبایل خود را وارد کنید (مثلاً 09120000000 برای ادمین یا شماره شخصی).' 
+          : `کد تأیید ۵ رقمی پیامک‌شده به شماره ${mobile} را وارد کنید.`}
+      </p>
+      
       <div className="single-form">
-        <label>
-          {stage === 'mobile' ? 'شماره موبایل' : 'کد تأیید'}
-          <input
-            dir="ltr"
-            value={stage === 'mobile' ? mobile : code}
-            maxLength={stage === 'mobile' ? 11 : 5}
-            disabled={loading}
-            onChange={e => {
-              const converted = toEnDigits(e.target.value);
-              if (stage === 'mobile') {
+        {stage === 'mobile' ? (
+          <label>
+            شماره موبایل
+            <input
+              dir="ltr"
+              value={mobile}
+              maxLength={11}
+              disabled={loading}
+              autoFocus
+              onChange={e => {
+                const converted = toEnDigits(e.target.value);
                 setMobile(converted);
                 localStorage.setItem('draft_mobile', converted);
-              } else {
-                setCode(converted.replace(/\D/g, ''));
+                if (error) setError('');
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="09123456789"
+            />
+          </label>
+        ) : (
+          <label>
+            کد تأیید پیامکی (۵ رقم)
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={codeInputRef}
+                dir="ltr"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={code}
+                maxLength={5}
+                disabled={loading}
+                className="otp-input"
+                style={{
+                  letterSpacing: '8px',
+                  textAlign: 'center',
+                  fontSize: '24px',
+                  fontWeight: '800',
+                  borderColor: error ? '#ef4444' : loading ? '#3b82f6' : undefined,
+                  background: error ? '#fff5f5' : undefined,
+                }}
+                onChange={handleCodeChange}
+                placeholder="• • • • •"
+              />
+              {loading && (
+                <div style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: '#2563eb'
+                }}>
+                  <RotateCw size={18} className="spin-animate" />
+                </div>
+              )}
+            </div>
+          </label>
+        )}
+
+        {/* Development fast test code clicker */}
+        {hint && (
+          <div 
+            className="alert" 
+            style={{ 
+              background: '#eef6ff', 
+              color: '#0759a8', 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              cursor: debugCode ? 'pointer' : 'default',
+              border: '1px dashed #93c5fd'
+            }}
+            onClick={() => {
+              if (debugCode && stage === 'code' && !loading) {
+                setCode(debugCode);
+                verify(debugCode);
               }
             }}
-            placeholder={stage === 'mobile' ? '09123456789' : '•••••'}
-          />
-        </label>
-        {hint && <div className="alert" style={{ background: '#eef6ff', color: '#0759a8' }}>{hint}</div>}
-        {error && <div className="alert error">{error}</div>}
-        <button className="btn-primary" disabled={loading} onClick={stage === 'mobile' ? send : verify}>
-          <span>{loading ? 'در حال ارسال…' : stage === 'mobile' ? 'دریافت کد' : 'تأیید و ادامه'}</span>
-          <ArrowLeft size={18} />
-        </button>
+            title={debugCode ? 'کلیک برای درج خودکار و تأیید کد' : ''}
+          >
+            <span>{hint}</span>
+            {debugCode && stage === 'code' && (
+              <span style={{ fontSize: '11.5px', fontWeight: 700, textDecoration: 'underline' }}>
+                کلیک برای درج خودکار
+              </span>
+            )}
+          </div>
+        )}
+
+        {error && (
+          <div className="alert error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={17} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+        )}
+
         {stage === 'code' && (
-          <button className="text btn-text" disabled={loading} onClick={() => setStage('mobile')}>
-            ویرایش شماره
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            fontSize: '13px', 
+            color: '#64748b',
+            margin: '4px 0'
+          }}>
+            <span>زمان باقی‌مانده:</span>
+            {countdown > 0 ? (
+              <span style={{ direction: 'ltr', fontWeight: 700, color: '#0870d1' }}>{countdown} ثانیه</span>
+            ) : (
+              <button 
+                type="button" 
+                className="resend-btn"
+                onClick={send}
+                disabled={loading}
+              >
+                ارسال مجدد کد
+              </button>
+            )}
+          </div>
+        )}
+
+        <button 
+          type="button" 
+          className="btn-primary" 
+          disabled={loading || (stage === 'code' && code.length !== 5)} 
+          onClick={stage === 'mobile' ? send : () => verify()}
+        >
+          {loading ? (
+            <>
+              <RotateCw size={18} className="spin-animate" />
+              <span>{stage === 'mobile' ? 'در حال ارسال کد…' : 'در حال بررسی خودکار کد…'}</span>
+            </>
+          ) : stage === 'mobile' ? (
+            <>
+              <span>دریافت کد ورود</span>
+              <ArrowLeft size={18} />
+            </>
+          ) : (
+            <>
+              <span>تأیید و ورود</span>
+              <ArrowLeft size={18} />
+            </>
+          )}
+        </button>
+
+        {stage === 'code' && (
+          <button 
+            type="button" 
+            className="text btn-text" 
+            disabled={loading} 
+            onClick={() => {
+              setStage('mobile');
+              setError('');
+            }}
+          >
+            ویرایش شماره موبایل
           </button>
         )}
       </div>
@@ -452,9 +644,11 @@ function ProfileSettings({ user, onUpdateUser }) {
     requestOtp();
   }
 
-  async function handleVerifyOtp(e) {
+  async function handleVerifyOtp(e, overrideCode) {
     if (e) e.preventDefault();
-    if (!otpCode || otpCode.length < 5) {
+    const targetCode = typeof overrideCode === 'string' ? overrideCode : otpCode;
+    const cleanCode = toEnDigits(targetCode).trim().replace(/\D/g, '');
+    if (!cleanCode || cleanCode.length < 5) {
       setOtpError('لطفاً کد ۵ رقمی را کامل وارد نمایید.');
       return;
     }
@@ -463,7 +657,7 @@ function ProfileSettings({ user, onUpdateUser }) {
     try {
       await api('/profile/otp/verify', {
         method: 'POST',
-        body: JSON.stringify({ code: otpCode }),
+        body: JSON.stringify({ code: cleanCode }),
       });
       // Verification success
       setBackup({ ...profile });
@@ -473,7 +667,7 @@ function ProfileSettings({ user, onUpdateUser }) {
       setOtpDebug('');
       setMsg('احراز هویت موفقیت‌آمیز بود. اکنون می‌توانید اطلاعات حساب را ویرایش و ذخیره کنید.');
     } catch (e) {
-      setOtpError(e.message || 'کد وارد شده صحیح نیست.');
+      setOtpError(e.message || 'کد وارد شده صحیح نیست یا منقضی شده است.');
     } finally {
       setOtpLoading(false);
     }
@@ -614,33 +808,89 @@ function ProfileSettings({ user, onUpdateUser }) {
               </p>
 
               {otpDebug && (
-                <div className="alert" style={{ background: '#eef6ff', color: '#0759a8', fontSize: '13px', marginBottom: '14px' }}>
-                  کد پیامک‌شده: <strong>{otpDebug}</strong>
+                <div 
+                  className="alert" 
+                  style={{ 
+                    background: '#eef6ff', 
+                    color: '#0759a8', 
+                    fontSize: '13px', 
+                    marginBottom: '14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    border: '1px dashed #93c5fd'
+                  }}
+                  onClick={() => {
+                    if (otpDebug && !otpLoading) {
+                      setOtpCode(otpDebug);
+                      handleVerifyOtp(null, otpDebug);
+                    }
+                  }}
+                  title="کلیک برای درج خودکار و تأیید کد"
+                >
+                  <span>کد پیامک‌شده: <strong>{otpDebug}</strong></span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textDecoration: 'underline' }}>
+                    کلیک برای درج خودکار
+                  </span>
                 </div>
               )}
 
-              {otpError && <div className="alert error">{otpError}</div>}
+              {otpError && (
+                <div className="alert error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertCircle size={17} style={{ flexShrink: 0 }} />
+                  <span>{otpError}</span>
+                </div>
+              )}
 
               <form onSubmit={handleVerifyOtp} style={{ display: 'grid', gap: '12px' }}>
-                <input 
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={5}
-                  autoFocus
-                  placeholder="• • • • •"
-                  className="otp-input"
-                  value={otpCode}
-                  onChange={e => {
-                    const val = e.target.value.replace(/[^\d]/g, '');
-                    setOtpCode(val);
-                    if (otpError) setOtpError('');
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={5}
+                    autoFocus
+                    placeholder="• • • • •"
+                    className="otp-input"
+                    value={otpCode}
+                    disabled={otpLoading}
+                    style={{
+                      letterSpacing: '8px',
+                      textAlign: 'center',
+                      fontSize: '24px',
+                      fontWeight: '800',
+                      borderColor: otpError ? '#ef4444' : otpLoading ? '#3b82f6' : undefined,
+                      background: otpError ? '#fff5f5' : undefined,
+                    }}
+                    onChange={e => {
+                      const val = toEnDigits(e.target.value).replace(/[^\d]/g, '').slice(0, 5);
+                      setOtpCode(val);
+                      if (otpError) setOtpError('');
+                      if (val.length === 5 && !otpLoading) {
+                        handleVerifyOtp(null, val);
+                      }
+                    }}
+                  />
+                  {otpLoading && (
+                    <div style={{
+                      position: 'absolute',
+                      left: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#2563eb'
+                    }}>
+                      <RotateCw size={18} className="spin-animate" />
+                    </div>
+                  )}
+                </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', color: '#64748b' }}>
                   <span>زمان باقی‌مانده:</span>
                   {countdown > 0 ? (
-                    <span style={{ direction: 'ltr', fontWeight: 600 }}>{countdown} ثانیه</span>
+                    <span style={{ direction: 'ltr', fontWeight: 700, color: '#0870d1' }}>{countdown} ثانیه</span>
                   ) : (
                     <button 
                       type="button" 
@@ -657,9 +907,16 @@ function ProfileSettings({ user, onUpdateUser }) {
                   <button 
                     type="submit" 
                     className="btn-primary"
-                    disabled={otpLoading || otpCode.length < 5}
+                    disabled={otpLoading || otpCode.length !== 5}
                   >
-                    <span>{otpLoading ? 'در حال بررسی…' : 'تأیید و فعال‌سازی ویرایش'}</span>
+                    {otpLoading ? (
+                      <>
+                        <RotateCw size={16} className="spin-animate" />
+                        <span>در حال بررسی خودکار…</span>
+                      </>
+                    ) : (
+                      <span>تأیید و فعال‌سازی ویرایش</span>
+                    )}
                   </button>
                   <button 
                     type="button" 
@@ -681,145 +938,43 @@ function ProfileSettings({ user, onUpdateUser }) {
 
 function Plans() {
   const nav = useNavigate();
-  const [items, setItems] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [user, setUser] = useState(null);
+  const [hasActiveSub, setHasActiveSub] = useState(false);
 
   useEffect(() => {
     api('/onboarding')
       .then(r => {
-        if (r && r.user && (r.user.onboarding_step >= 3 || r.user.onboarding_completed_at)) {
-          setHasCompletedOnboarding(true);
+        if (r && r.user) {
+          setUser(r.user);
+          if (r.user.onboarding_step >= 3 || r.user.onboarding_completed_at) {
+            setHasCompletedOnboarding(true);
+          }
+          if (r.user.has_subscription) {
+            setHasActiveSub(true);
+          }
         }
       })
       .catch(() => {});
-
-    api('/packages')
-      .then(r => {
-        const pkgs = r.data || [];
-        setItems(pkgs);
-        const intent = localStorage.getItem('intent');
-        if (intent === 'trial') {
-          const trial = pkgs.find(p => p.slug === 'trial' || Number(p.price) === 0);
-          if (trial) {
-            setSelected(trial.id);
-            return;
-          }
-        }
-        // Default to featured or first package
-        const defaultChoice = pkgs.find(p => p.is_featured) || pkgs.find(p => Number(p.price) > 0) || pkgs[0];
-        if (defaultChoice) setSelected(defaultChoice.id);
-      })
-      .catch(e => setError(e.message));
   }, []);
 
-  const currentPkg = items.find(p => p.id === selected);
-  const isTrial = currentPkg && (currentPkg.slug === 'trial' || Number(currentPkg.price) === 0);
-
-  async function submit() {
-    if (!selected) return;
-    try {
-      setLoading(true);
-      setError('');
-      if (isTrial) {
-        await api('/trial', { method: 'POST' });
-        localStorage.removeItem('intent');
-        nav('/dashboard?trial=active');
-      } else {
-        const r = await api('/orders', {
-          method: 'POST',
-          body: JSON.stringify({ package_id: selected }),
-        });
-        localStorage.removeItem('intent');
-        location.href = r.payment_url;
-      }
-    } catch (e) {
-      if (isTrial && e.message.includes('قبلاً')) {
-        localStorage.removeItem('intent');
-        nav('/dashboard');
-      } else {
-        setError(e.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
-    <Onboard active={3}>
-      <div className="title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-        <div style={{ textAlign: 'right' }}>
-          <h1>{hasCompletedOnboarding ? 'خرید و ارتقای پکیج کارویتا' : 'انتخاب پکیج نرم‌افزار کارویتا'}</h1>
-          <p>{hasCompletedOnboarding ? 'پکیج مد نظر خود را برای تمدید یا ارتقای دسترسی انتخاب نمایید.' : 'پکیج مد نظر خود را انتخاب کرده یا دوره رایگان ۵ روزه را فعال نمایید.'}</p>
+    <div className="plans-configurator-page" style={{ minHeight: '100vh', background: '#f8fafc' }}>
+      {!hasCompletedOnboarding && (
+        <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '16px 20px 0' }}>
+          <header style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+            <Logo />
+          </header>
+          <Steps active={3} />
         </div>
-        {hasCompletedOnboarding && (
-          <button 
-            type="button" 
-            className="btn-secondary outline" 
-            onClick={() => nav('/dashboard')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-          >
-            <ArrowRight size={18} />
-            <span>بازگشت به داشبورد</span>
-          </button>
-        )}
-      </div>
-      {error && <div className="alert error">{error}</div>}
-      <div className="plan-grid">
-        {items.map(p => {
-          const isPkgTrial = p.slug === 'trial' || Number(p.price) === 0;
-          return (
-            <article
-              key={p.id}
-              className={(selected === p.id ? 'selected ' : '') + (p.is_featured ? 'featured' : '')}
-              onClick={() => setSelected(p.id)}
-            >
-              {p.is_featured && <em>پیشنهاد ما</em>}
-              {!p.is_featured && isPkgTrial && <em className="trial-badge">۵ روز رایگان</em>}
-              <h2>{p.name}</h2>
-              <strong>{Number(p.price) === 0 ? 'رایگان (۰ تومان)' : money(p.price)}</strong>
-              <span>برای {p.duration_days} روز</span>
-              <p>{p.description}</p>
-              <ul>
-                {(p.features || []).map(x => (
-                  <li key={x}><CheckCircle2 /> {x}</li>
-                ))}
-              </ul>
-              <button type="button">{selected === p.id ? '✓ انتخاب شد' : 'انتخاب پکیج'}</button>
-            </article>
-          );
-        })}
-      </div>
-      <div className="step-actions checkout">
-        {hasCompletedOnboarding ? (
-          <button 
-            type="button" 
-            className="btn-secondary outline" 
-            disabled={loading} 
-            onClick={() => nav('/dashboard')}
-          >
-            <ArrowRight size={18} />
-            <span>بازگشت به داشبورد</span>
-          </button>
-        ) : (
-          <button 
-            type="button" 
-            className="btn-secondary" 
-            disabled={loading} 
-            onClick={() => nav('/onboarding/company')}
-          >
-            <ArrowRight size={18} />
-            <span>قبلی</span>
-          </button>
-        )}
-        <button type="button" className="btn-primary" disabled={!selected || loading} onClick={submit}>
-          <CheckCircle2 size={18} />
-          <span>{loading ? 'در حال ثبت…' : isTrial ? 'شروع ۵ روز رایگان' : hasCompletedOnboarding ? 'تأیید و پرداخت آنلاین' : 'ثبت‌نام و پرداخت'}</span>
-        </button>
-      </div>
-    </Onboard>
+      )}
+      <PricingConfigurator 
+        user={user}
+        isInsideDashboard={hasCompletedOnboarding}
+        hasActiveSubscription={hasActiveSub}
+        onBackToDashboard={() => nav('/dashboard')}
+      />
+    </div>
   );
 }
 
@@ -854,10 +1009,11 @@ function Shell({ admin = false, tab, setTab, children, name }) {
   const nav = admin ? [
     ['overview', 'نمای کلی', LayoutDashboard],
     ['users', 'کاربران و شرکت‌ها', Users],
-    ['packages', 'پکیج‌ها و قیمت‌ها', Package],
+    ['packages', 'سیستم قیمت‌گذاری و تب‌ها', Package],
     ['orders', 'خرید و تراکنش‌ها', CreditCard],
     ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
     ['tickets', 'تیکت‌های پشتیبانی', Headphones],
+    ['audit', 'لاگ‌های امنیتی (Audit)', ShieldCheck],
   ] : userNav;
 
   return (
@@ -907,6 +1063,8 @@ function Dashboard() {
   const nav = useNavigate();
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('overview');
+  const [selectedSubForDetails, setSelectedSubForDetails] = useState(null);
+  const [activeWorkspaceSub, setActiveWorkspaceSub] = useState(null);
 
   useEffect(() => {
     api('/dashboard')
@@ -918,6 +1076,17 @@ function Dashboard() {
   }, []);
 
   if (!d) return <Loader />;
+
+  if (activeWorkspaceSub) {
+    return (
+      <ERPWorkspaceView 
+        subscription={activeWorkspaceSub} 
+        user={d.user} 
+        onBackToDashboard={() => setActiveWorkspaceSub(null)} 
+      />
+    );
+  }
+
   const active = d.subscriptions.filter(x => x.status === 'active' && new Date(x.expires_at) > new Date());
 
   return (
@@ -942,13 +1111,21 @@ function Dashboard() {
             <Stat icon={Building2} n={d.user.company_name || '—'} label="شرکت" />
           </div>
           <Panel title="آخرین اشتراک‌ها">
-            <Subscriptions data={d.subscriptions} />
+            <Subscriptions 
+              data={d.subscriptions} 
+              onOpenDetails={s => setSelectedSubForDetails(s)}
+              onOpenWorkspace={s => setActiveWorkspaceSub(s)}
+            />
           </Panel>
         </>
       )}
       {tab === 'packages' && (
         <Panel title="پکیج‌های من">
-          <Subscriptions data={d.subscriptions} />
+          <Subscriptions 
+            data={d.subscriptions} 
+            onOpenDetails={s => setSelectedSubForDetails(s)}
+            onOpenWorkspace={s => setActiveWorkspaceSub(s)}
+          />
         </Panel>
       )}
       {tab === 'payments' && (
@@ -974,6 +1151,18 @@ function Dashboard() {
           onUpdateUser={u => setD({ ...d, user: u })} 
         />
       )}
+
+      {selectedSubForDetails && (
+        <SubscriptionDetailsModal 
+          subscription={selectedSubForDetails}
+          user={d.user}
+          onClose={() => setSelectedSubForDetails(null)}
+          onOpenWorkspace={(sub) => {
+            setSelectedSubForDetails(null);
+            setActiveWorkspaceSub(sub);
+          }}
+        />
+      )}
     </Shell>
   );
 }
@@ -987,30 +1176,86 @@ function getRemainingDaysText(expiresAt) {
   return `${days} روز تا انقضا`;
 }
 
-function Subscriptions({ data }) {
+function Subscriptions({ data, onOpenDetails, onOpenWorkspace }) {
   const list = Array.isArray(data) ? data : [];
   return (
     <div className="cards">
       {list.length ? list.map(x => {
         const isExpired = new Date(x.expires_at) < new Date();
+        const modulesList = Array.isArray(x.module_names) && x.module_names.length > 0 
+          ? x.module_names 
+          : Array.isArray(x.modules) ? x.modules : [];
+        const userCount = x.user_count || x.user_limit || 5;
+
         return (
           <article className="sub" key={x.id}>
             <div className="sub-head">
-              <span className={'pill ' + (isExpired ? 'expired' : x.status)}>
-                {x.source === 'trial' ? 'آزمایشی' : isExpired ? 'منقضی شده' : x.status === 'active' ? 'فعال' : 'غیرفعال'}
+              <span className={'pill ' + (isExpired ? 'expired' : x.source === 'trial' ? 'trial' : x.status)}>
+                {x.source === 'trial' ? '⭐️ ۵ روز آزمایشی' : isExpired ? '⚠️ منقضی شده' : x.status === 'active' ? '✓ فعال' : 'غیرفعال'}
               </span>
               <span className="sub-date">
-                <Clock3 />
+                <Clock3 size={14} />
                 {getRemainingDaysText(x.expires_at)}
               </span>
             </div>
-            <h3>{x.package_name || 'اشتراک'}</h3>
-            <p><strong>تاریخ انقضا:</strong> {date(x.expires_at)}</p>
-            <p><small style={{ color: '#8898aa' }}>شروع: {date(x.starts_at)}</small></p>
-            <div className="progress">
-              <i style={{ width: Math.min(100, Math.max(0, x.usage_percent || 0)) + '%' }} />
+            
+            <h3>{x.package_name || 'سرویس ERP سازمانی کارویتا'}</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '8px 0', fontSize: '13px' }}>
+              <p style={{ margin: 0 }}><strong>تاریخ انقضا:</strong> {date(x.expires_at)}</p>
+              <p style={{ margin: 0 }}><small style={{ color: '#64748b' }}>تاریخ فعال‌سازی: {date(x.starts_at)}</small></p>
+              <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Users size={14} color="#2563eb" />
+                <span>ظرفیت کاربران: <strong>{Number(userCount).toLocaleString('fa-IR')} کاربر همزمان</strong></span>
+              </p>
             </div>
-            <small>{x.usage_limit ? `${x.usage_used || 0} از ${x.usage_limit}` : 'استفاده نامحدود'}</small>
+
+            {modulesList.length > 0 && (
+              <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #edf2f7' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 700 }}>ماژول‌های فعال ({modulesList.length}):</span>
+                  {x.server_instance?.status === 'online' && (
+                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      <span className="erp-pulse-dot" style={{ width: 6, height: 6 }} />
+                      آنلاین
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                  {modulesList.slice(0, 5).map((m, i) => (
+                    <span key={i} style={{ fontSize: '11px', background: '#eff6ff', color: '#1d4ed8', padding: '2px 8px', borderRadius: '5px', fontWeight: 600 }}>
+                      {typeof m === 'object' ? (m.name || m.title || m.id) : m}
+                    </span>
+                  ))}
+                  {modulesList.length > 5 && (
+                    <span style={{ fontSize: '11px', background: '#f1f5f9', color: '#475569', padding: '2px 7px', borderRadius: '5px', fontWeight: 600 }}>
+                      +{modulesList.length - 5} ماژول دیگر
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Two Distinct Action Buttons */}
+            <div className="sub-actions-row">
+              <button 
+                type="button" 
+                className="btn-sub-enter-portal"
+                onClick={() => onOpenWorkspace ? onOpenWorkspace(x) : null}
+              >
+                <LogIn size={15} />
+                <span>ورود به پنل شخصی ERP</span>
+              </button>
+              
+              <button 
+                type="button" 
+                className="btn-sub-view-details"
+                onClick={() => onOpenDetails ? onOpenDetails(x) : null}
+              >
+                <FileText size={15} />
+                <span>جزئیات پکیج</span>
+              </button>
+            </div>
           </article>
         );
       }) : <Empty />}
@@ -1028,19 +1273,56 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, errorInfo) {
     console.error("UI Error caught by boundary:", error, errorInfo);
+    logErrorToSentry(error, { componentStack: errorInfo?.componentStack });
   }
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 40, textAlign: 'center', direction: 'rtl', fontFamily: 'inherit' }}>
-          <h2 style={{ color: '#e63946' }}>خطایی در نمایش صفحه رخ داد</h2>
-          <p style={{ color: '#666', marginTop: 10 }}>{this.state.error?.message || 'مشکل غیرمنتظره‌ای رخ داده است.'}</p>
-          <button 
-            style={{ marginTop: 20, padding: '10px 24px', background: '#0870d1', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-          >
-            تلاش مجدد
-          </button>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          direction: 'rtl',
+          fontFamily: 'Vazirmatn, sans-serif',
+          background: '#f8fafc',
+          padding: '24px',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            padding: '36px',
+            borderRadius: '16px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.06)',
+            maxWidth: '500px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{ color: '#ef4444', marginBottom: '16px' }}>
+              <AlertCircle size={48} style={{ margin: '0 auto' }} />
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', marginBottom: '10px' }}>
+              خطایی غیرمنتظره در سامانه رخ داد
+            </h2>
+            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.7', marginBottom: '24px' }}>
+              این رخداد به‌صورت خودکار در سامانه مانیتورینگ کارویتا (Sentry) ثبت گردید و تیم فنی در حال بررسی آن است.
+            </p>
+            <button 
+              style={{
+                background: '#0870d1',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 24px',
+                borderRadius: '8px',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer'
+              }}
+              onClick={() => { this.setState({ hasError: false }); window.location.href = '/'; }}
+            >
+              بازگشت به صفحه اصلی
+            </button>
+          </div>
         </div>
       );
     }
@@ -1055,7 +1337,7 @@ function Admin() {
   const [error, setError] = useState('');
 
   async function load(currentTab = tab) {
-    if (currentTab === 'tickets') {
+    if (currentTab === 'tickets' || currentTab === 'audit') {
       setLoading(false);
       setData({});
       return;
@@ -1080,23 +1362,23 @@ function Admin() {
 
   return (
     <Shell admin tab={tab} setTab={setTab} name="مدیر سیستم">
-      {tab !== 'tickets' && (
+      {tab !== 'tickets' && tab !== 'audit' && (
         <div className="page-head">
           <div>
             <h1>{adminTitle(tab)}</h1>
-            <p>مدیریت یکپارچه کاربران، فروش و سرویس‌ها</p>
+            <p>
+              {tab === 'packages' 
+                ? 'مدیریت تب‌های پیش‌فرض، قیمت ماژول‌ها و تنظیمات محاسباتی سیستم قیمت‌گذاری' 
+                : 'مدیریت یکپارچه کاربران، فروش و سرویس‌ها'}
+            </p>
           </div>
-          {tab === 'packages' && (
-            <button className="btn-primary" onClick={() => editPackage(null, () => load('packages'))}>
-              <Plus size={16} />
-              <span>افزودن پکیج</span>
-            </button>
-          )}
         </div>
       )}
       {error && <div className="alert error">{error}</div>}
       {tab === 'tickets' ? (
         <AdminTicketsView />
+      ) : tab === 'audit' ? (
+        <AuditLogsView />
       ) : loading ? (
         <Loader />
       ) : !data ? (
@@ -1124,12 +1406,43 @@ function AdminContent({ tab, data, reload }) {
     return (
       <Panel>
         <Table 
-          headers={['شماره موبایل', 'نام و نام خانوادگی', 'نام شرکت', 'حوزه فعالیت', 'تعداد اشتراک']}
+          headers={['شماره موبایل', 'نام و نام خانوادگی', 'نام شرکت', 'حوزه فعالیت', 'نقش و دسترسی', 'تعداد اشتراک']}
           rows={list.map(x => [
             x.mobile,
             [x.first_name, x.last_name].filter(Boolean).join(' ') || '—',
             x.company_name || '—',
             x.industry || '—',
+            <select
+              key={x.id}
+              value={x.role || 'user'}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: x.role === 'admin' ? '#b91c1c' : '#1e293b',
+                background: x.role === 'admin' ? '#fef2f2' : '#ffffff'
+              }}
+              onChange={async (e) => {
+                const newRole = e.target.value;
+                if (!confirm(`آیا از تغییر نقش کاربر «${x.first_name || x.mobile}» به «${newRole === 'admin' ? 'مدیر ارشد' : 'کاربر عادی'}» اطمینان دارید؟ (این اقدام در لاگ‌های حسابرسی ثبت خواهد شد)`)) {
+                  return;
+                }
+                try {
+                  await api(`/admin/users/${x.id}/role`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ role: newRole })
+                  });
+                  reload();
+                } catch (err) {
+                  alert(err.message || 'خطا در تغییر دسترسی کاربر');
+                }
+              }}
+            >
+              <option value="user">کاربر عادی (User)</option>
+              <option value="admin">مدیر سیستم (Admin)</option>
+            </select>,
             (x.subscriptions_count || 0) + ' اشتراک'
           ])} 
         />
@@ -1137,22 +1450,7 @@ function AdminContent({ tab, data, reload }) {
     );
   }
   if (tab === 'packages') {
-    if (!list.length) return <Panel><Empty /></Panel>;
-    return (
-      <div className="cards">
-        {list.map(x => (
-          <article className="admin-card" key={x.id}>
-            <span className={'pill ' + (x.is_active ? 'active' : 'cancelled')}>
-              {x.is_active ? 'فعال' : 'غیرفعال'}
-            </span>
-            <h3>{x.name}</h3>
-            <strong>{money(x.price)}</strong>
-            <p>{x.duration_days} روز · {(x.features || []).length} قابلیت</p>
-            <button className="outline" onClick={() => editPackage(x, reload)}>ویرایش</button>
-          </article>
-        ))}
-      </div>
-    );
+    return <ERPAdminPricingManagement />;
   }
   if (tab === 'orders') {
     if (!list.length) return <Panel><Empty /></Panel>;
@@ -1287,10 +1585,11 @@ function adminTitle(t) {
   return ({
     overview: 'نمای کلی',
     users: 'کاربران و شرکت‌ها',
-    packages: 'پکیج‌ها و قیمت‌ها',
+    packages: 'سیستم قیمت‌گذاری، ماژول‌ها و تب‌های پیش‌فرض ERP',
     orders: 'خریدها و تراکنش‌ها',
     subscriptions: 'اشتراک‌ها و دوره‌های آزمایشی',
-    tickets: 'تیکت‌های پشتیبانی'
+    tickets: 'تیکت‌های پشتیبانی',
+    audit: 'لاگ‌های امنیتی و حسابرسی سامانه (Audit Logs)',
   })[t] || '';
 }
 
@@ -1315,6 +1614,52 @@ function Guard({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/" />;
 }
 
+function WorkspaceRoute() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [sub, setSub] = useState(null);
+  const [user, setUser] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api('/dashboard')
+      .then(res => {
+        setUser(res.user);
+        const found = res.subscriptions.find(s => String(s.id) === String(id));
+        if (found) {
+          setSub(found);
+        } else if (res.subscriptions.length > 0) {
+          setSub(res.subscriptions[0]);
+        } else {
+          setError('اشتراک یافت نشد.');
+        }
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) return <Loader />;
+  if (error || !sub) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center', direction: 'rtl', fontFamily: 'Vazirmatn' }}>
+        <h3>{error || 'اشتراک فعالی یافت نشد.'}</h3>
+        <button className="btn-primary" style={{ marginTop: 16 }} onClick={() => nav('/dashboard')}>
+          بازگشت به داشبورد
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <ERPWorkspaceView 
+      subscription={sub} 
+      user={user} 
+      onBackToDashboard={() => nav('/dashboard')} 
+    />
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -1325,6 +1670,7 @@ function App() {
         <Route path="/onboarding/company" element={<Guard><Company /></Guard>} />
         <Route path="/plans" element={<Guard><Plans /></Guard>} />
         <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
+        <Route path="/workspace/:id" element={<Guard><WorkspaceRoute /></Guard>} />
         <Route path="/admin" element={<Guard><Admin /></Guard>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
@@ -1337,3 +1683,5 @@ createRoot(document.getElementById('root')).render(
     <App />
   </ErrorBoundary>
 );
+
+

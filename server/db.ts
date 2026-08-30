@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { ERPModule, IndustryPreset, Coupon, INITIAL_ERP_MODULES, INITIAL_PRESETS, INITIAL_COUPONS } from './configuratorData';
 
 export interface User {
   id: number;
@@ -44,10 +45,23 @@ export interface Package {
 export interface Order {
   id: number;
   user_id: number;
-  package_id: number;
+  package_id?: number;
   order_number: string;
   amount: number;
   status: 'pending' | 'paid' | 'failed' | 'cancelled';
+  module_ids?: string[];
+  user_count?: number;
+  billing_period?: 'monthly' | 'yearly';
+  coupon_code?: string | null;
+  discount_amount?: number;
+  breakdown?: {
+    modules_total: number;
+    extra_users_cost: number;
+    base_monthly_total: number;
+    multiplier: number;
+    discount_amount: number;
+    final_amount: number;
+  };
   created_at: string;
 }
 
@@ -68,7 +82,7 @@ export interface Transaction {
 export interface Subscription {
   id: number;
   user_id: number;
-  package_id: number;
+  package_id?: number;
   order_id: number | null;
   source: 'trial' | 'purchase' | 'admin';
   status: 'active' | 'expired' | 'cancelled';
@@ -76,6 +90,10 @@ export interface Subscription {
   expires_at: string;
   usage_limit: number | null;
   usage_used: number;
+  module_ids?: string[];
+  user_count?: number;
+  billing_period?: 'monthly' | 'yearly';
+  title?: string;
   created_at: string;
 }
 
@@ -165,6 +183,32 @@ export interface SupportStaff {
   avatar?: string;
 }
 
+export type AuditActionType =
+  | 'PRIVILEGE_ESCALATION'
+  | 'SENSITIVE_DATA_ACCESS'
+  | 'CONFIGURATION_CHANGE'
+  | 'SUBSCRIPTION_CHANGE'
+  | 'SECURITY_EVENT'
+  | 'ORDER_MANAGEMENT'
+  | 'TICKET_MANAGEMENT';
+
+export interface AuditLog {
+  id: number;
+  timestamp: string;
+  user_id: number | null;
+  user_name: string;
+  user_mobile: string | null;
+  user_role: 'admin' | 'user' | 'system';
+  action_type: AuditActionType;
+  action_description: string;
+  resource_type: string;
+  resource_id: string | number | null;
+  ip_address: string;
+  user_agent: string;
+  status: 'SUCCESS' | 'FAILURE' | 'WARNING';
+  details?: Record<string, any>;
+}
+
 const DB_FILE_PATH = path.join(process.cwd(), 'data', 'db.json');
 
 class Database {
@@ -175,6 +219,7 @@ class Database {
   private nextTransactionId = 1;
   private nextSubscriptionId = 1;
   private nextOtpId = 1;
+  private nextAuditLogId = 5001;
 
   public users: User[] = [
     {
@@ -258,6 +303,68 @@ class Database {
   public transactions: Transaction[] = [];
   public subscriptions: Subscription[] = [];
   public otpCodes: OtpCode[] = [];
+
+  public erpModules: ERPModule[] = [...INITIAL_ERP_MODULES];
+  public industryPresets: IndustryPreset[] = [...INITIAL_PRESETS];
+  public coupons: Coupon[] = [...INITIAL_COUPONS];
+  public configuratorSettings = {
+    base_user_limit: 5,
+    extra_user_price: 200000,
+    yearly_multiplier: 10,
+    step_users_enabled: true,
+    step_modules_enabled: true,
+  };
+
+  public auditLogs: AuditLog[] = [
+    {
+      id: 5001,
+      timestamp: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+      user_id: 1,
+      user_name: 'مدیر سیستم',
+      user_mobile: '09120000000',
+      user_role: 'admin',
+      action_type: 'CONFIGURATION_CHANGE',
+      action_description: 'بارگذاری و پیکربندی اولیه ماژول‌ها و تب‌های پیش‌فرض ERP کارویتا',
+      resource_type: 'CONFIG_SETTINGS',
+      resource_id: 'SYSTEM_BOOTSTRAP',
+      ip_address: '127.0.0.1',
+      user_agent: 'Karovita-Core/1.0',
+      status: 'SUCCESS',
+      details: { modules_count: 24, presets_count: 6, version: '2.4.0' },
+    },
+    {
+      id: 5002,
+      timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      user_id: 1,
+      user_name: 'مدیر سیستم',
+      user_mobile: '09120000000',
+      user_role: 'admin',
+      action_type: 'PRIVILEGE_ESCALATION',
+      action_description: 'تأیید دسترسی سطح ادمین و فعال‌سازی اختیارات نظارتی ارشد',
+      resource_type: 'USER',
+      resource_id: 1,
+      ip_address: '185.143.232.1',
+      user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      status: 'SUCCESS',
+      details: { role_granted: 'admin', assigned_by: 'SUPER_ADMIN' },
+    },
+    {
+      id: 5003,
+      timestamp: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
+      user_id: 1,
+      user_name: 'مدیر سیستم',
+      user_mobile: '09120000000',
+      user_role: 'admin',
+      action_type: 'SENSITIVE_DATA_ACCESS',
+      action_description: 'مشاهده و بازبینی فهرست کاربران، شرکت‌ها و اطلاعات هویتی',
+      resource_type: 'USER_PII',
+      resource_id: 'USER_DIRECTORY',
+      ip_address: '185.143.232.1',
+      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      status: 'SUCCESS',
+      details: { query: 'all_users', count: 1 },
+    },
+  ];
 
   private nextDepartmentId = 5;
   private nextTicketId = 1004;
@@ -532,6 +639,7 @@ class Database {
         nextMessageId: this.nextMessageId,
         nextAttachmentId: this.nextAttachmentId,
         nextHistoryId: this.nextHistoryId,
+        nextAuditLogId: this.nextAuditLogId,
         users: this.users,
         companies: this.companies,
         packages: this.packages,
@@ -545,6 +653,11 @@ class Database {
         messages: this.messages,
         attachments: this.attachments,
         ticketHistories: this.ticketHistories,
+        auditLogs: this.auditLogs,
+        erpModules: this.erpModules,
+        industryPresets: this.industryPresets,
+        coupons: this.coupons,
+        configuratorSettings: this.configuratorSettings,
       };
       fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
@@ -575,6 +688,12 @@ class Database {
           if (data.messages && Array.isArray(data.messages)) this.messages = data.messages;
           if (data.attachments && Array.isArray(data.attachments)) this.attachments = data.attachments;
           if (data.ticketHistories && Array.isArray(data.ticketHistories)) this.ticketHistories = data.ticketHistories;
+          if (data.auditLogs && Array.isArray(data.auditLogs)) this.auditLogs = data.auditLogs;
+
+          if (data.erpModules && Array.isArray(data.erpModules)) this.erpModules = data.erpModules;
+          if (data.industryPresets && Array.isArray(data.industryPresets)) this.industryPresets = data.industryPresets;
+          if (data.coupons && Array.isArray(data.coupons)) this.coupons = data.coupons;
+          if (data.configuratorSettings) this.configuratorSettings = { ...this.configuratorSettings, ...data.configuratorSettings };
 
           if (data.nextUserId) this.nextUserId = data.nextUserId;
           if (data.nextCompanyId) this.nextCompanyId = data.nextCompanyId;
@@ -588,6 +707,7 @@ class Database {
           if (data.nextMessageId) this.nextMessageId = data.nextMessageId;
           if (data.nextAttachmentId) this.nextAttachmentId = data.nextAttachmentId;
           if (data.nextHistoryId) this.nextHistoryId = data.nextHistoryId;
+          if (data.nextAuditLogId) this.nextAuditLogId = data.nextAuditLogId;
           return;
         }
       }
@@ -1073,6 +1193,134 @@ class Database {
     return newPkg;
   }
 
+  // ERP Configurator Methods
+  calculateERPPrice(
+    selectedModuleIds: string[],
+    userCount: number = 5,
+    billingPeriod: 'monthly' | 'yearly' = 'monthly',
+    couponCode: string = ''
+  ) {
+    const modules = this.erpModules.filter(m => selectedModuleIds.includes(m.id) && (m.is_active !== false));
+    const modulesTotal = modules.reduce((sum, m) => sum + (Number(m.price) || 0), 0);
+
+    const baseLimit = this.configuratorSettings.base_user_limit || 5;
+    const extraUserPrice = this.configuratorSettings.extra_user_price || 200000;
+    const extraUsersCount = Math.max((Number(userCount) || 5) - baseLimit, 0);
+    const extraUsersCost = extraUsersCount * extraUserPrice;
+
+    const baseMonthlyTotal = modulesTotal + extraUsersCost;
+
+    let discountAmount = 0;
+    const cleanCoupon = String(couponCode || '').trim().toUpperCase();
+    if (cleanCoupon) {
+      const coupon = this.coupons.find(c => c.code.toUpperCase() === cleanCoupon && c.is_active);
+      if (coupon) {
+        if (coupon.discount_type === 'percent') {
+          discountAmount = Math.round((baseMonthlyTotal * coupon.discount_value) / 100);
+          if (coupon.max_discount_amount) {
+            discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
+          }
+        } else if (coupon.discount_type === 'fixed') {
+          discountAmount = coupon.discount_value;
+        }
+      }
+    }
+
+    const discountedBase = Math.max(baseMonthlyTotal - discountAmount, 0);
+    const multiplier = billingPeriod === 'yearly' ? (this.configuratorSettings.yearly_multiplier || 10) : 1;
+    const finalAmount = discountedBase * multiplier;
+
+    return {
+      selected_modules: modules,
+      selected_module_ids: modules.map(m => m.id),
+      user_count: Number(userCount) || 5,
+      billing_period: billingPeriod,
+      modules_total: modulesTotal,
+      extra_users_count: extraUsersCount,
+      extra_users_cost: extraUsersCost,
+      base_monthly_total: baseMonthlyTotal,
+      discount_amount: discountAmount,
+      discounted_base: discountedBase,
+      multiplier,
+      final_amount: finalAmount,
+      coupon_applied: !!cleanCoupon && discountAmount > 0,
+      coupon_code: cleanCoupon || null,
+    };
+  }
+
+  createERPOrder(
+    userId: number,
+    selectedModuleIds: string[],
+    userCount: number = 5,
+    billingPeriod: 'monthly' | 'yearly' = 'monthly',
+    couponCode: string = ''
+  ): Order {
+    const calc = this.calculateERPPrice(selectedModuleIds, userCount, billingPeriod, couponCode);
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const order: Order = {
+      id: this.nextOrderId++,
+      user_id: userId,
+      order_number: `ORD-${dateStr}-${rand}`,
+      amount: calc.final_amount,
+      status: 'pending',
+      module_ids: calc.selected_module_ids,
+      user_count: calc.user_count,
+      billing_period: calc.billing_period,
+      coupon_code: calc.coupon_code,
+      discount_amount: calc.discount_amount,
+      breakdown: {
+        modules_total: calc.modules_total,
+        extra_users_cost: calc.extra_users_cost,
+        base_monthly_total: calc.base_monthly_total,
+        multiplier: calc.multiplier,
+        discount_amount: calc.discount_amount,
+        final_amount: calc.final_amount,
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    this.orders.push(order);
+    this.saveToFile();
+    return order;
+  }
+
+  createERPSubscription(
+    userId: number,
+    orderId: number | null,
+    moduleIds: string[],
+    userCount: number,
+    billingPeriod: 'monthly' | 'yearly',
+    source: 'trial' | 'purchase' | 'admin' = 'purchase',
+    customDurationDays?: number
+  ): Subscription {
+    const now = new Date();
+    const durationDays = customDurationDays || (billingPeriod === 'yearly' ? 365 : 30);
+    const expires = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    const sub: Subscription = {
+      id: this.nextSubscriptionId++,
+      user_id: userId,
+      order_id: orderId,
+      source,
+      status: 'active',
+      starts_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+      usage_limit: null,
+      usage_used: 0,
+      module_ids: moduleIds,
+      user_count: userCount,
+      billing_period: billingPeriod,
+      title: source === 'trial' ? 'دوره ۵ روزه کارویتا' : `اشتراک سازمانی کارویتا (${moduleIds.length} ماژول)`,
+      created_at: now.toISOString(),
+    };
+
+    this.subscriptions.push(sub);
+    this.saveToFile();
+    return sub;
+  }
+
   // Orders & Subscriptions
   createOrder(userId: number, packageId: number, amount: number): Order {
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
@@ -1136,6 +1384,113 @@ class Database {
     this.subscriptions.push(sub);
     this.saveToFile();
     return sub;
+  }
+
+  // -------------------------------------------------------------
+  // Audit Logging Methods
+  // -------------------------------------------------------------
+  addAuditLog(entry: Omit<AuditLog, 'id' | 'timestamp'>): AuditLog {
+    const log: AuditLog = {
+      id: this.nextAuditLogId++,
+      timestamp: new Date().toISOString(),
+      user_id: entry.user_id,
+      user_name: entry.user_name || 'سیستم',
+      user_mobile: entry.user_mobile || null,
+      user_role: entry.user_role || 'system',
+      action_type: entry.action_type,
+      action_description: entry.action_description,
+      resource_type: entry.resource_type,
+      resource_id: entry.resource_id,
+      ip_address: entry.ip_address || '127.0.0.1',
+      user_agent: entry.user_agent || 'Unknown',
+      status: entry.status || 'SUCCESS',
+      details: entry.details || {},
+    };
+
+    this.auditLogs.unshift(log);
+    // Keep max 2000 logs in memory/disk to maintain optimal performance
+    if (this.auditLogs.length > 2000) {
+      this.auditLogs = this.auditLogs.slice(0, 2000);
+    }
+    this.saveToFile();
+    return log;
+  }
+
+  getAuditLogs(filters?: {
+    action_type?: string;
+    user_id?: number;
+    resource_type?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): { logs: AuditLog[]; total: number } {
+    let result = [...this.auditLogs];
+
+    if (filters?.action_type && filters.action_type !== 'all') {
+      result = result.filter(l => l.action_type === filters.action_type);
+    }
+    if (filters?.resource_type && filters.resource_type !== 'all') {
+      result = result.filter(l => l.resource_type === filters.resource_type);
+    }
+    if (filters?.status && filters.status !== 'all') {
+      result = result.filter(l => l.status === filters.status);
+    }
+    if (filters?.user_id) {
+      result = result.filter(l => l.user_id === filters.user_id);
+    }
+    if (filters?.search && filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      result = result.filter(l =>
+        l.action_description.toLowerCase().includes(q) ||
+        (l.user_name && l.user_name.toLowerCase().includes(q)) ||
+        (l.user_mobile && l.user_mobile.includes(q)) ||
+        (l.ip_address && l.ip_address.includes(q)) ||
+        (l.resource_type && l.resource_type.toLowerCase().includes(q)) ||
+        (String(l.resource_id || '').toLowerCase().includes(q))
+      );
+    }
+
+    // Sort newest first
+    result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    const total = result.length;
+    const offset = filters?.offset || 0;
+    const limit = filters?.limit || 50;
+    const paginated = result.slice(offset, offset + limit);
+
+    return { logs: paginated, total };
+  }
+
+  getAuditStats() {
+    const total = this.auditLogs.length;
+    const privilege_escalations = this.auditLogs.filter(l => l.action_type === 'PRIVILEGE_ESCALATION').length;
+    const sensitive_data_access = this.auditLogs.filter(l => l.action_type === 'SENSITIVE_DATA_ACCESS').length;
+    const config_changes = this.auditLogs.filter(l => l.action_type === 'CONFIGURATION_CHANGE').length;
+    const security_events = this.auditLogs.filter(l => l.action_type === 'SECURITY_EVENT').length;
+    const subscription_changes = this.auditLogs.filter(l => l.action_type === 'SUBSCRIPTION_CHANGE').length;
+
+    const oneDayAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    const last_24h_count = this.auditLogs.filter(l => l.timestamp >= oneDayAgo).length;
+
+    return {
+      total,
+      privilege_escalations,
+      sensitive_data_access,
+      config_changes,
+      security_events,
+      subscription_changes,
+      last_24h_count,
+    };
+  }
+
+  setUserRole(userId: number, role: 'admin' | 'user'): User | null {
+    const user = this.getUserById(userId);
+    if (!user) return null;
+    user.role = role;
+    user.updated_at = new Date().toISOString();
+    this.saveToFile();
+    return user;
   }
 }
 

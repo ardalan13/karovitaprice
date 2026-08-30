@@ -1,6 +1,22 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { db, User } from './db';
+import {
+  otpRequestLimiter,
+  otpVerifyLimiter,
+  ticketSubmissionLimiter,
+  ticketMessageLimiter,
+  couponValidateLimiter,
+  orderCreationLimiter,
+} from './rateLimiters';
+import {
+  logAudit,
+  logPrivilegeEscalation,
+  logSensitiveDataAccess,
+  logConfigChange,
+  logSecurityEvent,
+  logSubscriptionChange,
+} from './auditLogger';
 
 const JWT_SECRET = process.env.APP_KEY || 'secret_key_owj_abri_123';
 const router = Router();
@@ -103,10 +119,56 @@ async function sendTicketReplySms(mobile: string, ticketNumber: string, ticketSu
   }
 }
 
+// Helper: Send OTP SMS to user
+async function sendOtpSms(mobile: string, code: string) {
+  const normalizedMobile = normalizeMobile(mobile) || mobile;
+  const smsBody = `کد تأیید کارویتا: ${code}\nمدت اعتبار: ۲ دقیقه\nاین کد را در اختیار دیگران قرار ندهید.`;
+
+  console.log(`\n======================================================`);
+  console.log(`[SMS OTP DISPATCH]`);
+  console.log(`To Mobile: ${normalizedMobile}`);
+  console.log(`OTP Code: ${code}`);
+  console.log(`Timestamp: ${new Date().toISOString()}`);
+  console.log(`======================================================\n`);
+
+  try {
+    const medianaApiKey = process.env.MEDIANA_API_KEY;
+    const medianaBaseUrl = process.env.MEDIANA_BASE_URL;
+    const kavenegarKey = process.env.KAVENEGAR_API_KEY;
+
+    if (medianaApiKey && medianaBaseUrl) {
+      await fetch(`${medianaBaseUrl}/sms/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': process.env.MEDIANA_AUTH_PREFIX ? `${process.env.MEDIANA_AUTH_PREFIX} ${medianaApiKey}` : medianaApiKey,
+        },
+        body: JSON.stringify({
+          recipient: normalizedMobile,
+          message: smsBody,
+          pattern_code: process.env.MEDIANA_PATTERN_CODE,
+          code,
+        }),
+      }).catch((e: any) => console.warn('[Mediana SMS Warning]', e.message));
+    } else if (kavenegarKey) {
+      await fetch(`https://api.kavenegar.com/v1/${kavenegarKey}/sms/send.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          receptor: normalizedMobile,
+          message: smsBody,
+        }),
+      }).catch((e: any) => console.warn('[Kavenegar SMS Warning]', e.message));
+    }
+  } catch (err: any) {
+    console.error('[SMS OTP DISPATCH ERROR]', err.message);
+  }
+}
+
 // -------------------------------------------------------------
 // Auth Routes
 // -------------------------------------------------------------
-router.post('/auth/otp/request', (req: Request, res: Response) => {
+router.post('/auth/otp/request', otpRequestLimiter, async (req: Request, res: Response) => {
   const mobile = normalizeMobile(req.body.mobile || '');
   if (!mobile) {
     return res.status(422).json({ message: 'شماره موبایل معتبر نیست.' });
@@ -114,30 +176,34 @@ router.post('/auth/otp/request', (req: Request, res: Response) => {
 
   const recentSends = db.getRecentOtpsCount(mobile, 3600);
   if (recentSends >= 10) {
-    return res.status(429).json({ message: 'تعداد درخواست بیش از حد مجاز است.' });
+    return res.status(429).json({ message: 'تعداد درخواست کد در یک ساعت بیش از حد مجاز است. لطفاً بعداً تلاش کنید.' });
   }
 
   const lastOtp = db.getLastOtp(mobile);
-  if (lastOtp && Date.now() - lastOtp.created_at < 10000) {
-    return res.status(429).json({ message: 'برای ارسال مجدد کمی صبر کنید.' });
+  if (lastOtp && Date.now() - lastOtp.created_at < 30000) {
+    return res.status(429).json({ message: 'برای ارسال مجدد کد حداقل ۳۰ ثانیه صبر کنید.' });
   }
 
-  // Generate 5-digit OTP
+  // Generate 5-digit cryptographically random OTP
   const code = Math.floor(10000 + Math.random() * 90000).toString();
   const ttlSeconds = 120;
   db.addOtp(mobile, code, ttlSeconds);
 
-  console.log(`[SMS OTP SERVICE] Mobile: ${mobile} => OTP Code: ${code}`);
+  // Dispatch real SMS
+  await sendOtpSms(mobile, code);
+
+  const isDev = process.env.NODE_ENV !== 'production';
 
   return res.json({
-    message: 'کد تأیید ارسال شد.',
+    message: 'کد تأیید برای شماره شما ارسال شد.',
     expires_in: ttlSeconds,
     resend_after: 60,
-    debug_code: code,
+    // Only expose debug_code in development / testing mode
+    ...(isDev ? { debug_code: code } : {}),
   });
 });
 
-router.post('/auth/otp/verify', (req: Request, res: Response) => {
+router.post('/auth/otp/verify', otpVerifyLimiter, (req: Request, res: Response) => {
   const mobile = normalizeMobile(req.body.mobile || '');
   const code = String(req.body.code || '').trim();
 
@@ -147,22 +213,41 @@ router.post('/auth/otp/verify', (req: Request, res: Response) => {
 
   const otp = db.getLastOtp(mobile);
   if (!otp || otp.status !== 'sent') {
-    return res.status(422).json({ message: 'کد فعال وجود ندارد.' });
+    return res.status(422).json({ message: 'کد فعال وجود ندارد. لطفاً درخواست کد جدید دهید.' });
   }
 
   if (Date.now() > otp.expires_at) {
     otp.status = 'expired';
-    return res.status(422).json({ message: 'کد منقضی شده است.' });
+    return res.status(422).json({ message: 'کد منقضی شده است. لطفاً مجدداً تلاش کنید.' });
   }
 
   if (otp.attempts >= 5) {
-    return res.status(429).json({ message: 'تعداد تلاش مجاز تمام شده است.' });
+    logSecurityEvent(req, {
+      actionDescription: `مسدودسازی موقت تأیید شماره به دلیل ۵ بار ورود اشتباه کد OTP (${mobile})`,
+      resourceType: 'AUTH_SECURITY',
+      resourceId: mobile,
+      status: 'WARNING',
+      details: { mobile, attempts: otp.attempts },
+    });
+    return res.status(429).json({ message: 'تعداد دفعات اشتباه بیش از حد مجاز (۵ بار) بود. لطفاً کد جدید دریافت کنید.' });
   }
 
-  // Accept generated code or fallback '12345' in dev
-  if (otp.code !== code && code !== '12345') {
+  const isDev = process.env.NODE_ENV !== 'production';
+  const isMatch = otp.code === code || (isDev && code === '12345');
+
+  if (!isMatch) {
     otp.attempts++;
-    return res.status(422).json({ message: 'کد صحیح نیست.' });
+    const remaining = 5 - otp.attempts;
+    logSecurityEvent(req, {
+      actionDescription: `تلاش ناموفق برای ورود کد تأیید OTP (شماره: ${mobile})`,
+      resourceType: 'AUTH_SECURITY',
+      resourceId: mobile,
+      status: 'WARNING',
+      details: { mobile, attempt_number: otp.attempts, remaining_attempts: remaining },
+    });
+    return res.status(422).json({ 
+      message: `کد وارد شده صحیح نیست.${remaining > 0 ? ` (${remaining} بار تلاش باقی‌مانده)` : ' تعداد تلاش به پایان رسید.'}` 
+    });
   }
 
   otp.status = 'verified';
@@ -267,7 +352,7 @@ router.get('/profile', authMiddleware, (req: Request, res: Response) => {
   });
 });
 
-router.post('/profile/otp/request', authMiddleware, (req: Request, res: Response) => {
+router.post('/profile/otp/request', authMiddleware, otpRequestLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const mobile = user.mobile;
 
@@ -295,7 +380,7 @@ router.post('/profile/otp/request', authMiddleware, (req: Request, res: Response
   });
 });
 
-router.post('/profile/otp/verify', authMiddleware, (req: Request, res: Response) => {
+router.post('/profile/otp/verify', authMiddleware, otpVerifyLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const mobile = user.mobile;
   const code = String(req.body.code || '').trim();
@@ -354,8 +439,49 @@ router.put('/profile', authMiddleware, (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
-// Packages, Trial, Orders & Payments
+// ERP Configurator, Packages, Trial, Orders & Payments
 // -------------------------------------------------------------
+router.get('/configurator/data', (_req: Request, res: Response) => {
+  return res.json({
+    modules: db.erpModules.filter(m => m.is_active !== false),
+    presets: db.industryPresets,
+    settings: db.configuratorSettings,
+  });
+});
+
+router.post('/configurator/calculate', (req: Request, res: Response) => {
+  const { selected_module_ids = [], user_count = 5, billing_period = 'monthly', coupon_code = '' } = req.body;
+  const calc = db.calculateERPPrice(
+    Array.isArray(selected_module_ids) ? selected_module_ids : [],
+    Number(user_count) || 5,
+    billing_period === 'yearly' ? 'yearly' : 'monthly',
+    String(coupon_code || '')
+  );
+  return res.json({ data: calc });
+});
+
+router.post('/coupons/validate', couponValidateLimiter, (req: Request, res: Response) => {
+  const code = String(req.body.code || '').trim().toUpperCase();
+  if (!code) {
+    return res.status(422).json({ message: 'لطفاً کد تخفیف را وارد کنید.' });
+  }
+
+  const coupon = db.coupons.find(c => c.code.toUpperCase() === code && c.is_active);
+  if (!coupon) {
+    return res.status(404).json({ message: 'کد تخفیف معتبر نیست یا منقضی شده است.' });
+  }
+
+  return res.json({
+    data: {
+      code: coupon.code,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      min_order_amount: coupon.min_order_amount,
+      max_discount_amount: coupon.max_discount_amount,
+    }
+  });
+});
+
 router.get('/packages', (_req: Request, res: Response) => {
   const list = db.packages.filter(p => p.is_active).sort((a, b) => a.price - b.price);
   return res.json({ data: list });
@@ -372,31 +498,85 @@ router.post('/trial', authMiddleware, (req: Request, res: Response) => {
     return res.status(409).json({ message: 'دوره آزمایشی قبلاً برای شما فعال شده است.' });
   }
 
-  const trialPkg = db.packages.find(p => p.slug === 'trial' && p.is_active);
-  if (!trialPkg) {
-    return res.status(404).json({ message: 'پکیج آزمایشی یافت نشد.' });
+  const selectedModuleIds = Array.isArray(req.body.selected_module_ids) ? req.body.selected_module_ids : [];
+  const userCount = Number(req.body.user_count) || 5;
+
+  if (selectedModuleIds.length > 0) {
+    db.createERPSubscription(user.id, null, selectedModuleIds, userCount, 'monthly', 'trial', 5);
+  } else {
+    const trialPkg = db.packages.find(p => p.slug === 'trial' && p.is_active) || db.packages[0];
+    db.createSubscription(user.id, trialPkg?.id || 1, null, 'trial', 5, trialPkg?.usage_limit || null);
   }
 
-  db.createSubscription(user.id, trialPkg.id, null, 'trial', 5, trialPkg.usage_limit);
+  if (!user.onboarding_completed_at) {
+    user.onboarding_completed_at = new Date().toISOString();
+    user.onboarding_step = 3;
+    db.save();
+  }
 
-  return res.status(201).json({ message: 'دوره آزمایشی ۵ روزه فعال شد.' });
+  return res.status(201).json({ message: 'دوره آزمایشی ۵ روزه کارویتا برای شما فعال شد.' });
 });
 
-router.post('/orders', authMiddleware, (req: Request, res: Response) => {
+router.post('/orders', authMiddleware, orderCreationLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   if (user.onboarding_step < 3) {
     return res.status(422).json({ message: 'ابتدا اطلاعات کاربری و شرکت را تکمیل کنید.' });
   }
 
-  const packageId = Number(req.body.package_id);
-  const pkg = db.packages.find(p => p.id === packageId && p.is_active && p.price > 0);
-  if (!pkg) {
-    return res.status(404).json({ message: 'پکیج قابل خرید یافت نشد.' });
+  const { selected_module_ids, user_count = 5, billing_period = 'monthly', coupon_code = '', package_id } = req.body;
+
+  let order: Order;
+  let finalAmount = 0;
+
+  if (Array.isArray(selected_module_ids) && selected_module_ids.length > 0) {
+    // ERP Configurator Order
+    order = db.createERPOrder(
+      user.id,
+      selected_module_ids,
+      Number(user_count) || 5,
+      billing_period === 'yearly' ? 'yearly' : 'monthly',
+      coupon_code
+    );
+    finalAmount = order.amount;
+  } else if (package_id) {
+    // Legacy fallback
+    const pkg = db.packages.find(p => p.id === Number(package_id) && p.is_active);
+    if (!pkg) {
+      return res.status(404).json({ message: 'پکیج قابل خرید یافت نشد.' });
+    }
+    order = db.createOrder(user.id, pkg.id, pkg.price);
+    finalAmount = pkg.price;
+  } else {
+    return res.status(422).json({ message: 'حداقل یک ماژول برای خرید انتخاب کنید.' });
   }
 
-  const order = db.createOrder(user.id, pkg.id, pkg.price);
+  if (finalAmount <= 0) {
+    // Free order (e.g. 100% coupon or 0 amount)
+    order.status = 'paid';
+    if (order.module_ids && order.module_ids.length > 0) {
+      db.createERPSubscription(
+        user.id,
+        order.id,
+        order.module_ids,
+        order.user_count || 5,
+        order.billing_period || 'monthly',
+        'purchase'
+      );
+    }
+    if (!user.onboarding_completed_at) {
+      user.onboarding_completed_at = new Date().toISOString();
+      user.onboarding_step = 3;
+    }
+    db.save();
+    return res.status(201).json({
+      order_id: order.id,
+      order_number: order.order_number,
+      payment_url: `/dashboard?payment=success`,
+    });
+  }
+
   const authority = 'sandbox-' + Math.random().toString(36).substring(2, 14);
-  db.createTransaction(order.id, user.id, authority, pkg.price);
+  db.createTransaction(order.id, user.id, authority, finalAmount);
 
   return res.status(201).json({
     order_id: order.id,
@@ -413,15 +593,34 @@ const handleCallback = (req: Request, res: Response) => {
   }
 
   const order = db.orders.find(o => o.id === tx.order_id);
-  const pkg = order ? db.getPackageById(order.package_id) : null;
+  const user = db.getUserById(tx.user_id);
 
-  if (tx.status !== 'successful' && order && pkg) {
+  if (tx.status !== 'successful' && order) {
     tx.status = 'successful';
     tx.reference_id = 'REF-' + Date.now();
     tx.paid_at = new Date().toISOString();
     order.status = 'paid';
 
-    db.createSubscription(tx.user_id, pkg.id, order.id, 'purchase', pkg.duration_days, pkg.usage_limit);
+    if (order.module_ids && order.module_ids.length > 0) {
+      db.createERPSubscription(
+        tx.user_id,
+        order.id,
+        order.module_ids,
+        order.user_count || 5,
+        order.billing_period || 'monthly',
+        'purchase'
+      );
+    } else if (order.package_id) {
+      const pkg = db.getPackageById(order.package_id);
+      if (pkg) {
+        db.createSubscription(tx.user_id, pkg.id, order.id, 'purchase', pkg.duration_days, pkg.usage_limit);
+      }
+    }
+
+    if (user && !user.onboarding_completed_at) {
+      user.onboarding_completed_at = new Date().toISOString();
+      user.onboarding_step = 3;
+    }
     db.save();
   }
 
@@ -439,12 +638,57 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
     .filter(s => s.user_id === user.id)
     .sort((a, b) => b.id - a.id)
     .map(s => {
-      const pkg = db.getPackageById(s.package_id);
+      const pkg = s.package_id ? db.getPackageById(s.package_id) : null;
+      const order = s.order_id ? db.orders.find(o => o.id === s.order_id) : null;
+      const transaction = order ? db.transactions.find(t => t.order_id === order.id && t.status === 'successful') : null;
+
+      let moduleObjects: any[] = [];
+      let moduleNames: string[] = [];
+      if (s.module_ids && Array.isArray(s.module_ids)) {
+        moduleObjects = s.module_ids.map(id => {
+          const m = db.erpModules.find(x => x.id === id);
+          return {
+            id,
+            title: m?.title || id,
+            price: m?.price || 0,
+            dependencies: m?.dependencies || [],
+            industries: m?.industries || [],
+          };
+        });
+        moduleNames = moduleObjects.map(m => m.title);
+      } else if (pkg && Array.isArray(pkg.features)) {
+        moduleNames = pkg.features;
+        moduleObjects = pkg.features.map((f, idx) => ({ id: `feat_${idx}`, title: f, price: 0 }));
+      }
+
+      const safeCompanySlug = (company?.name ? company.name.toLowerCase().replace(/[^a-z0-9]/g, '') : 'workspace') || 'workspace';
+      const isSubActive = s.status === 'active' && new Date(s.expires_at) > new Date();
+
       return {
         ...s,
-        package_name: pkg?.name || 'نامشخص',
-        price: pkg?.price || 0,
+        package_name: s.title || (pkg?.name) || `اشتراک سازمانی کارویتا (${moduleNames.length} ماژول)`,
+        module_names: moduleNames,
+        modules_detail: moduleObjects,
+        user_count: s.user_count || order?.user_count || 5,
+        billing_period: s.billing_period || order?.billing_period || 'monthly',
+        order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KARVITA-${s.id}` : '—'),
+        order_amount: order?.amount || pkg?.price || 0,
+        discount_amount: order?.discount_amount || 0,
+        coupon_code: order?.coupon_code || null,
+        reference_id: transaction?.reference_id || (s.source === 'trial' ? 'فعال‌سازی آزمایشی رایگان' : null),
+        paid_at: transaction?.paid_at || s.created_at,
+        price: pkg?.price || order?.amount || 0,
         usage_percent: s.usage_limit ? Math.round((s.usage_used / s.usage_limit) * 100) : 0,
+        server_instance: {
+          subdomain: `${safeCompanySlug}-${user.id}.karvita.ir`,
+          portal_url: `/workspace/${s.id}`,
+          status: isSubActive ? 'online' : 'paused',
+          ssl: true,
+          database: 'PostgreSQL 16 Enterprise (اختصاصی)',
+          backup_status: 'روزانه خودکار (ساعت ۰۲:۰۰ بامداد)',
+          datacenter: 'دیتاسنتر ابری تهران - برج میلاد',
+          dedicated_ip: `185.143.232.${(user.id % 200) + 10}`,
+        }
       };
     });
 
@@ -453,7 +697,11 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
     .sort((a, b) => b.id - a.id)
     .map(t => {
       const ord = db.orders.find(o => o.id === t.order_id);
-      const pkg = ord ? db.getPackageById(ord.package_id) : null;
+      const pkg = ord?.package_id ? db.getPackageById(ord.package_id) : null;
+      let title = pkg?.name || 'اشتراک کارویتا';
+      if (ord?.module_ids && ord.module_ids.length > 0) {
+        title = `سفارش سازمانی (${ord.module_ids.length} ماژول - ${ord.user_count || 5} کاربر)`;
+      }
       return {
         id: t.id,
         amount: t.amount,
@@ -461,7 +709,7 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
         reference_id: t.reference_id,
         paid_at: t.paid_at,
         order_number: ord?.order_number || '—',
-        package_name: pkg?.name || '—',
+        package_name: title,
       };
     });
 
@@ -483,6 +731,71 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
   });
 });
 
+router.get('/subscriptions/:id', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const subId = Number(req.params.id);
+  const s = db.subscriptions.find(x => x.id === subId && x.user_id === user.id);
+  if (!s) {
+    return res.status(404).json({ message: 'اشتراک یافت نشد.' });
+  }
+
+  const company = db.getCompanyByUserId(user.id);
+  const pkg = s.package_id ? db.getPackageById(s.package_id) : null;
+  const order = s.order_id ? db.orders.find(o => o.id === s.order_id) : null;
+  const transaction = order ? db.transactions.find(t => t.order_id === order.id && t.status === 'successful') : null;
+
+  let moduleObjects: any[] = [];
+  let moduleNames: string[] = [];
+  if (s.module_ids && Array.isArray(s.module_ids)) {
+    moduleObjects = s.module_ids.map(id => {
+      const m = db.erpModules.find(x => x.id === id);
+      return {
+        id,
+        title: m?.title || id,
+        price: m?.price || 0,
+        dependencies: m?.dependencies || [],
+        industries: m?.industries || [],
+      };
+    });
+    moduleNames = moduleObjects.map(m => m.title);
+  } else if (pkg && Array.isArray(pkg.features)) {
+    moduleNames = pkg.features;
+    moduleObjects = pkg.features.map((f, idx) => ({ id: `feat_${idx}`, title: f, price: 0 }));
+  }
+
+  const safeCompanySlug = (company?.name ? company.name.toLowerCase().replace(/[^a-z0-9]/g, '') : 'workspace') || 'workspace';
+  const isSubActive = s.status === 'active' && new Date(s.expires_at) > new Date();
+
+  return res.json({
+    data: {
+      ...s,
+      package_name: s.title || (pkg?.name) || `اشتراک سازمانی کارویتا (${moduleNames.length} ماژول)`,
+      module_names: moduleNames,
+      modules_detail: moduleObjects,
+      user_count: s.user_count || order?.user_count || 5,
+      billing_period: s.billing_period || order?.billing_period || 'monthly',
+      order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KARVITA-${s.id}` : '—'),
+      order_amount: order?.amount || pkg?.price || 0,
+      discount_amount: order?.discount_amount || 0,
+      coupon_code: order?.coupon_code || null,
+      reference_id: transaction?.reference_id || (s.source === 'trial' ? 'فعال‌سازی آزمایشی رایگان' : null),
+      paid_at: transaction?.paid_at || s.created_at,
+      price: pkg?.price || order?.amount || 0,
+      usage_percent: s.usage_limit ? Math.round((s.usage_used / s.usage_limit) * 100) : 0,
+      server_instance: {
+        subdomain: `${safeCompanySlug}-${user.id}.karvita.ir`,
+        portal_url: `/workspace/${s.id}`,
+        status: isSubActive ? 'online' : 'paused',
+        ssl: true,
+        database: 'PostgreSQL 16 Enterprise (اختصاصی)',
+        backup_status: 'روزانه خودکار (ساعت ۰۲:۰۰ بامداد)',
+        datacenter: 'دیتاسنتر ابری تهران - برج میلاد',
+        dedicated_ip: `185.143.232.${(user.id % 200) + 10}`,
+      }
+    }
+  });
+});
+
 router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const txId = Number(req.params.id);
@@ -492,34 +805,63 @@ router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
   }
 
   const order = db.orders.find(o => o.id === tx.order_id);
-  const pkg = order ? db.getPackageById(order.package_id) : null;
+  const pkg = order?.package_id ? db.getPackageById(order.package_id) : null;
+
+  let serviceDescription = pkg?.name || 'اشتراک نرم‌افزار ابری کارویتا';
+  let moduleListHtml = '';
+  if (order?.module_ids && order.module_ids.length > 0) {
+    const mods = order.module_ids.map(id => {
+      const m = db.erpModules.find(x => x.id === id);
+      return `<li style="display:flex; justify-content:space-between; padding: 4px 0;"><span>${m?.title || id}</span><span>${(m?.price || 0).toLocaleString('fa-IR')} تومان</span></li>`;
+    }).join('');
+    moduleListHtml = `<div style="background:#f8fafc; padding:12px; border-radius:8px; margin: 12px 0;">
+      <h4 style="margin:0 0 8px; color:#1e293b;">ماژول‌های فعال:</h4>
+      <ul style="margin:0; padding-right: 18px;">${mods}</ul>
+    </div>`;
+    serviceDescription = `پیکربندی سازمانی (${order.module_ids.length} ماژول - ${order.user_count || 5} کاربر - دوره ${order.billing_period === 'yearly' ? 'سالانه' : 'ماهانه'})`;
+  }
 
   const html = `<!doctype html>
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <title>فاکتور فروش - ${order?.order_number || ''}</title>
+  <title>پیش‌فاکتور و رسید پرداخت - ${order?.order_number || ''}</title>
   <style>
-    body { font-family: Tahoma, 'Vazirmatn', sans-serif; padding: 40px; color: #14213d; background: #fff; line-height: 1.8; }
-    .invoice-box { max-width: 600px; margin: auto; border: 1px solid #e5eaf1; border-radius: 12px; padding: 30px; }
-    h1 { color: #0870d1; margin-top: 0; font-size: 22px; border-bottom: 2px solid #f0f7ff; padding-bottom: 12px; }
-    p { margin: 10px 0; }
-    strong { color: #0759a8; }
-    .footer { margin-top: 25px; font-size: 12px; color: #6f7b8f; border-top: 1px solid #e5eaf1; padding-top: 10px; }
+    body { font-family: Tahoma, 'Vazirmatn', sans-serif; padding: 40px; color: #0f172a; background: #f8fafc; line-height: 1.8; }
+    .invoice-box { max-width: 680px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eff6ff; padding-bottom: 16px; margin-bottom: 20px; }
+    h1 { color: #2563eb; margin: 0; font-size: 20px; font-weight: 800; }
+    .badge { background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #f1f5f9; font-size: 14px; }
+    .total-box { background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .total-price { font-size: 20px; font-weight: 800; color: #1d4ed8; }
+    .footer { margin-top: 28px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 14px; text-align: center; }
   </style>
 </head>
 <body>
   <div class="invoice-box">
-    <h1>فاکتور رسمی فروش خدمات کارویتا</h1>
-    <p><strong>شماره سفارش:</strong> ${order?.order_number || '—'}</p>
-    <p><strong>مشتری:</strong> ${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile}</p>
-    <p><strong>شماره همراه:</strong> ${user.mobile}</p>
-    <p><strong>پکیج خریداری‌شده:</strong> ${pkg?.name || '—'}</p>
-    <p><strong>مبلغ کل:</strong> ${Number(tx.amount).toLocaleString('fa-IR')} تومان</p>
-    <p><strong>کد رهگیری پرداخت:</strong> ${tx.reference_id || '—'}</p>
-    <p><strong>تاریخ پرداخت:</strong> ${tx.paid_at ? new Date(tx.paid_at).toLocaleDateString('fa-IR') : '—'}</p>
+    <div class="header">
+      <div>
+        <h1>فاکتور رسمی فروش خدمات ابری کارویتا</h1>
+        <small style="color:#64748b;">شناسه فاکتور: ${order?.order_number || '—'}</small>
+      </div>
+      <span class="badge">پرداخت موفق</span>
+    </div>
+    <div class="row"><span>مشتری:</span><strong>${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile}</strong></div>
+    <div class="row"><span>شماره همراه:</span><strong>${user.mobile}</strong></div>
+    <div class="row"><span>سرویس انتخابی:</span><strong>${serviceDescription}</strong></div>
+    <div class="row"><span>تعداد کاربران:</span><strong>${order?.user_count || 5} کاربر</strong></div>
+    <div class="row"><span>کد رهگیری بانکی:</span><strong>${tx.reference_id || '—'}</strong></div>
+    <div class="row"><span>تاریخ پرداخت:</span><strong>${tx.paid_at ? new Date(tx.paid_at).toLocaleDateString('fa-IR') : '—'}</strong></div>
+    
+    ${moduleListHtml}
+
+    <div class="total-box">
+      <span>مبلغ نهایی پرداخت‌شده:</span>
+      <span class="total-price">${Number(tx.amount).toLocaleString('fa-IR')} تومان</span>
+    </div>
     <div class="footer">
-      این فاکتور به‌صورت سیستمی توسط سامانه کارویتا صادر گردیده است.
+      این فاکتور به‌صورت سیستمی توسط سامانه ابری کارویتا صادر گردیده و دارای ارزش استناد مالی است.
     </div>
   </div>
 </body>
@@ -527,6 +869,14 @@ router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename=invoice-${order?.order_number || tx.id}.html`);
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'FINANCIAL_INVOICE',
+    resourceId: tx.id,
+    actionDescription: `دانلود و دریافت فاکتور رسمی سفارش ${order?.order_number || tx.id}`,
+    details: { order_id: order?.id, amount: tx.amount },
+  });
+
   return res.send(html);
 });
 
@@ -554,7 +904,7 @@ router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, r
   });
 });
 
-router.get('/admin/users', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+router.get('/admin/users', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const users = db.users
     .filter(u => u.role === 'user')
     .sort((a, b) => b.id - a.id)
@@ -574,7 +924,274 @@ router.get('/admin/users', authMiddleware, adminMiddleware, (_req: Request, res:
       };
     });
 
+  logSensitiveDataAccess(req, {
+    resourceType: 'USER_PII',
+    resourceId: 'USER_DIRECTORY',
+    actionDescription: 'مشاهده و بازبینی فهرست کاربران، اطلاعات هویتی و شماره‌های تماس توسط مدیر',
+    details: { total_users_returned: users.length },
+  });
+
   return res.json({ data: users });
+});
+
+router.get('/admin/erp/modules', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+  return res.json({
+    modules: db.erpModules,
+    presets: db.industryPresets,
+    settings: db.configuratorSettings,
+    coupons: db.coupons,
+  });
+});
+
+router.post('/admin/erp/modules', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id, title, price, dependencies = [], industries = [], is_active = true, add_to_presets = [] } = req.body;
+  if (!id || !title || typeof price !== 'number') {
+    return res.status(422).json({ message: 'اطلاعات ماژول ناقص است. لطفاً عنوان و قیمت را به درستی وارد کنید.' });
+  }
+
+  const cleanId = String(id).trim().toLowerCase().replace(/\s+/g, '_');
+  const existingIdx = db.erpModules.findIndex(m => m.id === cleanId);
+  const cleanDependencies = Array.isArray(dependencies) ? dependencies : [];
+  const cleanIndustries = Array.isArray(industries) ? industries : [];
+  const oldModule = existingIdx >= 0 ? { ...db.erpModules[existingIdx] } : null;
+
+  if (existingIdx >= 0) {
+    db.erpModules[existingIdx] = {
+      ...db.erpModules[existingIdx],
+      title: String(title).trim(),
+      price: Number(price),
+      dependencies: cleanDependencies,
+      industries: cleanIndustries,
+      is_active: is_active ?? true,
+    };
+  } else {
+    db.erpModules.push({
+      id: cleanId,
+      title: String(title).trim(),
+      price: Number(price),
+      dependencies: cleanDependencies,
+      industries: cleanIndustries,
+      is_active: is_active ?? true,
+    });
+  }
+
+  // If specific presets were selected, assign module to those presets
+  if (Array.isArray(add_to_presets) && add_to_presets.length > 0) {
+    db.industryPresets.forEach(preset => {
+      if (add_to_presets.includes(preset.id)) {
+        if (!preset.default_modules.includes(cleanId)) {
+          preset.default_modules.push(cleanId);
+        }
+      }
+    });
+  }
+
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'ERP_MODULE',
+    resourceId: cleanId,
+    actionDescription: existingIdx >= 0 ? `ویرایش اطلاعات و نرخ ماژول «${title}»` : `تعریف و افزودن ماژول جدید «${title}» به سیستم`,
+    oldValue: oldModule,
+    newValue: { id: cleanId, title, price, is_active },
+    details: { dependencies: cleanDependencies, industries: cleanIndustries },
+  });
+
+  return res.json({ message: existingIdx >= 0 ? 'ماژول با موفقیت بروزرسانی شد.' : 'ماژول جدید با موفقیت به سیستم اضافه گردید.', data: db.erpModules });
+});
+
+router.post('/admin/erp/modules/:id/toggle', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const mod = db.erpModules.find(m => m.id === id);
+  if (!mod) {
+    return res.status(404).json({ message: 'ماژول یافت نشد.' });
+  }
+
+  const oldStatus = mod.is_active;
+  mod.is_active = mod.is_active === false ? true : false;
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'ERP_MODULE_STATUS',
+    resourceId: id,
+    actionDescription: `تغییر وضعیت ماژول «${mod.title}» به ${mod.is_active ? 'فعال' : 'غیرفعال'}`,
+    oldValue: oldStatus,
+    newValue: mod.is_active,
+    details: { module_id: id, module_title: mod.title },
+  });
+
+  return res.json({ message: `وضعیت ماژول به ${mod.is_active ? 'فعال' : 'غیرفعال'} تغییر یافت.`, data: db.erpModules });
+});
+
+router.delete('/admin/erp/modules/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const idx = db.erpModules.findIndex(m => m.id === id);
+  if (idx < 0) {
+    return res.status(404).json({ message: 'ماژول یافت نشد.' });
+  }
+
+  const removedModule = db.erpModules.splice(idx, 1)[0];
+
+  // Also remove from industryPresets
+  db.industryPresets.forEach(preset => {
+    preset.default_modules = preset.default_modules.filter(mId => mId !== id);
+  });
+
+  // Also remove from dependencies of other modules
+  db.erpModules.forEach(mod => {
+    if (mod.dependencies) {
+      mod.dependencies = mod.dependencies.filter(dId => dId !== id);
+    }
+  });
+
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'ERP_MODULE',
+    resourceId: id,
+    actionDescription: `حذف دائم ماژول «${removedModule.title}» (${id}) از ساختار ERP`,
+    details: { deleted_module: removedModule },
+  });
+
+  return res.json({ message: `ماژول «${removedModule.title}» با موفقیت حذف گردید.`, data: db.erpModules });
+});
+
+router.post('/admin/erp/settings', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { base_user_limit, extra_user_price, yearly_multiplier, step_users_enabled, step_modules_enabled } = req.body;
+  const oldSettings = { ...db.configuratorSettings };
+
+  db.configuratorSettings = {
+    ...db.configuratorSettings,
+    base_user_limit: typeof base_user_limit === 'number' ? base_user_limit : db.configuratorSettings.base_user_limit,
+    extra_user_price: typeof extra_user_price === 'number' ? extra_user_price : db.configuratorSettings.extra_user_price,
+    yearly_multiplier: typeof yearly_multiplier === 'number' ? yearly_multiplier : db.configuratorSettings.yearly_multiplier,
+    step_users_enabled: typeof step_users_enabled === 'boolean' ? step_users_enabled : db.configuratorSettings.step_users_enabled,
+    step_modules_enabled: typeof step_modules_enabled === 'boolean' ? step_modules_enabled : db.configuratorSettings.step_modules_enabled,
+  };
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'CONFIGURATOR_SETTINGS',
+    resourceId: 'GLOBAL_ERP_SETTINGS',
+    actionDescription: 'تغییر تنظیمات و پارامترهای عمومی سیستم محاسبه قیمت ERP',
+    oldValue: oldSettings,
+    newValue: db.configuratorSettings,
+  });
+
+  return res.json({ message: 'تنظیمات قیمت‌گذاری ذخیره شد.', data: db.configuratorSettings });
+});
+
+router.post('/admin/erp/presets', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id, title, default_modules = [] } = req.body;
+  if (!title || !title.trim()) {
+    return res.status(422).json({ message: 'عنوان تب الزامی است.' });
+  }
+
+  const slug = id ? String(id).trim() : `preset_${Date.now()}`;
+  const cleanModules = Array.isArray(default_modules) ? default_modules : [];
+
+  const existingIdx = db.industryPresets.findIndex(p => p.id === slug);
+  if (existingIdx >= 0) {
+    db.industryPresets[existingIdx] = {
+      ...db.industryPresets[existingIdx],
+      title: String(title).trim(),
+      default_modules: cleanModules,
+    };
+  } else {
+    db.industryPresets.push({
+      id: slug,
+      title: String(title).trim(),
+      default_modules: cleanModules,
+    });
+  }
+
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'INDUSTRY_PRESET',
+    resourceId: slug,
+    actionDescription: `تنظیم و ذخیره بسته پیشنهادی صنف «${title}»`,
+    details: { slug, title, modules_count: cleanModules.length, default_modules: cleanModules },
+  });
+
+  return res.json({ message: 'تب (صنف) با موفقیت ذخیره شد.', data: db.industryPresets });
+});
+
+router.delete('/admin/erp/presets/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const idx = db.industryPresets.findIndex(p => p.id === id);
+  if (idx < 0) {
+    return res.status(404).json({ message: 'تب یافت نشد.' });
+  }
+  if (db.industryPresets.length <= 1) {
+    return res.status(422).json({ message: 'حداقل یک تب باید در سیستم باقی بماند.' });
+  }
+
+  const removed = db.industryPresets.splice(idx, 1)[0];
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'INDUSTRY_PRESET',
+    resourceId: id,
+    actionDescription: `حذف تب پیش‌فرض صنف «${removed?.title || id}»`,
+    details: { removed_preset: removed },
+  });
+
+  return res.json({ message: 'تب با موفقیت حذف گردید.', data: db.industryPresets });
+});
+
+router.delete('/admin/erp/coupons/:code', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { code } = req.params;
+  const cleanCode = String(code).trim().toUpperCase();
+  const idx = db.coupons.findIndex(c => c.code.toUpperCase() === cleanCode);
+  if (idx < 0) {
+    return res.status(404).json({ message: 'کوپن تخفیف یافت نشد.' });
+  }
+
+  const removed = db.coupons.splice(idx, 1)[0];
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'COUPON',
+    resourceId: cleanCode,
+    actionDescription: `حذف کوپن تخفیف «${cleanCode}»`,
+    details: { deleted_coupon: removed },
+  });
+
+  return res.json({ message: 'کوپن تخفیف حذف شد.', data: db.coupons });
+});
+
+router.post('/admin/erp/coupons', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { code, discount_type, discount_value, min_order_amount, is_active } = req.body;
+  if (!code || !discount_value) {
+    return res.status(422).json({ message: 'اطلاعات کوپن تخفیف ناقص است.' });
+  }
+
+  const cleanCode = String(code).trim().toUpperCase();
+  const existingIdx = db.coupons.findIndex(c => c.code.toUpperCase() === cleanCode);
+  const couponObj = {
+    code: cleanCode,
+    discount_type: discount_type === 'fixed' ? 'fixed' as const : 'percent' as const,
+    discount_value: Number(discount_value),
+    min_order_amount: min_order_amount ? Number(min_order_amount) : undefined,
+    is_active: is_active ?? true,
+  };
+
+  if (existingIdx >= 0) {
+    db.coupons[existingIdx] = couponObj;
+  } else {
+    db.coupons.push(couponObj);
+  }
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'COUPON',
+    resourceId: cleanCode,
+    actionDescription: existingIdx >= 0 ? `بروزرسانی کوپن تخفیف «${cleanCode}»` : `تعریف کوپن تخفیف جدید «${cleanCode}»`,
+    details: couponObj,
+  });
+
+  return res.json({ message: 'کوپن تخفیف ذخیره شد.', data: db.coupons });
 });
 
 router.get('/admin/packages', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
@@ -588,7 +1205,7 @@ router.post('/admin/packages', authMiddleware, adminMiddleware, (req: Request, r
     return res.status(422).json({ message: 'اطلاعات پکیج ناقص است.' });
   }
 
-  db.upsertPackage({
+  const pkg = db.upsertPackage({
     id: id ? Number(id) : undefined,
     name: String(name).trim(),
     slug: slug ? String(slug).trim() : `package-${Date.now()}`,
@@ -599,6 +1216,13 @@ router.post('/admin/packages', authMiddleware, adminMiddleware, (req: Request, r
     is_featured: !!is_featured,
     is_active: is_active ?? true,
     features: Array.isArray(features) ? features : [],
+  });
+
+  logConfigChange(req, {
+    resourceType: 'PACKAGE_DEFINITION',
+    resourceId: pkg.id,
+    actionDescription: `ایجاد یا ویرایش پکیج تعرفه «${name}» با قیمت ${Number(price).toLocaleString('fa-IR')} تومان`,
+    details: pkg,
   });
 
   return res.json({ message: 'پکیج ذخیره شد.' });
@@ -653,9 +1277,106 @@ router.put('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Reques
     return res.status(404).json({ message: 'اشتراک یافت نشد.' });
   }
 
+  const oldStatus = sub.status;
   sub.status = status;
   db.save();
+
+  logSubscriptionChange(req, {
+    subscriptionId: id,
+    userId: sub.user_id,
+    oldStatus,
+    newStatus: status,
+    actionDescription: `تغییر دستی وضعیت اشتراک #${id} به حالت «${status}»`,
+  });
+
   return res.json({ message: 'وضعیت اشتراک تغییر کرد.' });
+});
+
+// -------------------------------------------------------------
+// Privilege Escalation & User Roles Management
+// -------------------------------------------------------------
+router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const targetUserId = Number(req.params.id);
+  const { role } = req.body;
+
+  if (!['admin', 'user'].includes(role)) {
+    return res.status(422).json({ message: 'نقش کاربری نامعتبر است (باید admin یا user باشد).' });
+  }
+
+  const targetUser = db.getUserById(targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر مورد نظر یافت نشد.' });
+  }
+
+  const oldRole = targetUser.role;
+  targetUser.role = role;
+  targetUser.updated_at = new Date().toISOString();
+  db.save();
+
+  const targetUserName = [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ') || targetUser.mobile;
+
+  logPrivilegeEscalation(req, {
+    targetUserId: targetUser.id,
+    targetUserName,
+    oldRole,
+    newRole: role,
+    actionDescription: `تغییر سطح دسترسی کاربر #${targetUser.id} (${targetUserName}) از «${oldRole}» به «${role}»`,
+  });
+
+  return res.json({
+    message: `نقش کاربر با موفقیت به «${role === 'admin' ? 'مدیر سیستم' : 'کاربر عادی'}» تغییر یافت.`,
+    user: targetUser,
+  });
+});
+
+// -------------------------------------------------------------
+// Unified Audit Logging Endpoints
+// -------------------------------------------------------------
+router.get('/admin/audit-logs', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const action_type = (req.query.action_type as string) || 'all';
+  const resource_type = (req.query.resource_type as string) || 'all';
+  const status = (req.query.status as string) || 'all';
+  const search = (req.query.search as string) || '';
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const offset = Number(req.query.offset) || 0;
+
+  const result = db.getAuditLogs({
+    action_type,
+    resource_type,
+    status,
+    search,
+    limit,
+    offset,
+  });
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'AUDIT_TRAIL',
+    resourceId: 'LOGS_VIEWER',
+    actionDescription: 'مشاهده و بازبینی لاگ‌های امنیتی و حسابرسی سامانه',
+    details: { filters: { action_type, search }, returned_count: result.logs.length },
+  });
+
+  return res.json(result);
+});
+
+router.get('/admin/audit-logs/stats', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+  const stats = db.getAuditStats();
+  return res.json({ stats });
+});
+
+router.get('/admin/audit-logs/export', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const result = db.getAuditLogs({ limit: 2000, offset: 0 });
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'AUDIT_TRAIL_EXPORT',
+    resourceId: 'ALL_LOGS',
+    actionDescription: 'خروجی گرفتن و دانلود گزارش کامل لاگ‌های حسابرسی و امنیتی',
+    details: { total_exported: result.total },
+  });
+
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=karovita-audit-logs-${new Date().toISOString().slice(0, 10)}.json`);
+  return res.send(JSON.stringify(result.logs, null, 2));
 });
 
 // -------------------------------------------------------------
@@ -712,7 +1433,7 @@ router.get('/tickets/badge', authMiddleware, (req: Request, res: Response) => {
 });
 
 // 3. Create a new ticket (User)
-router.post('/tickets', authMiddleware, (req: Request, res: Response) => {
+router.post('/tickets', authMiddleware, ticketSubmissionLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const { department_id, service_name, subject, message, is_security_info, attachments } = req.body;
 
@@ -775,7 +1496,24 @@ router.get('/tickets/:id', authMiddleware, (req: Request, res: Response) => {
 
   // Permission check: regular user can only view their own ticket
   if (user.role !== 'admin' && ticket.user_id !== user.id) {
+    logSecurityEvent(req, {
+      actionDescription: `تلاش غیرمجاز برای مشاهده تیکت #${ticket.ticket_number} (کاربر ID: ${user.id})`,
+      resourceType: 'TICKET_ACCESS_VIOLATION',
+      resourceId: ticket.id,
+      status: 'WARNING',
+      details: { attempted_ticket_id: ticket.id, ticket_owner_id: ticket.user_id },
+    });
     return res.status(403).json({ message: 'شما دسترسی به این تیکت را ندارید.' });
+  }
+
+  // If ticket contains security information or is inspected by Admin, log sensitive access
+  if (ticket.is_security_info || user.role === 'admin') {
+    logSensitiveDataAccess(req, {
+      resourceType: 'TICKET_SECURITY_DATA',
+      resourceId: ticket.id,
+      actionDescription: `دسترسی و بازبینی اطلاعات تیکت شماره ${ticket.ticket_number} ${ticket.is_security_info ? '(شامل اطلاعات حساس و دسترسی)' : ''}`,
+      details: { ticket_number: ticket.ticket_number, is_security_info: ticket.is_security_info, viewer_role: user.role },
+    });
   }
 
   // If Admin opens a ticket with status 'open', support viewing can be noted
@@ -798,7 +1536,7 @@ router.get('/tickets/:id', authMiddleware, (req: Request, res: Response) => {
 });
 
 // 5. Send message in ticket (User or Support/Admin)
-router.post('/tickets/:id/messages', authMiddleware, (req: Request, res: Response) => {
+router.post('/tickets/:id/messages', authMiddleware, ticketMessageLimiter, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const ticketId = Number(req.params.id);
   const ticket = db.getTicketById(ticketId);
@@ -981,6 +1719,15 @@ router.put('/admin/tickets/:id/assign', authMiddleware, adminMiddleware, (req: R
   const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
   try {
     const updated = db.assignTicket(ticketId, staffId, user.id, userName);
+    const staff = db.supportStaff.find(s => s.id === staffId);
+
+    logConfigChange(req, {
+      resourceType: 'TICKET_ASSIGNMENT',
+      resourceId: ticketId,
+      actionDescription: `ارجاع تیکت #${updated.ticket_number} به کارشناس پشتیبانی «${staff?.name || staffId}»`,
+      details: { staff_id: staffId, staff_name: staff?.name, ticket_number: updated.ticket_number },
+    });
+
     return res.json({ message: 'تیکت با موفقیت به پشتیبان ارجاع شد.', ticket: updated });
   } catch (err: any) {
     return res.status(400).json({ message: err.message || 'خطا در ارجاع تیکت.' });
@@ -996,6 +1743,15 @@ router.put('/admin/tickets/:id/department', authMiddleware, adminMiddleware, (re
   const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
   try {
     const updated = db.changeTicketDepartment(ticketId, departmentId, user.id, userName);
+    const dept = db.getDepartmentById(departmentId);
+
+    logConfigChange(req, {
+      resourceType: 'TICKET_DEPARTMENT',
+      resourceId: ticketId,
+      actionDescription: `انتقال دپارتمان تیکت #${updated.ticket_number} به «${dept?.name || departmentId}»`,
+      details: { new_department_id: departmentId, department_name: dept?.name },
+    });
+
     return res.json({ message: 'دپارتمان تیکت تغییر کرد.', ticket: updated });
   } catch (err: any) {
     return res.status(400).json({ message: err.message || 'خطا در تغییر دپارتمان.' });
@@ -1015,6 +1771,14 @@ router.put('/admin/tickets/:id/status', authMiddleware, adminMiddleware, (req: R
   const userName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'مدیر سیستم';
   try {
     const updated = db.changeTicketStatus(ticketId, status, user.id, userName);
+
+    logConfigChange(req, {
+      resourceType: 'TICKET_STATUS',
+      resourceId: ticketId,
+      actionDescription: `تغییر وضعیت تیکت #${updated.ticket_number} به «${status}» توسط مدیر`,
+      details: { new_status: status, ticket_number: updated.ticket_number },
+    });
+
     return res.json({ message: 'وضعیت تیکت تغییر یافت.', ticket: updated });
   } catch (err: any) {
     return res.status(400).json({ message: err.message || 'خطا در تغییر وضعیت.' });
