@@ -1067,7 +1067,6 @@ function Shell({ admin = false, tab, setTab, children, name }) {
           </div>
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <ThemeToggle />
-            <div className="avatar">{(name || 'ا').slice(0, 1)}</div>
           </div>
         </header>
         {children}
@@ -1394,7 +1393,7 @@ function Admin() {
             <Stat icon={Package} n={data.stats?.active_subscriptions || 0} label="اشتراک فعال" />
             <Stat icon={Clock3} n={data.stats?.trials || 0} label="دوره آزمایشی" />
           </div>
-          <SalesPerformanceChart transactions={data.stats?.revenue} title="روند عملکرد فروش و درآمد ماهانه سامانه" />
+          <SalesPerformanceChart transactions={data.transactions || []} title="روند عملکرد فروش و درآمد ماهانه سامانه" />
         </>
       ) : (
         <AdminContent tab={tab} data={data.data || []} reload={() => load(tab)} />

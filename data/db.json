@@ -5,13 +5,13 @@
   "nextOrderId": 1,
   "nextTransactionId": 1,
   "nextSubscriptionId": 1,
-  "nextOtpId": 1,
+  "nextOtpId": 2,
   "nextDepartmentId": 5,
   "nextTicketId": 1001,
   "nextMessageId": 2001,
   "nextAttachmentId": 3001,
   "nextHistoryId": 4001,
-  "nextAuditLogId": 5003,
+  "nextAuditLogId": 5005,
   "nextPushSubId": 1,
   "users": [
     {
@@ -24,7 +24,7 @@
       "role": "admin",
       "onboarding_step": 3,
       "onboarding_completed_at": "2026-08-30T13:31:55.065Z",
-      "mobile_verified_at": "2026-08-31T10:06:39.778Z",
+      "mobile_verified_at": "2026-08-31T10:22:57.715Z",
       "created_at": "2026-08-30T13:31:55.066Z",
       "updated_at": "2026-08-30T13:31:55.066Z"
     }
@@ -172,47 +172,7 @@
   "messages": [],
   "attachments": [],
   "ticketHistories": [],
-  "auditLogs": [
-    {
-      "id": 5001,
-      "timestamp": "2026-08-29T09:25:55.831Z",
-      "user_id": 1,
-      "user_name": "اردلان داوودی (مدیر ارشد)",
-      "user_mobile": "09111273476",
-      "user_role": "admin",
-      "action_type": "CONFIGURATION_CHANGE",
-      "action_description": "بارگذاری و پیکربندی اولیه ماژول‌ها و تب‌های پیش‌فرض ERP کارویتا",
-      "resource_type": "CONFIG_SETTINGS",
-      "resource_id": "SYSTEM_BOOTSTRAP",
-      "ip_address": "127.0.0.1",
-      "user_agent": "Karovita-Core/2.4",
-      "status": "SUCCESS",
-      "details": {
-        "modules_count": 24,
-        "presets_count": 6,
-        "version": "2.4.0"
-      }
-    },
-    {
-      "id": 5002,
-      "timestamp": "2026-08-30T09:25:55.831Z",
-      "user_id": 1,
-      "user_name": "اردلان داوودی (مدیر ارشد)",
-      "user_mobile": "09111273476",
-      "user_role": "admin",
-      "action_type": "PRIVILEGE_ESCALATION",
-      "action_description": "تعیین شماره 09111273476 به عنوان مالک و مدیر ارشد پروژه (Super Admin)",
-      "resource_type": "USER",
-      "resource_id": 1,
-      "ip_address": "185.143.232.1",
-      "user_agent": "Karovita-Core/2.4",
-      "status": "SUCCESS",
-      "details": {
-        "role_granted": "admin",
-        "assigned_by": "SUPER_ADMIN_OWNER"
-      }
-    }
-  ],
+  "auditLogs": [],
   "pushSubscriptions": [],
   "erpModules": [
     {

@@ -7,15 +7,14 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   Cell,
 } from 'recharts';
-import { TrendingUp, Calendar, DollarSign, ShoppingCart, Award, Sparkles, Filter } from 'lucide-react';
+import { TrendingUp, Calendar, DollarSign, ShoppingCart, Award, Sparkles, Filter, Inbox } from 'lucide-react';
 
 const moneyFa = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
 const numFa = n => Number(n || 0).toLocaleString('fa-IR');
 
-export function SalesPerformanceChart({ transactions = [], title = 'روند عملکرد و درآمد فروش ماه جاری' }) {
+export function SalesPerformanceChart({ transactions = [], title = 'روند عملکرد فروش و درآمد ماهانه سامانه' }) {
   const [viewMode, setViewMode] = useState('weekly'); // 'weekly' | 'daily' | 'plans'
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
 
@@ -38,61 +37,122 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
     };
   }, []);
 
-  // Prepare monthly sales performance data
-  const { weeklyData, dailyData, planData, summary } = useMemo(() => {
-    // Current Solar Month Weeks (Week 1 to Week 4)
-    const baseWeekly = [
-      { name: 'هفته اول', sales: 48500000, orders: 12, target: 40000000 },
-      { name: 'هفته دوم', sales: 62400000, orders: 18, target: 50000000 },
-      { name: 'هفته سوم', sales: 78900000, orders: 24, target: 60000000 },
-      { name: 'هفته چهارم (جاری)', sales: 94200000, orders: 31, target: 75000000 },
+  // Filter only successful transactions
+  const validTransactions = useMemo(() => {
+    if (!Array.isArray(transactions)) return [];
+    return transactions.filter(t => (t.status === 'successful' || t.transaction_status === 'successful') && Number(t.amount) > 0);
+  }, [transactions]);
+
+  // Aggregate monthly sales performance data dynamically from real transactions in DB
+  const { weeklyData, dailyData, planData, summary, hasData } = useMemo(() => {
+    const totalRevenue = validTransactions.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+    const totalOrders = validTransactions.length;
+    const avgDailyRevenue = totalRevenue > 0 ? Math.round(totalRevenue / 30) : 0;
+    const hasData = totalOrders > 0;
+
+    // 1. Weekly grouping (Weeks 1 to 4)
+    const weeklyMap = [
+      { name: 'هفته اول', sales: 0, orders: 0 },
+      { name: 'هفته دوم', sales: 0, orders: 0 },
+      { name: 'هفته سوم', sales: 0, orders: 0 },
+      { name: 'هفته چهارم', sales: 0, orders: 0 },
     ];
 
-    // Current Month Days
-    const baseDaily = [
-      { name: '۱ ام', sales: 8500000, orders: 2 },
-      { name: '۴ ام', sales: 14200000, orders: 4 },
-      { name: '۷ ام', sales: 11800000, orders: 3 },
-      { name: '۱۰ ام', sales: 19500000, orders: 5 },
-      { name: '۱۳ ام', sales: 16000000, orders: 4 },
-      { name: '۱۶ ام', sales: 23400000, orders: 7 },
-      { name: '۱۹ ام', sales: 21100000, orders: 6 },
-      { name: '۲۲ ام', sales: 28900000, orders: 8 },
-      { name: '۲۵ ام', sales: 31200000, orders: 9 },
-      { name: '۲۸ ام', sales: 26800000, orders: 7 },
-      { name: '۳۰ ام (امروز)', sales: 34500000, orders: 11 },
+    // 2. Daily grouping
+    const dailyMap = [
+      { name: '۱ ام', sales: 0, orders: 0 },
+      { name: '۴ ام', sales: 0, orders: 0 },
+      { name: '۷ ام', sales: 0, orders: 0 },
+      { name: '۱۰ ام', sales: 0, orders: 0 },
+      { name: '۱۳ ام', sales: 0, orders: 0 },
+      { name: '۱۶ ام', sales: 0, orders: 0 },
+      { name: '۱۹ ام', sales: 0, orders: 0 },
+      { name: '۲۲ ام', sales: 0, orders: 0 },
+      { name: '۲۵ ام', sales: 0, orders: 0 },
+      { name: '۲۸ ام', sales: 0, orders: 0 },
+      { name: '۳۰ ام', sales: 0, orders: 0 },
     ];
 
-    // By Subscription / Package Category
-    const basePlans = [
-      { name: 'پکیج پرواز (استارتاپ)', sales: 89000000, orders: 38, color: '#38bdf8' },
-      { name: 'پکیج صعود (پیشرفته)', sales: 124500000, orders: 26, color: '#0870d1' },
-      { name: 'پکیج کهکشان (سازمانی)', sales: 188000000, orders: 14, color: '#7c3aed' },
-      { name: 'ماژول‌های اختصاصی ERP', sales: 46500000, orders: 42, color: '#10b981' },
-    ];
+    // 3. Plan grouping
+    const planMap = {
+      'ماژول‌های ERP سازمانی': { sales: 0, orders: 0, color: '#0870d1' },
+      'اشتراک ویژه کسب‌وکار': { sales: 0, orders: 0, color: '#38bdf8' },
+      'پکیج‌های پیشرفته': { sales: 0, orders: 0, color: '#7c3aed' },
+      'سایر خدمات و تمدید': { sales: 0, orders: 0, color: '#10b981' },
+    };
 
-    // Calculate dynamic totals
-    const totalRevenue = weeklyDataSalesTotal(baseWeekly);
-    const totalOrders = baseWeekly.reduce((acc, curr) => acc + curr.orders, 0);
-    const avgDailyRevenue = Math.round(totalRevenue / 30);
-    const bestPeriod = baseWeekly.reduce((max, curr) => (curr.sales > max.sales ? curr : max), baseWeekly[0]);
+    if (hasData) {
+      validTransactions.forEach(tx => {
+        const amt = Number(tx.amount) || 0;
+        const d = tx.created_at ? new Date(tx.created_at) : new Date();
+        const dayOfMonth = d.getDate(); // 1 - 31
+
+        // Assign week
+        if (dayOfMonth <= 7) {
+          weeklyMap[0].sales += amt;
+          weeklyMap[0].orders += 1;
+        } else if (dayOfMonth <= 14) {
+          weeklyMap[1].sales += amt;
+          weeklyMap[1].orders += 1;
+        } else if (dayOfMonth <= 21) {
+          weeklyMap[2].sales += amt;
+          weeklyMap[2].orders += 1;
+        } else {
+          weeklyMap[3].sales += amt;
+          weeklyMap[3].orders += 1;
+        }
+
+        // Assign daily (nearest bucket)
+        const dailyIndex = Math.min(Math.floor((dayOfMonth - 1) / 3), dailyMap.length - 1);
+        if (dailyMap[dailyIndex]) {
+          dailyMap[dailyIndex].sales += amt;
+          dailyMap[dailyIndex].orders += 1;
+        }
+
+        // Assign plan
+        const pkgName = String(tx.package_name || '').toLowerCase();
+        if (pkgName.includes('ماژول') || pkgName.includes('erp') || pkgName.includes('سازمان')) {
+          planMap['ماژول‌های ERP سازمانی'].sales += amt;
+          planMap['ماژول‌های ERP سازمانی'].orders += 1;
+        } else if (pkgName.includes('پیشرفته') || pkgName.includes('enterprise')) {
+          planMap['پکیج‌های پیشرفته'].sales += amt;
+          planMap['پکیج‌های پیشرفته'].orders += 1;
+        } else if (pkgName.includes('پایه') || pkgName.includes('کسب‌وکار')) {
+          planMap['اشتراک ویژه کسب‌وکار'].sales += amt;
+          planMap['اشتراک ویژه کسب‌وکار'].orders += 1;
+        } else {
+          planMap['سایر خدمات و تمدید'].sales += amt;
+          planMap['سایر خدمات و تمدید'].orders += 1;
+        }
+      });
+    }
+
+    const calculatedPlans = Object.entries(planMap).map(([name, val]) => ({
+      name,
+      sales: val.sales,
+      orders: val.orders,
+      color: val.color,
+    }));
+
+    let bestPeriodName = '—';
+    if (hasData) {
+      const best = weeklyMap.reduce((max, curr) => (curr.sales > max.sales ? curr : max), weeklyMap[0]);
+      if (best.sales > 0) bestPeriodName = best.name;
+    }
 
     return {
-      weeklyData: baseWeekly,
-      dailyData: baseDaily,
-      planData: basePlans,
+      weeklyData: weeklyMap,
+      dailyData: dailyMap,
+      planData: calculatedPlans,
+      hasData,
       summary: {
         totalRevenue,
         totalOrders,
         avgDailyRevenue,
-        bestPeriod: bestPeriod.name,
+        bestPeriod: bestPeriodName,
       },
     };
-  }, [transactions]);
-
-  function weeklyDataSalesTotal(data) {
-    return data.reduce((acc, curr) => acc + curr.sales, 0);
-  }
+  }, [validTransactions]);
 
   const currentChartData = viewMode === 'weekly' ? weeklyData : viewMode === 'daily' ? dailyData : planData;
 
@@ -138,12 +198,6 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
               <span style={{ fontWeight: 700 }}>{numFa(data.orders)} سفارش</span>
             </div>
           )}
-          {data.target !== undefined && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', fontSize: '12px', margin: '4px 0', color: isDark ? '#64748b' : '#94a3b8' }}>
-              <span>تارگت ماه:</span>
-              <span>{moneyFa(data.target)}</span>
-            </div>
-          )}
         </div>
       );
     }
@@ -160,7 +214,7 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
           </div>
           <div>
             <h3 className="sales-chart-title">{title}</h3>
-            <p className="sales-chart-subtitle">تحلیل آماری تراکنش‌ها و نمودار مقایسه‌ای عملکرد ماهانه</p>
+            <p className="sales-chart-subtitle">تحلیل آماری تراکنش‌ها و نمودار مقایسه‌ای عملکرد ماهانه بر اساس خریدهای واقعی دیتابیس</p>
           </div>
         </div>
 
@@ -188,7 +242,7 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
             onClick={() => setViewMode('plans')}
           >
             <Filter size={14} />
-            <span>تفکیک پکیج‌ها</span>
+            <span>تفکیک ماژول‌ها و پلن‌ها</span>
           </button>
         </div>
       </div>
@@ -236,8 +290,8 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
         </div>
       </div>
 
-      {/* Recharts Bar Chart */}
-      <div className="sales-chart-canvas-wrap" style={{ width: '100%', height: 320, marginTop: '20px' }}>
+      {/* Recharts Bar Chart or Dynamic Clean Status */}
+      <div className="sales-chart-canvas-wrap" style={{ width: '100%', height: 300, marginTop: '20px', position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={currentChartData}
@@ -257,25 +311,11 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
               fontSize={11}
               tickLine={false}
               axisLine={{ stroke: themeColors.grid }}
-              tickFormatter={val => `${numFa(Math.round(val / 1000000))} م`}
+              tickFormatter={val => val === 0 ? '۰' : `${numFa(Math.round(val / 1000000))} م`}
               orientation="right"
+              domain={[0, 'auto']}
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(8,112,209,0.06)' }} />
-            {viewMode === 'weekly' && (
-              <Legend
-                verticalAlign="top"
-                align="left"
-                formatter={(value) => <span style={{ color: themeColors.text, fontSize: '12px', marginRight: '6px' }}>{value}</span>}
-              />
-            )}
-            {viewMode === 'weekly' && (
-              <Bar
-                dataKey="target"
-                name="هدف تعیین‌شده (تارگت)"
-                fill={themeColors.barTarget}
-                radius={[8, 8, 0, 0]}
-              />
-            )}
             <Bar
               dataKey="sales"
               name="درآمد محقق‌شده"
@@ -291,15 +331,42 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+
+        {!hasData && (
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.65)',
+            backdropFilter: 'blur(2px)',
+            borderRadius: '12px',
+            pointerEvents: 'none',
+            color: isDark ? '#94a3b8' : '#64748b',
+            gap: '8px'
+          }}>
+            <Inbox size={32} strokeWidth={1.5} />
+            <span style={{ fontSize: '13.5px', fontWeight: 600 }}>دیتابیس در وضعیت خام — هنوز تراکنشی ثبت نشده است</span>
+            <span style={{ fontSize: '11.5px', opacity: 0.8 }}>با ثبت اولین سفارش و تراکنش موفق در سامانه، این نمودار خودکار بر اساس خریدهای واقعی تکمیل خواهد شد.</span>
+          </div>
+        )}
       </div>
 
       {/* Chart Footer Indicator */}
       <div className="sales-chart-footer">
         <div className="sales-growth-pill">
           <Sparkles size={14} />
-          <span>رشد فروش نسبت به ماه گذشته: <strong>۲۴.۸٪+</strong></span>
+          <span>
+            {hasData ? (
+              <>مجموع درآمد حاصل از خریدهای ثبت‌شده: <strong>{moneyFa(summary.totalRevenue)}</strong></>
+            ) : (
+              <span>وضعیت مالی: <strong>آماده دریافت اولین سفارشات و خریدها</strong></span>
+            )}
+          </span>
         </div>
-        <span className="sales-realtime-tag">بروزرسانی زنده بر اساس فاکتورهای سیستمی</span>
+        <span className="sales-realtime-tag">همگام‌سازی لحظه‌ای با دیتابیس تراکنش‌ها</span>
       </div>
     </section>
   );

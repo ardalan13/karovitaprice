@@ -41,7 +41,7 @@ export function NewTicketModal({ onClose, onSuccess }) {
     setLoading(true);
     Promise.all([
       api('/departments').catch(() => ({ data: [] })),
-      api('/packages').catch(() => ({ data: [] })),
+      api('/user/purchased-packages').catch(() => ({ data: [] })),
     ])
       .then(([deptRes, pkgRes]) => {
         const depts = deptRes.data || [];
@@ -54,6 +54,8 @@ export function NewTicketModal({ onClose, onSuccess }) {
         setPackages(pkgs);
         if (pkgs.length > 0) {
           setServiceName(pkgs[0].name);
+        } else {
+          setServiceName('سرویس عمومی / بدون اشتراک فعال');
         }
       })
       .catch(e => setError(e.message))
@@ -226,13 +228,16 @@ export function NewTicketModal({ onClose, onSuccess }) {
                     style={{ height: 44, border: '1px solid #dce2ea', borderRadius: 10, padding: '0 10px', fontSize: 13 }}
                   >
                     {packages.length > 0 ? (
-                      packages.map(pkg => (
-                        <option key={pkg.id} value={pkg.name}>
-                          {pkg.name} {pkg.price > 0 ? `(${Number(pkg.price).toLocaleString('fa-IR')} تومان)` : '(رایگان/آزمایشی)'}
-                        </option>
-                      ))
+                      <>
+                        {packages.map(pkg => (
+                          <option key={pkg.id} value={pkg.name}>
+                            {pkg.name}
+                          </option>
+                        ))}
+                        <option value="سرویس عمومی / سایر خدمات">سرویس عمومی / سایر خدمات</option>
+                      </>
                     ) : (
-                      <option value="پکیج کارویتا">پکیج کارویتا</option>
+                      <option value="سرویس عمومی / بدون اشتراک فعال">سرویس عمومی / بدون اشتراک فعال</option>
                     )}
                   </select>
                 </label>

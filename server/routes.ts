@@ -704,6 +704,41 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
   });
 });
 
+router.get('/user/purchased-packages', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const userSubs = db.subscriptions
+    .filter(s => s.user_id === user.id)
+    .sort((a, b) => b.id - a.id);
+
+  const result = userSubs.map(s => {
+    let name = s.title;
+    if (!name) {
+      if (s.module_ids && Array.isArray(s.module_ids) && s.module_ids.length > 0) {
+        const moduleCount = s.module_ids.length;
+        name = `اشتراک ماژول‌های ERP (${moduleCount} ماژول)`;
+      } else if (s.source === 'trial') {
+        name = 'اشتراک آزمایشی ۵ روزه کارویتا';
+      } else if (s.package_id) {
+        const pkg = db.getPackageById(s.package_id);
+        name = pkg?.name || 'اشتراک کارویتا';
+      } else {
+        name = 'اشتراک سازمانی کارویتا';
+      }
+    }
+    const isSubActive = s.status === 'active' && new Date(s.expires_at) > new Date();
+    return {
+      id: s.id,
+      name,
+      status: s.status,
+      is_active: isSubActive,
+      expires_at: s.expires_at,
+      source: s.source,
+    };
+  });
+
+  return res.json({ data: result });
+});
+
 router.get('/subscriptions/:id', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const subId = Number(req.params.id);
@@ -859,12 +894,29 @@ router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
 router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
   const usersCount = db.users.filter(u => u.role === 'user').length;
   const companiesCount = db.companies.length;
-  const revenue = db.transactions
-    .filter(t => t.status === 'successful')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const successfulTransactions = db.transactions.filter(t => t.status === 'successful');
+  const revenue = successfulTransactions.reduce((sum, t) => sum + t.amount, 0);
   const now = new Date().toISOString();
   const activeSubs = db.subscriptions.filter(s => s.status === 'active' && s.expires_at > now).length;
   const trials = db.subscriptions.filter(s => s.source === 'trial').length;
+
+  const enrichedTransactions = db.transactions.map(t => {
+    const ord = db.orders.find(o => o.id === t.order_id);
+    let pkgName = 'ماژول‌های ERP سازمانی';
+    if (ord?.module_ids && ord.module_ids.length > 0) {
+      pkgName = `ماژول‌های ERP سازمانی (${ord.module_ids.length} ماژول)`;
+    } else if (ord?.package_id) {
+      const pkg = db.getPackageById(ord.package_id);
+      pkgName = pkg?.name || 'اشتراک کارویتا';
+    }
+    return {
+      ...t,
+      package_name: pkgName,
+      user_count: ord?.user_count || 5,
+      billing_period: ord?.billing_period || 'monthly',
+      order_number: ord?.order_number || '—',
+    };
+  });
 
   return res.json({
     stats: {
@@ -874,6 +926,8 @@ router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, r
       active_subscriptions: activeSubs,
       trials,
     },
+    transactions: enrichedTransactions,
+    orders: db.orders,
   });
 });
 

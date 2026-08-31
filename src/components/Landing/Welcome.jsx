@@ -6,6 +6,7 @@ import {
   Cloud,
   Zap,
   ChevronLeft,
+  LogIn,
   Users,
   Package,
   ShoppingCart,
@@ -62,9 +63,9 @@ export function Welcome() {
               <ChevronLeft size={18} />
             </button>
 
-            <button className="btn-secondary-plans" onClick={() => go('buy')}>
-              <span>مشاهده پلن‌ها</span>
-              <ChevronLeft size={18} />
+            <button className="btn-secondary-plans" onClick={() => go('login')}>
+              <LogIn size={17} style={{ marginLeft: 6 }} />
+              <span>ورود به حساب</span>
             </button>
           </div>
 
