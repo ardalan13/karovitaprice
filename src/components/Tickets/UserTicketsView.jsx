@@ -44,14 +44,32 @@ export function UserTicketsView() {
     loadTickets(tab);
   }, [tab]);
 
+  function normalizeText(str) {
+    if (!str) return '';
+    return str
+      .toString()
+      .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString())
+      .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString())
+      .replace(/^#/, '')
+      .trim()
+      .toLowerCase();
+  }
+
   const filtered = tickets.filter(t => {
     if (!search.trim()) return true;
-    const s = search.trim().toLowerCase();
+    const s = normalizeText(search);
+    const normTicketNum = normalizeText(t.ticket_number);
+    const normId = normalizeText(t.id);
+    const normSubject = (t.subject || '').toLowerCase();
+    const normDept = (t.department_name || '').toLowerCase();
+    const normService = (t.service_name || '').toLowerCase();
+
     return (
-      t.ticket_number.toLowerCase().includes(s) ||
-      t.subject.toLowerCase().includes(s) ||
-      (t.department_name || '').toLowerCase().includes(s) ||
-      (t.service_name || '').toLowerCase().includes(s)
+      normTicketNum.includes(s) ||
+      normId.includes(s) ||
+      normSubject.includes(s) ||
+      normDept.includes(s) ||
+      normService.includes(s)
     );
   });
 
@@ -115,6 +133,17 @@ export function UserTicketsView() {
           )}
         </div>
       </div>
+
+      {search.trim() && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span>
+            نتایج جستجو برای «<strong>{search}</strong>»: {filtered.length.toLocaleString('fa-IR')} تیکت
+          </span>
+          <button type="button" className="link" onClick={() => setSearch('')} style={{ fontSize: '12px' }}>
+            نمایش همه تیکت‌ها
+          </button>
+        </div>
+      )}
 
       {/* Tickets List */}
       {loading ? (

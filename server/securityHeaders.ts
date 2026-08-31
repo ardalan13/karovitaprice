@@ -16,7 +16,7 @@ export function applySecurityHeaders() {
           styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
           imgSrc: ["'self'", "data:", "blob:", "https:"],
-          connectSrc: ["'self'", "https:", "wss:", "ws:", "https://*.sentry.io", "https://*.mediana.ir", "https://api.kavenegar.com"],
+          connectSrc: ["'self'", "https:", "wss:", "ws:", "https://*.mediana.ir", "https://api.kavenegar.com"],
           frameAncestors: ["'self'", "https://*.google.com", "https://*.run.app", "https://ai.studio", "https://aistudio.google.com"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],

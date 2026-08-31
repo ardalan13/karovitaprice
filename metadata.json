@@ -1,6 +1,6 @@
 {
   "name": "کارویتا - Karovita",
-  "description": "سامانه یکپارچه مدیریت کسب‌وکار، پکیج‌ها، ثبت‌نام پیامکی و مدیریت اشتراک کارویتا",
+  "description": "سامانه یکپارچه مدیریت کسب‌وکار، پکیج‌ها، ثبت‌نام پیامکی، مدیریت اشتراک و وب‌اپلیکیشن پیش‌رونده (PWA) کارویتا همراه با اعلان‌های بلادرنگ",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

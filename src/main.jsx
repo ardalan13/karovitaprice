@@ -1,21 +1,33 @@
 import React, { useEffect, useState, useRef, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus, Eye, LogIn, ExternalLink, FileText } from 'lucide-react';
+import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus, Eye, LogIn, ExternalLink, FileText, BellRing, Bug } from 'lucide-react';
 import { api } from './services/api';
-import { initSentry, logErrorToSentry, Sentry } from './services/sentry';
+import { initClientLogger, logError } from './services/logger';
+import { initPerformanceMonitoring } from './services/vitals';
+import { registerServiceWorker } from './services/pwa';
 import { UserTicketsView } from './components/Tickets/UserTicketsView';
 
-// Initialize Sentry immediately at application startup
-initSentry();
+// Initialize Unified Local Error Logger & Web Vitals Monitoring at application startup
+initClientLogger();
+initPerformanceMonitoring({ intervalMs: 30000 });
+
+// Register PWA Service Worker
+registerServiceWorker();
 
 import { AdminTicketsView } from './components/Tickets/AdminTicketsView';
 import { AuditLogsView } from './components/Admin/AuditLogsView';
+import PushNotificationAdminView from './components/Admin/PushNotificationAdminView';
+import { ErrorLogsAdminView } from './components/Admin/ErrorLogsAdminView';
+import OfflineBanner from './components/PWA/OfflineBanner';
+import PwaInstallPrompt from './components/PWA/PwaInstallPrompt';
 import { Welcome } from './components/Landing/Welcome';
 import { PricingConfigurator } from './components/PricingConfigurator/PricingConfigurator';
 import { SubscriptionDetailsModal } from './components/Subscription/SubscriptionDetailsModal';
-import { ERPWorkspaceView } from './components/Subscription/ERPWorkspaceView';
 import { ERPAdminPricingManagement } from './components/Admin/ERPAdminPricingManagement';
+import { AdminUsersManagement } from './components/Admin/AdminUsersManagement';
+import { ThemeToggle } from './components/Common/ThemeToggle';
+import { SalesPerformanceChart } from './components/Dashboard/SalesPerformanceChart';
 import './styles/app.css';
 
 const money = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
@@ -171,7 +183,7 @@ function Auth() {
       <h1>{stage === 'mobile' ? 'ورود یا ثبت‌نام' : 'تأیید شماره همراه'}</h1>
       <p>
         {stage === 'mobile' 
-          ? 'برای ادامه شماره موبایل خود را وارد کنید (مثلاً 09120000000 برای ادمین یا شماره شخصی).' 
+          ? 'برای ادامه شماره موبایل خود را وارد کنید (مثلاً 09111273476 برای ورود مدیریت یا شماره شخصی).' 
           : `کد تأیید ۵ رقمی پیامک‌شده به شماره ${mobile} را وارد کنید.`}
       </p>
       
@@ -1014,6 +1026,8 @@ function Shell({ admin = false, tab, setTab, children, name }) {
     ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
     ['tickets', 'تیکت‌های پشتیبانی', Headphones],
     ['audit', 'لاگ‌های امنیتی (Audit)', ShieldCheck],
+    ['push', 'مدیریت PWA و اعلان‌ها', BellRing],
+    ['errors', 'لاگ‌های خطای محلی (Errors)', Bug],
   ] : userNav;
 
   return (
@@ -1051,7 +1065,10 @@ function Shell({ admin = false, tab, setTab, children, name }) {
             <b>{admin ? 'پنل مدیریت' : 'پنل کاربری'}</b>
             <span>{name || 'کارویتا'}</span>
           </div>
-          <div className="avatar">{(name || 'ا').slice(0, 1)}</div>
+          <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <ThemeToggle />
+            <div className="avatar">{(name || 'ا').slice(0, 1)}</div>
+          </div>
         </header>
         {children}
       </main>
@@ -1064,7 +1081,6 @@ function Dashboard() {
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('overview');
   const [selectedSubForDetails, setSelectedSubForDetails] = useState(null);
-  const [activeWorkspaceSub, setActiveWorkspaceSub] = useState(null);
 
   useEffect(() => {
     api('/dashboard')
@@ -1076,16 +1092,6 @@ function Dashboard() {
   }, []);
 
   if (!d) return <Loader />;
-
-  if (activeWorkspaceSub) {
-    return (
-      <ERPWorkspaceView 
-        subscription={activeWorkspaceSub} 
-        user={d.user} 
-        onBackToDashboard={() => setActiveWorkspaceSub(null)} 
-      />
-    );
-  }
 
   const active = d.subscriptions.filter(x => x.status === 'active' && new Date(x.expires_at) > new Date());
 
@@ -1114,7 +1120,6 @@ function Dashboard() {
             <Subscriptions 
               data={d.subscriptions} 
               onOpenDetails={s => setSelectedSubForDetails(s)}
-              onOpenWorkspace={s => setActiveWorkspaceSub(s)}
             />
           </Panel>
         </>
@@ -1124,7 +1129,6 @@ function Dashboard() {
           <Subscriptions 
             data={d.subscriptions} 
             onOpenDetails={s => setSelectedSubForDetails(s)}
-            onOpenWorkspace={s => setActiveWorkspaceSub(s)}
           />
         </Panel>
       )}
@@ -1157,10 +1161,6 @@ function Dashboard() {
           subscription={selectedSubForDetails}
           user={d.user}
           onClose={() => setSelectedSubForDetails(null)}
-          onOpenWorkspace={(sub) => {
-            setSelectedSubForDetails(null);
-            setActiveWorkspaceSub(sub);
-          }}
         />
       )}
     </Shell>
@@ -1176,7 +1176,7 @@ function getRemainingDaysText(expiresAt) {
   return `${days} روز تا انقضا`;
 }
 
-function Subscriptions({ data, onOpenDetails, onOpenWorkspace }) {
+function Subscriptions({ data, onOpenDetails }) {
   const list = Array.isArray(data) ? data : [];
   return (
     <div className="cards">
@@ -1214,12 +1214,10 @@ function Subscriptions({ data, onOpenDetails, onOpenWorkspace }) {
               <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #edf2f7' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                   <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 700 }}>ماژول‌های فعال ({modulesList.length}):</span>
-                  {x.server_instance?.status === 'online' && (
-                    <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                      <span className="erp-pulse-dot" style={{ width: 6, height: 6 }} />
-                      آنلاین
-                    </span>
-                  )}
+                  <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <span className="erp-pulse-dot" style={{ width: 6, height: 6 }} />
+                    آنلاین
+                  </span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                   {modulesList.slice(0, 5).map((m, i) => (
@@ -1241,7 +1239,7 @@ function Subscriptions({ data, onOpenDetails, onOpenWorkspace }) {
               <button 
                 type="button" 
                 className="btn-sub-enter-portal"
-                onClick={() => onOpenWorkspace ? onOpenWorkspace(x) : null}
+                onClick={() => window.open('https://crm.karovita.ir', '_blank', 'noopener,noreferrer')}
               >
                 <LogIn size={15} />
                 <span>ورود به پنل شخصی ERP</span>
@@ -1273,7 +1271,7 @@ class ErrorBoundary extends React.Component {
   }
   componentDidCatch(error, errorInfo) {
     console.error("UI Error caught by boundary:", error, errorInfo);
-    logErrorToSentry(error, { componentStack: errorInfo?.componentStack });
+    logError(error, { componentStack: errorInfo?.componentStack });
   }
   render() {
     if (this.state.hasError) {
@@ -1305,7 +1303,7 @@ class ErrorBoundary extends React.Component {
               خطایی غیرمنتظره در سامانه رخ داد
             </h2>
             <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.7', marginBottom: '24px' }}>
-              این رخداد به‌صورت خودکار در سامانه مانیتورینگ کارویتا (Sentry) ثبت گردید و تیم فنی در حال بررسی آن است.
+              این رخداد به‌صورت خودکار در سامانه ثبت لاگ محلی کارویتا ثبت گردید و تیم فنی در حال بررسی آن است.
             </p>
             <button 
               style={{
@@ -1337,7 +1335,7 @@ function Admin() {
   const [error, setError] = useState('');
 
   async function load(currentTab = tab) {
-    if (currentTab === 'tickets' || currentTab === 'audit') {
+    if (currentTab === 'tickets' || currentTab === 'audit' || currentTab === 'push' || currentTab === 'errors') {
       setLoading(false);
       setData({});
       return;
@@ -1362,7 +1360,7 @@ function Admin() {
 
   return (
     <Shell admin tab={tab} setTab={setTab} name="مدیر سیستم">
-      {tab !== 'tickets' && tab !== 'audit' && (
+      {tab !== 'tickets' && tab !== 'audit' && tab !== 'push' && tab !== 'errors' && (
         <div className="page-head">
           <div>
             <h1>{adminTitle(tab)}</h1>
@@ -1379,18 +1377,25 @@ function Admin() {
         <AdminTicketsView />
       ) : tab === 'audit' ? (
         <AuditLogsView />
+      ) : tab === 'push' ? (
+        <PushNotificationAdminView token={localStorage.getItem('token')} />
+      ) : tab === 'errors' ? (
+        <ErrorLogsAdminView />
       ) : loading ? (
         <Loader />
       ) : !data ? (
         <Empty />
       ) : tab === 'overview' ? (
-        <div className="stats admin-stats">
-          <Stat icon={Users} n={data.stats?.users || 0} label="کاربران" />
-          <Stat icon={Building2} n={data.stats?.companies || 0} label="شرکت‌ها" />
-          <Stat icon={CreditCard} n={money(data.stats?.revenue || 0)} label="درآمد" />
-          <Stat icon={Package} n={data.stats?.active_subscriptions || 0} label="اشتراک فعال" />
-          <Stat icon={Clock3} n={data.stats?.trials || 0} label="دوره آزمایشی" />
-        </div>
+        <>
+          <div className="stats admin-stats">
+            <Stat icon={Users} n={data.stats?.users || 0} label="کاربران" />
+            <Stat icon={Building2} n={data.stats?.companies || 0} label="شرکت‌ها" />
+            <Stat icon={CreditCard} n={money(data.stats?.revenue || 0)} label="درآمد کل" />
+            <Stat icon={Package} n={data.stats?.active_subscriptions || 0} label="اشتراک فعال" />
+            <Stat icon={Clock3} n={data.stats?.trials || 0} label="دوره آزمایشی" />
+          </div>
+          <SalesPerformanceChart transactions={data.stats?.revenue} title="روند عملکرد فروش و درآمد ماهانه سامانه" />
+        </>
       ) : (
         <AdminContent tab={tab} data={data.data || []} reload={() => load(tab)} />
       )}
@@ -1402,52 +1407,7 @@ function AdminContent({ tab, data, reload }) {
   const list = Array.isArray(data) ? data : [];
 
   if (tab === 'users') {
-    if (!list.length) return <Panel><Empty /></Panel>;
-    return (
-      <Panel>
-        <Table 
-          headers={['شماره موبایل', 'نام و نام خانوادگی', 'نام شرکت', 'حوزه فعالیت', 'نقش و دسترسی', 'تعداد اشتراک']}
-          rows={list.map(x => [
-            x.mobile,
-            [x.first_name, x.last_name].filter(Boolean).join(' ') || '—',
-            x.company_name || '—',
-            x.industry || '—',
-            <select
-              key={x.id}
-              value={x.role || 'user'}
-              style={{
-                padding: '4px 8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: x.role === 'admin' ? '#b91c1c' : '#1e293b',
-                background: x.role === 'admin' ? '#fef2f2' : '#ffffff'
-              }}
-              onChange={async (e) => {
-                const newRole = e.target.value;
-                if (!confirm(`آیا از تغییر نقش کاربر «${x.first_name || x.mobile}» به «${newRole === 'admin' ? 'مدیر ارشد' : 'کاربر عادی'}» اطمینان دارید؟ (این اقدام در لاگ‌های حسابرسی ثبت خواهد شد)`)) {
-                  return;
-                }
-                try {
-                  await api(`/admin/users/${x.id}/role`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ role: newRole })
-                  });
-                  reload();
-                } catch (err) {
-                  alert(err.message || 'خطا در تغییر دسترسی کاربر');
-                }
-              }}
-            >
-              <option value="user">کاربر عادی (User)</option>
-              <option value="admin">مدیر سیستم (Admin)</option>
-            </select>,
-            (x.subscriptions_count || 0) + ' اشتراک'
-          ])} 
-        />
-      </Panel>
-    );
+    return <AdminUsersManagement data={data} reload={reload} />;
   }
   if (tab === 'packages') {
     return <ERPAdminPricingManagement />;
@@ -1590,6 +1550,8 @@ function adminTitle(t) {
     subscriptions: 'اشتراک‌ها و دوره‌های آزمایشی',
     tickets: 'تیکت‌های پشتیبانی',
     audit: 'لاگ‌های امنیتی و حسابرسی سامانه (Audit Logs)',
+    push: 'مدیریت PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)',
+    errors: 'مدیریت و ردگیری لاگ‌های خطای محلی سامانه (Error Logs)',
   })[t] || '';
 }
 
@@ -1663,6 +1625,8 @@ function WorkspaceRoute() {
 function App() {
   return (
     <BrowserRouter>
+      <OfflineBanner />
+      <PwaInstallPrompt />
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/auth" element={<Auth />} />

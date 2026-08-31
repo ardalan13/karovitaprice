@@ -3,12 +3,12 @@ import path from 'path';
 import cors from 'cors';
 import { createServer as createViteServer } from 'vite';
 import apiRoutes from './server/routes';
-import { initServerSentry, logServerError } from './server/sentry';
+import { initServerLogger, logServerError } from './server/errorLogger';
 import { applySecurityHeaders } from './server/securityHeaders';
 import { globalApiLimiter } from './server/rateLimiters';
 
 async function startServer() {
-  initServerSentry();
+  initServerLogger();
 
   const app = express();
   const PORT = 3000;

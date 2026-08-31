@@ -1,43 +1,27 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   X, 
-  ExternalLink, 
   LogIn, 
   CheckCircle2, 
   Clock, 
   Users, 
-  ShieldCheck, 
-  Database, 
-  Server, 
-  FileText, 
   Layers, 
-  Calendar, 
   CreditCard, 
   Sparkles, 
   ArrowLeft,
-  Copy,
-  Check,
-  AlertCircle
+  AlertCircle,
+  Activity
 } from 'lucide-react';
 
-export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWorkspace }) {
-  const [copied, setCopied] = useState(false);
+const ERP_PORTAL_URL = 'https://crm.karovita.ir';
 
+export function SubscriptionDetailsModal({ subscription, user, onClose }) {
   if (!subscription) return null;
 
   const isExpired = new Date(subscription.expires_at) < new Date();
   const isTrial = subscription.source === 'trial';
   const modules = subscription.modules_detail || [];
   const moduleNames = subscription.module_names || [];
-  const instance = subscription.server_instance || {
-    subdomain: `app-${user?.id || 1}.karvita.ir`,
-    status: isExpired ? 'paused' : 'online',
-    ssl: true,
-    database: 'PostgreSQL 16 Enterprise (اختصاصی)',
-    backup_status: 'روزانه خودکار (ساعت ۰۲:۰۰ بامداد)',
-    datacenter: 'دیتاسنتر ابری تهران - برج میلاد',
-    dedicated_ip: '185.143.232.45'
-  };
 
   const remainingDays = getRemainingDays(subscription.expires_at);
 
@@ -62,18 +46,8 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   }
 
-  const handleCopySubdomain = () => {
-    navigator.clipboard.writeText(`https://${instance.subdomain}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDownloadInvoice = () => {
-    if (subscription.order_id) {
-      window.open(`/api/invoices/${subscription.id}`, '_blank');
-    } else {
-      alert('فاکتور تنها برای سفارش‌های پرداختی رسمی صادر می‌شود.');
-    }
+  const handleOpenErpPortal = () => {
+    window.open(ERP_PORTAL_URL, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -87,7 +61,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
                 {isTrial ? '⭐️ دوره آزمایشی ۵ روزه' : isExpired ? '⚠️ منقضی شده' : '✓ اشتراک فعال سازمانی'}
               </span>
               <span className="erp-period-chip">
-                {subscription.billing_period === 'yearly' ? 'دوره سالانه (تخفیف ویژه)' : 'دوره ماهانه'}
+                {subscription.billing_period === 'yearly' ? 'دوره سالانه' : 'دوره ماهانه'}
               </span>
               {remainingDays > 0 && !isExpired && (
                 <span className="erp-remaining-chip">
@@ -112,31 +86,20 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
                 <Sparkles size={24} />
               </div>
               <div>
-                <h3 className="erp-launch-banner-title">ورود به پنل شخصی ERP سازمانی</h3>
+                <h3 className="erp-launch-banner-title">ورود به پنل شخصی ERP</h3>
                 <p className="erp-launch-banner-desc">
-                  زیرساخت اختصاصی شما آماده استفاده است. می‌توانید مستقیماً وارد محیط نرم‌افزار شوید و با ماژول‌های فعال خود کار کنید.
+                  جهت دسترسی به سیستم، مدیریت اسناد و استفاده از ماژول‌های فعال، می‌توانید مستقیماً وارد پرتال سامانه شوید.
                 </p>
-                <div className="erp-subdomain-row">
-                  <span className="erp-subdomain-label">آدرس دسترسی اختصاصی:</span>
-                  <code className="erp-subdomain-url">https://{instance.subdomain}</code>
-                  <button type="button" className="erp-copy-btn" onClick={handleCopySubdomain}>
-                    {copied ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
-                    <span>{copied ? 'کپی شد' : 'کپی لینک'}</span>
-                  </button>
-                </div>
               </div>
             </div>
             <div className="erp-launch-actions">
               <button 
                 type="button" 
                 className="erp-btn-enter-portal"
-                onClick={() => {
-                  onClose();
-                  onOpenWorkspace(subscription);
-                }}
+                onClick={handleOpenErpPortal}
               >
                 <LogIn size={18} />
-                <span>ورود به حساب کاربری ERP</span>
+                <span>ورود به پنل شخصی ERP</span>
                 <ArrowLeft size={16} />
               </button>
             </div>
@@ -182,11 +145,11 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
               </div>
             </div>
 
-            {/* Cloud Infrastructure & System Status */}
+            {/* Subscription Status & Limits */}
             <div className="erp-sub-info-card">
               <div className="erp-info-card-header">
-                <Server size={18} className="erp-card-icon" />
-                <h4>مشخصات سرور و زیرساخت ابری</h4>
+                <Activity size={18} className="erp-card-icon" />
+                <h4>مشخصات و وضعیت اشتراک</h4>
               </div>
               <div className="erp-info-list">
                 <div className="erp-info-item">
@@ -200,27 +163,20 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
                   <span className="erp-item-label">وضعیت سرویس:</span>
                   <span className="erp-item-val erp-val-online">
                     <span className="erp-pulse-dot" />
-                    {instance.status === 'online' ? 'آنلاین و پایدار' : 'متوقف / در انتظار تمدید'}
+                    {isExpired ? 'منقضی شده / نیازمند تمدید' : 'فعال و در دسترس'}
                   </span>
                 </div>
                 <div className="erp-info-item">
-                  <span className="erp-item-label">دیتابیس اختصاصی:</span>
-                  <span className="erp-item-val">{instance.database}</span>
-                </div>
-                <div className="erp-info-item">
-                  <span className="erp-item-label">پروتکل امنیتی:</span>
+                  <span className="erp-item-label">دوره صورت‌حساب:</span>
                   <span className="erp-item-val">
-                    <ShieldCheck size={14} color="#16a34a" style={{ display: 'inline', marginLeft: 4 }} />
-                    رمزنگاری ۲۵۶ بیتی SSL/TLS
+                    {subscription.billing_period === 'yearly' ? 'سالانه' : 'ماهانه'}
                   </span>
                 </div>
                 <div className="erp-info-item">
-                  <span className="erp-item-label">پشتیبان‌گیری (Backup):</span>
-                  <span className="erp-item-val">{instance.backup_status}</span>
-                </div>
-                <div className="erp-info-item">
-                  <span className="erp-item-label">موقعیت دیتاسنتر:</span>
-                  <span className="erp-item-val">{instance.datacenter}</span>
+                  <span className="erp-item-label">نوع طرح:</span>
+                  <span className="erp-item-val font-bold">
+                    {subscription.package_name || 'طرح استاندارد سازمانی'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -236,7 +192,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
                 </h4>
               </div>
               <span className="erp-modules-count-badge">
-                {modules.length || moduleNames.length} ماژول نصب و فعال‌شده
+                {modules.length || moduleNames.length} ماژول فعال
               </span>
             </div>
 
@@ -252,9 +208,6 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
                     </div>
                     <div className="erp-sub-mod-meta">
                       <span className="erp-sub-mod-active-tag">فعال در پنل</span>
-                      {m.price > 0 && (
-                        <span className="erp-sub-mod-price">{Number(m.price).toLocaleString('fa-IR')} ت/ماه</span>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -293,10 +246,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onOpenWo
             <button 
               type="button" 
               className="erp-btn-modal-primary"
-              onClick={() => {
-                onClose();
-                onOpenWorkspace(subscription);
-              }}
+              onClick={handleOpenErpPortal}
             >
               <LogIn size={18} />
               <span>ورود به پنل شخصی ERP</span>

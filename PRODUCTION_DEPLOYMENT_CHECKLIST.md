@@ -107,7 +107,7 @@
   add_header X-XSS-Protection "1; mode=block" always;
   add_header Referrer-Policy "strict-origin-when-cross-origin" always;
   add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://browser.sentry-cdn.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.sentry.io;" always;
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self';" always;
   ```
 
 ### ۴.۲ محدودسازی نرخ درخواست‌ها در سطح سرور (Nginx Rate Limiting)
@@ -152,9 +152,9 @@
   ```
 - [ ] نصب و فعال‌سازی **Fail2ban** جهت بن کردن خودکار IPهای مشکوک بعد از ۳ تلاش ناموفق.
 
-### ۴.۵ پایش لحظه‌ای و ثبت وقایع (Monitoring, Sentry & Alerting)
-- [ ] اتصال گزارش‌گیری خطاهای فرانت‌اند و بک‌اند به سامانه پایش پایداری Sentry (`SENTRY_DSN` و `VITE_SENTRY_DSN`).
-- [ ] اتصال لاگ‌های سیستمی و Audit Logs به ابزار لاگ سرور متمرکز (مانند Grafana Loki / ELK / Promtail).
+### ۴.۵ پایش لحظه‌ای، ثبت وقایع و لاگ‌های محلی (Local Error Logging & Audit)
+- [ ] ذخیره و مدیریت خودکار خطاهای فرانت‌اند و بک‌اند در فایل‌های محلی (`data/error_logs.json` و `data/app_errors.log`).
+- [ ] بازبینی لاگ‌های خطای نرم‌افزار و Audit Logs از طریق پنل مدیریت یکپارچه کارویتا (`/admin/error-logs` و `/admin/audit-logs`).
 - [ ] فعال‌سازی هشدارهای تلگرام/ایمیل/پیامک برای قطعی سرویس (Uptime Robot / Health Check endpoint `/api/health`).
 
 ---

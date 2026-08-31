@@ -1,10 +1,21 @@
 @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
 
-:root {
+:root, [data-theme="light"] {
   font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   direction: rtl;
-  color: #14213d;
-  background: #f6f8fc;
+  color-scheme: light;
+  
+  --bg-app: #f6f8fc;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #ffffff;
+  --bg-surface-subtle: #f8fafc;
+  --bg-input: #ffffff;
+  --text-main: #0f172a;
+  --text-body: #14213d;
+  --text-secondary: #475569;
+  --text-muted: #6f7b8f;
+  --border-color: #e5eaf1;
+  
   --blue-50: #f0f7ff;
   --blue-100: #dceeff;
   --blue-200: #b9ddff;
@@ -21,6 +32,50 @@
   --orange: #ff6542;
   --green: #19a974;
   --shadow: 0 12px 34px rgba(13, 43, 82, 0.08);
+  
+  --stat-bg: #ffffff;
+  --panel-bg: #ffffff;
+  --aside-bg: #ffffff;
+  --topbar-bg: #ffffff;
+  --card-hover-shadow: 0 14px 30px rgba(13, 43, 82, 0.09);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  
+  --bg-app: #0b1326;
+  --bg-surface: #121e36;
+  --bg-surface-elevated: #182744;
+  --bg-surface-subtle: #0f192f;
+  --bg-input: #101a30;
+  --text-main: #f8fafc;
+  --text-body: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #7d8ea3;
+  --border-color: #1e2e4a;
+  
+  --blue-50: #132442;
+  --blue-100: #193660;
+  --blue-200: #204b82;
+  --blue-300: #2b64a8;
+  --blue-400: #3880d4;
+  --blue-500: #178af5;
+  --blue-600: #0870d1;
+  --blue-700: #38bdf8;
+  --blue-800: #7dd3fc;
+  --blue-900: #bae6fd;
+  --navy: #f1f5f9;
+  --line: #1e2e4a;
+  --muted: #8394aa;
+  --orange: #f97316;
+  --green: #10b981;
+  --shadow: 0 12px 34px rgba(0, 0, 0, 0.4);
+  
+  --stat-bg: #121e36;
+  --panel-bg: #121e36;
+  --aside-bg: #0d162a;
+  --topbar-bg: #0d162a;
+  --card-hover-shadow: 0 14px 30px rgba(0, 0, 0, 0.5);
 }
 
 *, *::before, *::after {
@@ -3979,6 +4034,450 @@ button:disabled {
 .spin-animate {
   animation: spin 0.85s linear infinite;
 }
+
+/* ========================================================= */
+/* THEME TOGGLE BUTTON COMPONENT                             */
+/* ========================================================= */
+.theme-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 14px !important;
+  background: var(--bg-surface-subtle) !important;
+  color: var(--text-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02) !important;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--blue-50) !important;
+  color: var(--blue-700) !important;
+  border-color: var(--blue-300) !important;
+  transform: translateY(-1px);
+}
+
+.theme-toggle-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-label {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ========================================================= */
+/* SALES PERFORMANCE RECHARTS WIDGET                         */
+/* ========================================================= */
+.sales-performance-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 20px;
+  box-shadow: var(--shadow);
+  direction: rtl;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.sales-chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sales-chart-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sales-chart-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--blue-50);
+  color: var(--blue-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sales-chart-title {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.sales-chart-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sales-chart-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface-subtle);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.sales-toggle-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+  border: none !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+.sales-toggle-btn:hover {
+  color: var(--text-main) !important;
+}
+
+.sales-toggle-btn.active {
+  background: var(--bg-surface) !important;
+  color: var(--blue-600) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+.sales-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .sales-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 540px) {
+  .sales-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sales-kpi-box {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.sales-kpi-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+.sales-kpi-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sales-kpi-icon-wrap.green { background: #dcfce7; color: #16a34a; }
+.sales-kpi-icon-wrap.blue { background: #e0f2fe; color: #0284c7; }
+.sales-kpi-icon-wrap.orange { background: #ffedd5; color: #ea580c; }
+.sales-kpi-icon-wrap.purple { background: #f3e8ff; color: #9333ea; }
+
+[data-theme="dark"] .sales-kpi-icon-wrap.green { background: rgba(22, 163, 74, 0.2); color: #4ade80; }
+[data-theme="dark"] .sales-kpi-icon-wrap.blue { background: rgba(2, 132, 199, 0.2); color: #38bdf8; }
+[data-theme="dark"] .sales-kpi-icon-wrap.orange { background: rgba(234, 88, 12, 0.2); color: #fb923c; }
+[data-theme="dark"] .sales-kpi-icon-wrap.purple { background: rgba(147, 51, 234, 0.2); color: #c084fc; }
+
+.sales-kpi-label {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.sales-kpi-value {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.sales-chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.sales-growth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .sales-growth-pill {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.sales-realtime-tag {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* ========================================================= */
+/* GENERAL THEME AWARE COMPONENT OVERRIDES                  */
+/* ========================================================= */
+body {
+  background-color: var(--bg-app);
+  color: var(--text-body);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.app-shell aside {
+  background: var(--aside-bg);
+  border-left-color: var(--line);
+}
+
+.app-shell nav button {
+  color: var(--text-secondary);
+}
+
+.app-shell nav button:hover {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.app-shell nav button.active {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.topbar {
+  background: var(--topbar-bg);
+  border-bottom-color: var(--line);
+}
+
+.topbar b {
+  color: var(--text-main);
+}
+
+.stat {
+  background: var(--stat-bg);
+  border-color: var(--line);
+}
+
+.stat b {
+  color: var(--text-main);
+}
+
+.panel {
+  background: var(--panel-bg);
+  border-color: var(--line);
+}
+
+.sub {
+  background: var(--bg-surface);
+  border-color: var(--line);
+}
+
+.sub h3 {
+  color: var(--text-main);
+}
+
+.form-card,
+.modal-card {
+  background: var(--bg-surface);
+  border-color: var(--line);
+}
+
+.modal-head h3,
+.page-head h1 {
+  color: var(--text-main);
+}
+
+.ticket-card {
+  background: var(--bg-surface);
+  border-color: var(--line);
+}
+
+.ticket-card:hover {
+  border-color: var(--blue-400);
+}
+
+.ticket-subject {
+  color: var(--text-main);
+}
+
+.ticket-detail-view {
+  background: var(--bg-surface);
+  border-color: var(--line);
+}
+
+.ticket-detail-head {
+  background: var(--bg-surface-subtle);
+  border-bottom-color: var(--line);
+}
+
+.ticket-chat-body {
+  background: var(--bg-surface-subtle);
+}
+
+.chat-msg-row.user .chat-msg-bubble {
+  background: var(--bg-surface);
+  color: var(--text-body);
+  border-color: var(--line);
+}
+
+.chat-msg-row.support .chat-msg-bubble {
+  background: var(--blue-50);
+  color: var(--text-main);
+  border-color: var(--blue-200);
+}
+
+.chat-msg-sender {
+  color: var(--text-main);
+}
+
+.ticket-search-box {
+  background: var(--bg-input);
+  border-color: var(--line);
+}
+
+.ticket-search-box input {
+  color: var(--text-main);
+}
+
+.ticket-filter-select {
+  background: var(--bg-input);
+  border-color: var(--line);
+  color: var(--text-main);
+}
+
+.ticket-tab-btn {
+  background: var(--bg-surface-subtle);
+  border-color: var(--line);
+  color: var(--text-secondary);
+}
+
+.ticket-tab-btn:hover {
+  background: var(--blue-50);
+  color: var(--blue-700);
+}
+
+.ticket-tab-btn.active {
+  background: var(--blue-600);
+  color: #ffffff;
+  border-color: var(--blue-600);
+}
+
+.data-table-head {
+  background: var(--blue-50);
+  color: var(--text-main);
+}
+
+.data-table > div {
+  border-bottom-color: var(--line);
+  color: var(--text-body);
+}
+
+input, select, textarea {
+  background: var(--bg-input);
+  border-color: var(--line);
+  color: var(--text-main);
+}
+
+/* Dark mode specific fine-tunings */
+[data-theme="dark"] .plan-grid article,
+[data-theme="dark"] .admin-card,
+[data-theme="dark"] .erp-step-card,
+[data-theme="dark"] .erp-summary-card,
+[data-theme="dark"] .erp-module-card,
+[data-theme="dark"] .erp-admin-subnav,
+[data-theme="dark"] .erp-admin-preset-card,
+[data-theme="dark"] .erp-admin-table-wrap,
+[data-theme="dark"] .erp-admin-settings-card,
+[data-theme="dark"] .erp-modal-box,
+[data-theme="dark"] .erp-admin-coupon-card,
+[data-theme="dark"] .steps {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  color: var(--text-body);
+}
+
+[data-theme="dark"] .erp-admin-table th {
+  background: var(--bg-surface-subtle);
+  border-bottom-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .erp-admin-table td {
+  border-bottom-color: var(--border-color);
+  color: var(--text-body);
+}
+
+[data-theme="dark"] .erp-admin-table tr:hover td {
+  background: var(--bg-surface-subtle);
+}
+
+[data-theme="dark"] .outline,
+[data-theme="dark"] .btn-secondary {
+  background: var(--bg-surface) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] .outline:hover:not(:disabled),
+[data-theme="dark"] .btn-secondary:hover:not(:disabled) {
+  background: var(--bg-surface-subtle) !important;
+  border-color: var(--blue-400) !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .plans-configurator-page {
+  background: var(--bg-app) !important;
+}
+
 
 
 

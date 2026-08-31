@@ -1,0 +1,593 @@
+{
+  "nextUserId": 2,
+  "nextCompanyId": 1,
+  "nextPackageId": 5,
+  "nextOrderId": 1,
+  "nextTransactionId": 1,
+  "nextSubscriptionId": 1,
+  "nextOtpId": 1,
+  "nextDepartmentId": 5,
+  "nextTicketId": 1001,
+  "nextMessageId": 2001,
+  "nextAttachmentId": 3001,
+  "nextHistoryId": 4001,
+  "nextAuditLogId": 5003,
+  "nextPushSubId": 1,
+  "users": [
+    {
+      "id": 1,
+      "mobile": "09111273476",
+      "first_name": "اردلان",
+      "last_name": "داوودی",
+      "email": "ardalan.davodi@gmail.com",
+      "job_title": "مدیر ارشد و مالک سیستم",
+      "role": "admin",
+      "onboarding_step": 3,
+      "onboarding_completed_at": "2026-08-30T13:31:55.065Z",
+      "mobile_verified_at": "2026-08-31T10:06:39.778Z",
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    }
+  ],
+  "companies": [],
+  "packages": [
+    {
+      "id": 1,
+      "name": "آزمایشی ۵ روزه کارویتا",
+      "slug": "trial",
+      "description": "دسترسی آزمایشی برای بررسی امکانات",
+      "price": 0,
+      "duration_days": 5,
+      "usage_limit": null,
+      "is_featured": false,
+      "is_active": true,
+      "features": [
+        "تمام امکانات پایه",
+        "بدون نیاز به پرداخت",
+        "فعال‌سازی فوری"
+      ],
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 2,
+      "name": "تیک‌آف کارویتا",
+      "slug": "takeoff",
+      "description": "مناسب تیم‌های کوچک و استارتاپ‌ها",
+      "price": 799000,
+      "duration_days": 30,
+      "usage_limit": 1000,
+      "is_featured": true,
+      "is_active": true,
+      "features": [
+        "مدیریت مشتریان",
+        "مدیریت فروش",
+        "ذخیره‌سازی ۷ گیگابایت"
+      ],
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 3,
+      "name": "پرواز کارویتا",
+      "slug": "flight",
+      "description": "مناسب کسب‌وکارهای در حال رشد",
+      "price": 1099000,
+      "duration_days": 30,
+      "usage_limit": 3000,
+      "is_featured": false,
+      "is_active": true,
+      "features": [
+        "اتوماسیون فروش",
+        "گزارش‌های پیشرفته",
+        "ذخیره‌سازی ۱۵ گیگابایت"
+      ],
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 4,
+      "name": "صعود کارویتا",
+      "slug": "climb",
+      "description": "مناسب سازمان‌ها و شرکت‌های بزرگ",
+      "price": 4899000,
+      "duration_days": 365,
+      "usage_limit": null,
+      "is_featured": false,
+      "is_active": true,
+      "features": [
+        "تمام ماژول‌ها",
+        "کاربر نامحدود",
+        "پشتیبانی اختصاصی"
+      ],
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    }
+  ],
+  "orders": [],
+  "transactions": [],
+  "subscriptions": [],
+  "otpCodes": [],
+  "departments": [
+    {
+      "id": 1,
+      "name": "فروش",
+      "icon": "ShoppingBag",
+      "status": "active",
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 2,
+      "name": "پشتیبانی فنی",
+      "icon": "Wrench",
+      "status": "active",
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 3,
+      "name": "مالی",
+      "icon": "CreditCard",
+      "status": "active",
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    },
+    {
+      "id": 4,
+      "name": "سایر موارد",
+      "icon": "HelpCircle",
+      "status": "active",
+      "created_at": "2026-08-30T13:31:55.066Z",
+      "updated_at": "2026-08-30T13:31:55.066Z"
+    }
+  ],
+  "supportStaff": [
+    {
+      "id": 1,
+      "name": "علی رضایی",
+      "department": "پشتیبانی فنی",
+      "role": "کارشناس ارشد فنی"
+    },
+    {
+      "id": 2,
+      "name": "سارا احمدی",
+      "department": "مالی",
+      "role": "کارشناس مالی"
+    },
+    {
+      "id": 3,
+      "name": "محمد کریمی",
+      "department": "فروش",
+      "role": "کارشناس فروش"
+    },
+    {
+      "id": 4,
+      "name": "رضا حسینی",
+      "department": "سایر موارد",
+      "role": "مدیر ارشد پشتیبانی"
+    }
+  ],
+  "tickets": [],
+  "messages": [],
+  "attachments": [],
+  "ticketHistories": [],
+  "auditLogs": [
+    {
+      "id": 5001,
+      "timestamp": "2026-08-29T09:25:55.831Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی (مدیر ارشد)",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "بارگذاری و پیکربندی اولیه ماژول‌ها و تب‌های پیش‌فرض ERP کارویتا",
+      "resource_type": "CONFIG_SETTINGS",
+      "resource_id": "SYSTEM_BOOTSTRAP",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Karovita-Core/2.4",
+      "status": "SUCCESS",
+      "details": {
+        "modules_count": 24,
+        "presets_count": 6,
+        "version": "2.4.0"
+      }
+    },
+    {
+      "id": 5002,
+      "timestamp": "2026-08-30T09:25:55.831Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی (مدیر ارشد)",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "PRIVILEGE_ESCALATION",
+      "action_description": "تعیین شماره 09111273476 به عنوان مالک و مدیر ارشد پروژه (Super Admin)",
+      "resource_type": "USER",
+      "resource_id": 1,
+      "ip_address": "185.143.232.1",
+      "user_agent": "Karovita-Core/2.4",
+      "status": "SUCCESS",
+      "details": {
+        "role_granted": "admin",
+        "assigned_by": "SUPER_ADMIN_OWNER"
+      }
+    }
+  ],
+  "pushSubscriptions": [],
+  "erpModules": [
+    {
+      "id": "crm",
+      "title": "مدیریت مشتریان (CRM)",
+      "price": 790000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "service",
+        "commerce"
+      ]
+    },
+    {
+      "id": "restaurant",
+      "title": "مدیریت رستوران",
+      "price": 850000,
+      "dependencies": [
+        "pos"
+      ],
+      "industries": [
+        "service"
+      ]
+    },
+    {
+      "id": "timesheet",
+      "title": "تایم‌شیت",
+      "price": 350000,
+      "dependencies": [
+        "project"
+      ],
+      "industries": [
+        "full_integration",
+        "software",
+        "service"
+      ]
+    },
+    {
+      "id": "calendar",
+      "title": "تقویم",
+      "price": 250000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "service"
+      ]
+    },
+    {
+      "id": "documents",
+      "title": "اسناد",
+      "price": 500000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "commerce",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "tax",
+      "title": "سامانه مودیان",
+      "price": 950000,
+      "dependencies": [
+        "accounting"
+      ],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce"
+      ]
+    },
+    {
+      "id": "inventory",
+      "title": "انبار",
+      "price": 890000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce",
+        "store"
+      ]
+    },
+    {
+      "id": "hr",
+      "title": "کارمندان",
+      "price": 600000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "service"
+      ]
+    },
+    {
+      "id": "payroll",
+      "title": "حقوق و دستمزد",
+      "price": 850000,
+      "dependencies": [
+        "hr",
+        "attendance"
+      ],
+      "industries": [
+        "full_integration",
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "attendance",
+      "title": "حضور و غیاب",
+      "price": 450000,
+      "dependencies": [
+        "hr"
+      ],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "service"
+      ]
+    },
+    {
+      "id": "appraisal",
+      "title": "ارزیابی عملکرد",
+      "price": 600000,
+      "dependencies": [
+        "hr"
+      ],
+      "industries": [
+        "full_integration",
+        "service"
+      ]
+    },
+    {
+      "id": "recruitment",
+      "title": "استخدام",
+      "price": 550000,
+      "dependencies": [
+        "hr"
+      ],
+      "industries": [
+        "full_integration",
+        "service",
+        "software"
+      ]
+    },
+    {
+      "id": "accounting",
+      "title": "حسابداری",
+      "price": 990000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce"
+      ]
+    },
+    {
+      "id": "project",
+      "title": "پروژه‌ها",
+      "price": 650000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "software",
+        "service"
+      ]
+    },
+    {
+      "id": "purchase",
+      "title": "خرید و تدارکات",
+      "price": 750000,
+      "dependencies": [
+        "inventory"
+      ],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce"
+      ]
+    },
+    {
+      "id": "sale",
+      "title": "فروش و پیش‌فاکتور",
+      "price": 890000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce",
+        "store"
+      ]
+    },
+    {
+      "id": "pos",
+      "title": "پایانه فروش (POS)",
+      "price": 750000,
+      "dependencies": [
+        "inventory"
+      ],
+      "industries": [
+        "store",
+        "service"
+      ]
+    },
+    {
+      "id": "mrp",
+      "title": "برنامه‌ریزی تولید (MRP)",
+      "price": 1200000,
+      "dependencies": [
+        "inventory",
+        "purchase"
+      ],
+      "industries": [
+        "manufacturing"
+      ]
+    },
+    {
+      "id": "helpdesk",
+      "title": "میز خدمت (Helpdesk)",
+      "price": 550000,
+      "dependencies": [],
+      "industries": [
+        "software",
+        "service"
+      ]
+    },
+    {
+      "id": "barcode",
+      "title": "بارکد و ردیابی",
+      "price": 450000,
+      "dependencies": [
+        "inventory"
+      ],
+      "industries": [
+        "manufacturing",
+        "commerce",
+        "store"
+      ]
+    },
+    {
+      "id": "knowledge",
+      "title": "پایگاه دانش",
+      "price": 300000,
+      "dependencies": [],
+      "industries": [
+        "software",
+        "service"
+      ]
+    },
+    {
+      "id": "survey",
+      "title": "نظرسنجی و فرم‌ساز",
+      "price": 400000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "service"
+      ]
+    },
+    {
+      "id": "approvals",
+      "title": "فرایند تاییدات (Approvals)",
+      "price": 600000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "manufacturing",
+        "commerce"
+      ]
+    },
+    {
+      "id": "im_livechat",
+      "title": "گفتگوی آنلاین",
+      "price": 400000,
+      "dependencies": [],
+      "industries": [
+        "full_integration",
+        "software",
+        "store"
+      ]
+    }
+  ],
+  "industryPresets": [
+    {
+      "id": "full_integration",
+      "title": "یکپارچگی کامل",
+      "default_modules": [
+        "crm",
+        "sale",
+        "accounting",
+        "inventory"
+      ]
+    },
+    {
+      "id": "service",
+      "title": "خدماتی",
+      "default_modules": [
+        "crm",
+        "project",
+        "helpdesk",
+        "calendar"
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "title": "تولیدی",
+      "default_modules": [
+        "accounting",
+        "inventory",
+        "purchase",
+        "mrp",
+        "hr"
+      ]
+    },
+    {
+      "id": "software",
+      "title": "نرم‌افزار",
+      "default_modules": [
+        "project",
+        "timesheet",
+        "helpdesk",
+        "knowledge",
+        "im_livechat"
+      ]
+    },
+    {
+      "id": "commerce",
+      "title": "بازرگانی",
+      "default_modules": [
+        "crm",
+        "sale",
+        "inventory",
+        "purchase",
+        "accounting",
+        "documents"
+      ]
+    },
+    {
+      "id": "store",
+      "title": "فروشگاهی",
+      "default_modules": [
+        "pos",
+        "sale",
+        "inventory",
+        "barcode",
+        "crm"
+      ]
+    }
+  ],
+  "coupons": [
+    {
+      "code": "KAROVITA20",
+      "discount_type": "percent",
+      "discount_value": 20,
+      "is_active": true
+    },
+    {
+      "code": "WELCOME",
+      "discount_type": "fixed",
+      "discount_value": 500000,
+      "min_order_amount": 2000000,
+      "is_active": true
+    },
+    {
+      "code": "OFF10",
+      "discount_type": "percent",
+      "discount_value": 10,
+      "is_active": true
+    }
+  ],
+  "configuratorSettings": {
+    "base_user_limit": 5,
+    "extra_user_price": 200000,
+    "yearly_multiplier": 10,
+    "step_users_enabled": true,
+    "step_modules_enabled": true
+  }
+}

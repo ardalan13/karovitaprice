@@ -9,7 +9,9 @@ import {
   Calendar, 
   Filter, 
   RotateCw, 
-  Building2 
+  Building2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { TicketTabs } from './TicketTabs';
@@ -28,16 +30,19 @@ export function AdminTicketsView() {
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   const [selectedTicketId, setSelectedTicketId] = useState(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
-  function loadTickets(currentTab = tab) {
+  function loadTickets(currentTab = tab, currentSearch = search) {
     setLoading(true);
     setError('');
     let query = `?status=${currentTab}`;
     if (departmentFilter) query += `&department_id=${departmentFilter}`;
     if (staffFilter) query += `&assigned_to=${staffFilter}`;
-    if (search.trim()) query += `&search=${encodeURIComponent(search.trim())}`;
+    if (currentSearch.trim()) query += `&search=${encodeURIComponent(currentSearch.trim())}`;
 
     api(`/admin/tickets${query}`)
       .then(res => {
@@ -54,12 +59,31 @@ export function AdminTicketsView() {
   }, []);
 
   useEffect(() => {
-    loadTickets(tab);
+    loadTickets(tab, search);
   }, [tab, departmentFilter, staffFilter]);
+
+  function handleSearchChange(e) {
+    const val = e.target.value;
+    setSearch(val);
+  }
 
   function handleSearchSubmit(e) {
     e.preventDefault();
-    loadTickets(tab);
+    loadTickets(tab, search);
+  }
+
+  function handleClearAllTickets() {
+    setClearing(true);
+    setError('');
+    api('/admin/tickets/clear-all', { method: 'DELETE' })
+      .then(res => {
+        setSuccessMsg(res.message || 'تمام تیکت‌های تستی با موفقیت حذف شدند.');
+        setShowClearConfirm(false);
+        loadTickets(tab, '');
+        setSearch('');
+      })
+      .catch(err => setError(err.message || 'خطا در حذف تیکت‌های تستی.'))
+      .finally(() => setClearing(false));
   }
 
   return (
@@ -69,18 +93,36 @@ export function AdminTicketsView() {
           <h1>مدیریت تیکت‌های پشتیبانی</h1>
           <p>مشاهده، بررسی، پاسخگویی و تخصیص تیکت‌های کاربران به کارشناسان دپارتمان‌ها</p>
         </div>
-        <button 
-          type="button" 
-          className="btn-secondary outline" 
-          onClick={() => loadTickets(tab)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-        >
-          <RotateCw size={17} />
-          <span>بروزرسانی</span>
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button 
+            type="button" 
+            className="btn-danger-outline" 
+            onClick={() => setShowClearConfirm(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 16px', borderRadius: 10, fontSize: 13, fontWeight: 700 }}
+            title="حذف و پاک‌سازی تمام تیکت‌های تستی ثبت‌شده"
+          >
+            <Trash2 size={16} />
+            <span>پاک‌سازی تیکت‌های تستی</span>
+          </button>
+          <button 
+            type="button" 
+            className="btn-secondary outline" 
+            onClick={() => loadTickets(tab, search)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+          >
+            <RotateCw size={17} />
+            <span>بروزرسانی</span>
+          </button>
+        </div>
       </div>
 
       {error && <div className="alert error">{error}</div>}
+      {successMsg && (
+        <div className="alert success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>{successMsg}</span>
+          <button type="button" className="link" onClick={() => setSuccessMsg('')} style={{ fontSize: 12 }}>بستن</button>
+        </div>
+      )}
 
       {/* Tabs */}
       <TicketTabs 
@@ -96,15 +138,15 @@ export function AdminTicketsView() {
           <Search size={18} color="var(--muted)" />
           <input 
             type="text" 
-            placeholder="جستجو در موضوع، شماره تیکت، نام کاربر، شماره تماس..." 
+            placeholder="جستجو در موضوع، شماره تیکت (#58900157)، نام کاربر، شماره تماس..." 
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={handleSearchChange}
           />
           {search && (
             <button 
               type="button" 
               className="link" 
-              onClick={() => { setSearch(''); setTimeout(() => loadTickets(tab), 10); }}
+              onClick={() => { setSearch(''); loadTickets(tab, ''); }}
               style={{ fontSize: 12 }}
             >
               پاک‌کردن
@@ -136,6 +178,55 @@ export function AdminTicketsView() {
           ))}
         </select>
       </div>
+
+      {search.trim() && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span>
+            نتایج فیلتر و جستجو برای «<strong>{search}</strong>»: {tickets.length.toLocaleString('fa-IR')} تیکت
+          </span>
+          <button type="button" className="link" onClick={() => { setSearch(''); loadTickets(tab, ''); }} style={{ fontSize: '12px' }}>
+            نمایش همه
+          </button>
+        </div>
+      )}
+
+      {/* Confirm Modal for Clearing Test Tickets */}
+      {showClearConfirm && (
+        <div className="modal-backdrop" onClick={() => !clearing && setShowClearConfirm(false)}>
+          <div className="modal-card" onClick={e => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={20} />
+                تأیید پاک‌سازی تمام تیکت‌های تستی
+              </h3>
+            </div>
+            <div className="modal-body">
+              <p>
+                آیا از حذف کامل تمام تیکت‌ها، پیام‌ها، فایل‌های پیوست و تاریخچه تغییرات تیکت‌ها اطمینان دارید؟
+                این عمل غیرقابل بازگشت است و دیتابیس تیکت‌ها خالی می‌گردد.
+              </p>
+              <div className="modal-foot">
+                <button 
+                  type="button" 
+                  className="btn-danger" 
+                  disabled={clearing}
+                  onClick={handleClearAllTickets}
+                >
+                  {clearing ? 'در حال پاک‌سازی…' : 'بله، همه تیکت‌ها پاک شوند'}
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-secondary outline" 
+                  disabled={clearing}
+                  onClick={() => setShowClearConfirm(false)}
+                >
+                  انصراف
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tickets List */}
       {loading ? (

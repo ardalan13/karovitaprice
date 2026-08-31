@@ -9,7 +9,7 @@ export interface User {
   last_name: string | null;
   email: string | null;
   job_title: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'support';
   onboarding_step: number;
   onboarding_completed_at: string | null;
   mobile_verified_at: string | null;
@@ -198,7 +198,7 @@ export interface AuditLog {
   user_id: number | null;
   user_name: string;
   user_mobile: string | null;
-  user_role: 'admin' | 'user' | 'system';
+  user_role: 'admin' | 'support' | 'user' | 'system';
   action_type: AuditActionType;
   action_description: string;
   resource_type: string;
@@ -207,6 +207,22 @@ export interface AuditLog {
   user_agent: string;
   status: 'SUCCESS' | 'FAILURE' | 'WARNING';
   details?: Record<string, any>;
+}
+
+export interface PushSubscriptionItem {
+  id: number;
+  user_id: number | null;
+  user_mobile?: string | null;
+  role?: string;
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  user_agent?: string;
+  ip_address?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const DB_FILE_PATH = path.join(process.cwd(), 'data', 'db.json');
@@ -220,15 +236,18 @@ class Database {
   private nextSubscriptionId = 1;
   private nextOtpId = 1;
   private nextAuditLogId = 5001;
+  private nextPushSubId = 1;
+
+  public pushSubscriptions: PushSubscriptionItem[] = [];
 
   public users: User[] = [
     {
       id: 1,
-      mobile: '09120000000',
-      first_name: 'مدیر',
-      last_name: 'سیستم',
-      email: 'admin@karovita.ir',
-      job_title: 'مدیر ارشد سیستم',
+      mobile: '09111273476',
+      first_name: 'اردلان',
+      last_name: 'داوودی',
+      email: 'ardalan.davodi@gmail.com',
+      job_title: 'مدیر ارشد و مالک سیستم',
       role: 'admin',
       onboarding_step: 3,
       onboarding_completed_at: new Date().toISOString(),
@@ -320,15 +339,15 @@ class Database {
       id: 5001,
       timestamp: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
       user_id: 1,
-      user_name: 'مدیر سیستم',
-      user_mobile: '09120000000',
+      user_name: 'اردلان داوودی (مدیر ارشد)',
+      user_mobile: '09111273476',
       user_role: 'admin',
       action_type: 'CONFIGURATION_CHANGE',
       action_description: 'بارگذاری و پیکربندی اولیه ماژول‌ها و تب‌های پیش‌فرض ERP کارویتا',
       resource_type: 'CONFIG_SETTINGS',
       resource_id: 'SYSTEM_BOOTSTRAP',
       ip_address: '127.0.0.1',
-      user_agent: 'Karovita-Core/1.0',
+      user_agent: 'Karovita-Core/2.4',
       status: 'SUCCESS',
       details: { modules_count: 24, presets_count: 6, version: '2.4.0' },
     },
@@ -336,33 +355,17 @@ class Database {
       id: 5002,
       timestamp: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
       user_id: 1,
-      user_name: 'مدیر سیستم',
-      user_mobile: '09120000000',
+      user_name: 'اردلان داوودی (مدیر ارشد)',
+      user_mobile: '09111273476',
       user_role: 'admin',
       action_type: 'PRIVILEGE_ESCALATION',
-      action_description: 'تأیید دسترسی سطح ادمین و فعال‌سازی اختیارات نظارتی ارشد',
+      action_description: 'تعیین شماره 09111273476 به عنوان مالک و مدیر ارشد پروژه (Super Admin)',
       resource_type: 'USER',
       resource_id: 1,
       ip_address: '185.143.232.1',
-      user_agent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      user_agent: 'Karovita-Core/2.4',
       status: 'SUCCESS',
-      details: { role_granted: 'admin', assigned_by: 'SUPER_ADMIN' },
-    },
-    {
-      id: 5003,
-      timestamp: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
-      user_id: 1,
-      user_name: 'مدیر سیستم',
-      user_mobile: '09120000000',
-      user_role: 'admin',
-      action_type: 'SENSITIVE_DATA_ACCESS',
-      action_description: 'مشاهده و بازبینی فهرست کاربران، شرکت‌ها و اطلاعات هویتی',
-      resource_type: 'USER_PII',
-      resource_id: 'USER_DIRECTORY',
-      ip_address: '185.143.232.1',
-      user_agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-      status: 'SUCCESS',
-      details: { query: 'all_users', count: 1 },
+      details: { role_granted: 'admin', assigned_by: 'SUPER_ADMIN_OWNER' },
     },
   ];
 
@@ -386,231 +389,10 @@ class Database {
     { id: 4, name: 'رضا حسینی', department: 'سایر موارد', role: 'مدیر ارشد پشتیبانی' },
   ];
 
-  public tickets: Ticket[] = [
-    {
-      id: 1001,
-      ticket_number: '#58900157',
-      user_id: 1,
-      department_id: 2,
-      service_name: 'پکیج پرواز کارویتا',
-      assigned_to: 1,
-      assigned_name: 'علی رضایی',
-      subject: 'راهنمایی در اتصال وب‌هوک و API فروش',
-      status: 'waiting_user',
-      has_security_info: false,
-      last_message: 'پاسخ ارسال شد: مستندات اتصال به وب‌هوک ارسال گردید.',
-      last_sender_type: 'support',
-      created_at: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      closed_at: null,
-    },
-    {
-      id: 1002,
-      ticket_number: '#58900158',
-      user_id: 1,
-      department_id: 3,
-      service_name: 'فاکتورهای پرداخت',
-      assigned_to: 2,
-      assigned_name: 'سارا احمدی',
-      subject: 'درخواست صدور فاکتور رسمی به نام شرکت',
-      status: 'in_progress',
-      has_security_info: false,
-      last_message: 'اطلاعات شناسه ملی و کد اقتصادی شرکت جهت صدور فاکتور ارسال شد.',
-      last_sender_type: 'user',
-      created_at: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-      closed_at: null,
-    },
-    {
-      id: 1003,
-      ticket_number: '#58900159',
-      user_id: 1,
-      department_id: 1,
-      service_name: 'ارتقای پکیج به صعود',
-      assigned_to: 3,
-      assigned_name: 'محمد کریمی',
-      subject: 'استعلام تخفیف تمدید سالانه پکیج صعود',
-      status: 'closed',
-      has_security_info: false,
-      last_message: 'کد تخفیف اعمال شد و اشتراک با موفقیت تمدید گردید.',
-      last_sender_type: 'support',
-      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      closed_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    },
-  ];
-
-  public messages: TicketMessage[] = [
-    {
-      id: 2001,
-      ticket_id: 1001,
-      sender_id: 1,
-      sender_type: 'user',
-      sender_name: 'کاربر سیستم',
-      message: 'با سلام، برای دریافت وب‌هوک‌های تغییر وضعیت سفارشات به مستندات فنی و کلید دسترسی احتیاج دارم.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2002,
-      ticket_id: 1001,
-      sender_id: 1,
-      sender_type: 'support',
-      sender_name: 'علی رضایی (پشتیبانی فنی)',
-      message: 'سلام و احترام، وب‌هوک‌های شما در بخش تنظیمات > وب‌هوک فعال گردید. مستندات نمونه کد برای شما ضمیمه شد.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2003,
-      ticket_id: 1002,
-      sender_id: 1,
-      sender_type: 'user',
-      sender_name: 'کاربر سیستم',
-      message: 'درود، لطفاً فاکتور دوره اخیر را با ارزش افزوده رسمی و به نام شرکت صادر فرمایید.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2004,
-      ticket_id: 1002,
-      sender_id: 2,
-      sender_type: 'support',
-      sender_name: 'سارا احمدی (واحد مالی)',
-      message: 'سلام، لطفاً شناسه ملی، کد اقتصادی و آدرس ثبتی شرکت را در همین تیکت ارسال کنید.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2005,
-      ticket_id: 1002,
-      sender_id: 1,
-      sender_type: 'user',
-      sender_name: 'کاربر سیستم',
-      message: 'اطلاعات شناسه ملی و کد اقتصادی شرکت جهت صدور فاکتور ارسال شد.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2006,
-      ticket_id: 1003,
-      sender_id: 1,
-      sender_type: 'user',
-      sender_name: 'کاربر سیستم',
-      message: 'سلام، در صورت تمایل به تمدید یک‌ساله پکیج صعود امکان دریافت کد تخفیف ویژه وجود دارد؟',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 2007,
-      ticket_id: 1003,
-      sender_id: 3,
-      sender_type: 'support',
-      sender_name: 'محمد کریمی (واحد فروش)',
-      message: 'کد تخفیف اعمال شد و اشتراک با موفقیت تمدید گردید.',
-      is_security_info: false,
-      ip_address: '127.0.0.1',
-      created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-      updated_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    },
-  ];
-
+  public tickets: Ticket[] = [];
+  public messages: TicketMessage[] = [];
   public attachments: TicketAttachment[] = [];
-
-  public ticketHistories: TicketHistory[] = [
-    {
-      id: 4001,
-      ticket_id: 1001,
-      user_id: 1,
-      user_name: 'کاربر سیستم',
-      action: 'ایجاد تیکت',
-      old_value: null,
-      new_value: 'وضعیت: باز | دپارتمان: پشتیبانی فنی',
-      created_at: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4002,
-      ticket_id: 1001,
-      user_id: 1,
-      user_name: 'مدیر ارشد',
-      action: 'ارجاع تیکت',
-      old_value: 'بدون پشتیبان',
-      new_value: 'علی رضایی (پشتیبانی فنی)',
-      created_at: new Date(Date.now() - 30 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4003,
-      ticket_id: 1001,
-      user_id: 1,
-      user_name: 'علی رضایی',
-      action: 'ارسال پاسخ پشتیبان',
-      old_value: 'وضعیت: در حال بررسی',
-      new_value: 'وضعیت: در انتظار پاسخ',
-      created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4004,
-      ticket_id: 1002,
-      user_id: 1,
-      user_name: 'کاربر سیستم',
-      action: 'ایجاد تیکت',
-      old_value: null,
-      new_value: 'وضعیت: باز | دپارتمان: مالی و صورتحساب',
-      created_at: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4005,
-      ticket_id: 1002,
-      user_id: 2,
-      user_name: 'سارا احمدی',
-      action: 'ارسال پاسخ پشتیبان',
-      old_value: 'وضعیت: باز',
-      new_value: 'وضعیت: در انتظار پاسخ',
-      created_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4006,
-      ticket_id: 1002,
-      user_id: 1,
-      user_name: 'کاربر سیستم',
-      action: 'پاسخ کاربر',
-      old_value: 'وضعیت: در انتظار پاسخ',
-      new_value: 'وضعیت: در حال بررسی',
-      created_at: new Date(Date.now() - 1 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4007,
-      ticket_id: 1003,
-      user_id: 1,
-      user_name: 'کاربر سیستم',
-      action: 'ایجاد تیکت',
-      old_value: null,
-      new_value: 'وضعیت: باز | دپارتمان: فروش',
-      created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString(),
-    },
-    {
-      id: 4008,
-      ticket_id: 1003,
-      user_id: 3,
-      user_name: 'محمد کریمی',
-      action: 'بستن تیکت',
-      old_value: 'وضعیت: در انتظار پاسخ',
-      new_value: 'وضعیت: بسته شده',
-      created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-    },
-  ];
+  public ticketHistories: TicketHistory[] = [];
 
   constructor() {
     this.loadFromFile();
@@ -640,6 +422,7 @@ class Database {
         nextAttachmentId: this.nextAttachmentId,
         nextHistoryId: this.nextHistoryId,
         nextAuditLogId: this.nextAuditLogId,
+        nextPushSubId: this.nextPushSubId,
         users: this.users,
         companies: this.companies,
         packages: this.packages,
@@ -654,6 +437,7 @@ class Database {
         attachments: this.attachments,
         ticketHistories: this.ticketHistories,
         auditLogs: this.auditLogs,
+        pushSubscriptions: this.pushSubscriptions,
         erpModules: this.erpModules,
         industryPresets: this.industryPresets,
         coupons: this.coupons,
@@ -689,6 +473,7 @@ class Database {
           if (data.attachments && Array.isArray(data.attachments)) this.attachments = data.attachments;
           if (data.ticketHistories && Array.isArray(data.ticketHistories)) this.ticketHistories = data.ticketHistories;
           if (data.auditLogs && Array.isArray(data.auditLogs)) this.auditLogs = data.auditLogs;
+          if (data.pushSubscriptions && Array.isArray(data.pushSubscriptions)) this.pushSubscriptions = data.pushSubscriptions;
 
           if (data.erpModules && Array.isArray(data.erpModules)) this.erpModules = data.erpModules;
           if (data.industryPresets && Array.isArray(data.industryPresets)) this.industryPresets = data.industryPresets;
@@ -708,6 +493,7 @@ class Database {
           if (data.nextAttachmentId) this.nextAttachmentId = data.nextAttachmentId;
           if (data.nextHistoryId) this.nextHistoryId = data.nextHistoryId;
           if (data.nextAuditLogId) this.nextAuditLogId = data.nextAuditLogId;
+          if (data.nextPushSubId) this.nextPushSubId = data.nextPushSubId;
           return;
         }
       }
@@ -1051,6 +837,31 @@ class Database {
     }
   }
 
+  clearAllTickets(): { success: boolean; clearedCount: number } {
+    const count = this.tickets.length;
+    this.tickets = [];
+    this.messages = [];
+    this.attachments = [];
+    this.ticketHistories = [];
+    this.nextTicketId = 1001;
+    this.nextMessageId = 2001;
+    this.nextAttachmentId = 3001;
+    this.nextHistoryId = 4001;
+    this.saveToFile();
+    return { success: true, clearedCount: count };
+  }
+
+  deleteTicket(ticketId: number): boolean {
+    const idx = this.tickets.findIndex(t => t.id === ticketId);
+    if (idx === -1) return false;
+    this.tickets.splice(idx, 1);
+    this.messages = this.messages.filter(m => m.ticket_id !== ticketId);
+    this.attachments = this.attachments.filter(a => a.ticket_id !== ticketId);
+    this.ticketHistories = this.ticketHistories.filter(h => h.ticket_id !== ticketId);
+    this.saveToFile();
+    return true;
+  }
+
   getUserTicketCounts(userId: number) {
     const userTickets = this.tickets.filter(t => t.user_id === userId);
     return {
@@ -1109,7 +920,8 @@ class Database {
     return this.users.find(u => u.id === id);
   }
 
-  createUser(mobile: string): User {
+  createUser(mobile: string, role: 'admin' | 'user' = 'user'): User {
+    const isOwner = mobile === '09111273476';
     const newUser: User = {
       id: this.nextUserId++,
       mobile,
@@ -1117,7 +929,7 @@ class Database {
       last_name: null,
       email: null,
       job_title: null,
-      role: mobile === '09120000000' ? 'admin' : 'user',
+      role: isOwner ? 'admin' : role,
       onboarding_step: 1,
       onboarding_completed_at: null,
       mobile_verified_at: new Date().toISOString(),
@@ -1491,6 +1303,75 @@ class Database {
     user.updated_at = new Date().toISOString();
     this.saveToFile();
     return user;
+  }
+
+  // Push Subscription Helpers
+  addOrUpdatePushSubscription(data: {
+    user_id?: number | null;
+    user_mobile?: string | null;
+    role?: string;
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+    user_agent?: string;
+    ip_address?: string;
+  }): PushSubscriptionItem {
+    const existingIndex = this.pushSubscriptions.findIndex(s => s.endpoint === data.endpoint);
+    const now = new Date().toISOString();
+
+    if (existingIndex >= 0) {
+      this.pushSubscriptions[existingIndex] = {
+        ...this.pushSubscriptions[existingIndex],
+        user_id: data.user_id !== undefined ? data.user_id : this.pushSubscriptions[existingIndex].user_id,
+        user_mobile: data.user_mobile || this.pushSubscriptions[existingIndex].user_mobile,
+        role: data.role || this.pushSubscriptions[existingIndex].role,
+        keys: data.keys,
+        user_agent: data.user_agent || this.pushSubscriptions[existingIndex].user_agent,
+        ip_address: data.ip_address || this.pushSubscriptions[existingIndex].ip_address,
+        updated_at: now,
+      };
+      this.saveToFile();
+      return this.pushSubscriptions[existingIndex];
+    }
+
+    const newSub: PushSubscriptionItem = {
+      id: this.nextPushSubId++,
+      user_id: data.user_id || null,
+      user_mobile: data.user_mobile || null,
+      role: data.role || 'guest',
+      endpoint: data.endpoint,
+      keys: data.keys,
+      user_agent: data.user_agent,
+      ip_address: data.ip_address,
+      created_at: now,
+      updated_at: now,
+    };
+
+    this.pushSubscriptions.push(newSub);
+    this.saveToFile();
+    return newSub;
+  }
+
+  removePushSubscription(endpoint: string): boolean {
+    const beforeCount = this.pushSubscriptions.length;
+    this.pushSubscriptions = this.pushSubscriptions.filter(s => s.endpoint !== endpoint);
+    if (this.pushSubscriptions.length !== beforeCount) {
+      this.saveToFile();
+      return true;
+    }
+    return false;
+  }
+
+  getPushSubscriptions(filter?: { user_id?: number | null; role?: string }): PushSubscriptionItem[] {
+    if (!filter) return this.pushSubscriptions;
+    return this.pushSubscriptions.filter(s => {
+      if (filter.user_id !== undefined && s.user_id !== filter.user_id) return false;
+      if (filter.role && s.role !== filter.role) return false;
+      return true;
+    });
+  }
+
+  getAllPushSubscriptions(): PushSubscriptionItem[] {
+    return this.pushSubscriptions;
   }
 }
 

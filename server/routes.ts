@@ -17,6 +17,10 @@ import {
   logSecurityEvent,
   logSubscriptionChange,
 } from './auditLogger';
+import { getVapidPublicKey, sendWebPush, broadcastWebPush, PushNotificationPayload } from './webPush';
+import { errorLogger, logClientError, logServerError } from './errorLogger';
+import { performanceLogger } from './performanceLogger';
+import { dispatchOtpSms } from './smsService';
 
 const JWT_SECRET = process.env.APP_KEY || 'secret_key_owj_abri_123';
 const router = Router();
@@ -46,7 +50,16 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
 function adminMiddleware(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).user as User;
   if (!user || user.role !== 'admin') {
-    return res.status(403).json({ message: 'دسترسی مدیر لازم است.' });
+    return res.status(403).json({ message: 'دسترسی مدیر ارشد (Admin) لازم است.' });
+  }
+  next();
+}
+
+// Middleware: Require Admin or Support
+function adminOrSupportMiddleware(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).user as User;
+  if (!user || (user.role !== 'admin' && user.role !== 'support')) {
+    return res.status(403).json({ message: 'دسترسی مدیریت یا پشتیبانی (Admin / Support) لازم است.' });
   }
   next();
 }
@@ -122,47 +135,7 @@ async function sendTicketReplySms(mobile: string, ticketNumber: string, ticketSu
 // Helper: Send OTP SMS to user
 async function sendOtpSms(mobile: string, code: string) {
   const normalizedMobile = normalizeMobile(mobile) || mobile;
-  const smsBody = `کد تأیید کارویتا: ${code}\nمدت اعتبار: ۲ دقیقه\nاین کد را در اختیار دیگران قرار ندهید.`;
-
-  console.log(`\n======================================================`);
-  console.log(`[SMS OTP DISPATCH]`);
-  console.log(`To Mobile: ${normalizedMobile}`);
-  console.log(`OTP Code: ${code}`);
-  console.log(`Timestamp: ${new Date().toISOString()}`);
-  console.log(`======================================================\n`);
-
-  try {
-    const medianaApiKey = process.env.MEDIANA_API_KEY;
-    const medianaBaseUrl = process.env.MEDIANA_BASE_URL;
-    const kavenegarKey = process.env.KAVENEGAR_API_KEY;
-
-    if (medianaApiKey && medianaBaseUrl) {
-      await fetch(`${medianaBaseUrl}/sms/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': process.env.MEDIANA_AUTH_PREFIX ? `${process.env.MEDIANA_AUTH_PREFIX} ${medianaApiKey}` : medianaApiKey,
-        },
-        body: JSON.stringify({
-          recipient: normalizedMobile,
-          message: smsBody,
-          pattern_code: process.env.MEDIANA_PATTERN_CODE,
-          code,
-        }),
-      }).catch((e: any) => console.warn('[Mediana SMS Warning]', e.message));
-    } else if (kavenegarKey) {
-      await fetch(`https://api.kavenegar.com/v1/${kavenegarKey}/sms/send.json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          receptor: normalizedMobile,
-          message: smsBody,
-        }),
-      }).catch((e: any) => console.warn('[Kavenegar SMS Warning]', e.message));
-    }
-  } catch (err: any) {
-    console.error('[SMS OTP DISPATCH ERROR]', err.message);
-  }
+  return await dispatchOtpSms(normalizedMobile, code);
 }
 
 // -------------------------------------------------------------
@@ -906,7 +879,6 @@ router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, r
 
 router.get('/admin/users', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const users = db.users
-    .filter(u => u.role === 'user')
     .sort((a, b) => b.id - a.id)
     .map(u => {
       const company = db.getCompanyByUserId(u.id);
@@ -917,6 +889,9 @@ router.get('/admin/users', authMiddleware, adminMiddleware, (req: Request, res: 
         first_name: u.first_name,
         last_name: u.last_name,
         email: u.email,
+        job_title: u.job_title,
+        role: u.role,
+        is_owner: u.mobile === '09111273476',
         created_at: u.created_at,
         company_name: company?.name || '—',
         industry: company?.industry || '—',
@@ -1293,14 +1268,233 @@ router.put('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Reques
 });
 
 // -------------------------------------------------------------
-// Privilege Escalation & User Roles Management
+// Privilege Escalation & User Management
 // -------------------------------------------------------------
-router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+// 1. Quick Mobile Lookup for Role Toggling
+router.get('/admin/users/lookup', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const mobile = req.query.mobile as string;
+  const normalized = normalizeMobile(mobile || '');
+
+  if (!normalized) {
+    return res.status(422).json({ message: 'شماره موبایل وارد شده معتبر نیست.' });
+  }
+
+  const user = db.getUserByMobile(normalized);
+  if (!user) {
+    return res.json({
+      exists: false,
+      mobile: normalized,
+      message: 'کاربری با این شماره در سیستم یافت نشد. می‌توانید همین حالا این کاربر را به عنوان مدیر یا پشتیبان ثبت کنید.',
+    });
+  }
+
+  const company = db.getCompanyByUserId(user.id);
+  const subCount = db.subscriptions.filter(s => s.user_id === user.id).length;
+
+  return res.json({
+    exists: true,
+    user: {
+      id: user.id,
+      mobile: user.mobile,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      full_name: [user.first_name, user.last_name].filter(Boolean).join(' ') || 'بی‌نام',
+      email: user.email,
+      job_title: user.job_title,
+      role: user.role,
+      is_owner: user.mobile === '09111273476',
+      created_at: user.created_at,
+      company_name: company?.name || '—',
+      industry: company?.industry || '—',
+      subscriptions_count: subCount,
+    }
+  });
+});
+
+// 2. Direct Role Toggle by Mobile Number (Admin / Support / User)
+router.post('/admin/users/toggle-role', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { mobile, role } = req.body;
+  const normalizedMobile = normalizeMobile(mobile || '');
+
+  if (!normalizedMobile) {
+    return res.status(422).json({ message: 'شماره موبایل نامعتبر است. لطفاً شماره معتبر وارد کنید (مانند 09123456789).' });
+  }
+
+  if (!['admin', 'support', 'user'].includes(role)) {
+    return res.status(422).json({ message: 'نقش انتخابی نامعتبر است (باید admin، support یا user باشد).' });
+  }
+
+  // Prevent modifying or demoting the Super Admin / Owner
+  if (normalizedMobile === '09111273476' && role !== 'admin') {
+    return res.status(403).json({ message: 'امکان خلع دسترسی از مالک و مدیر ارشد پروژه وجود ندارد.' });
+  }
+
+  const roleLabels: Record<string, string> = {
+    admin: 'مدیر سیستم (Admin)',
+    support: 'کارشناس پشتیبانی (Support)',
+    user: 'کاربر عادی (User)',
+  };
+
+  let user = db.getUserByMobile(normalizedMobile);
+
+  if (user) {
+    const oldRole = user.role;
+    user.role = role as 'admin' | 'support' | 'user';
+    user.updated_at = new Date().toISOString();
+    db.save();
+
+    const targetUserName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile;
+    logPrivilegeEscalation(req, {
+      targetUserId: user.id,
+      targetUserName,
+      oldRole,
+      newRole: role,
+      actionDescription: `تغییر سریع نقش کاربر ${normalizedMobile} (${targetUserName}) از «${roleLabels[oldRole] || oldRole}» به «${roleLabels[role]}»`,
+    });
+
+    return res.json({
+      message: `سطح دسترسی کاربر «${targetUserName}» با موفقیت به «${roleLabels[role]}» تغییر یافت.`,
+      user: {
+        id: user.id,
+        mobile: user.mobile,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        role: user.role,
+        is_owner: user.mobile === '09111273476',
+      }
+    });
+  } else {
+    // Create pre-authorized user with this role
+    const newId = db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 1;
+    const defaultJobTitle = role === 'admin' ? 'مدیر سیستم' : role === 'support' ? 'کارشناس پشتیبانی' : 'کاربر';
+    const newUser: User = {
+      id: newId,
+      mobile: normalizedMobile,
+      first_name: null,
+      last_name: null,
+      email: null,
+      job_title: defaultJobTitle,
+      role: role as 'admin' | 'support' | 'user',
+      onboarding_step: 3,
+      onboarding_completed_at: new Date().toISOString(),
+      mobile_verified_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.users.push(newUser);
+    db.save();
+
+    logPrivilegeEscalation(req, {
+      targetUserId: newUser.id,
+      targetUserName: normalizedMobile,
+      oldRole: 'none',
+      newRole: role,
+      actionDescription: `ثبت شماره همراه ${normalizedMobile} در سیستم با سطح دسترسی «${roleLabels[role]}»`,
+    });
+
+    return res.json({
+      message: `شماره ${normalizedMobile} در سامانه ثبت و دسترسی «${roleLabels[role]}» به آن اعطا شد.`,
+      user: {
+        id: newUser.id,
+        mobile: newUser.mobile,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        role: newUser.role,
+        is_owner: false,
+      }
+    });
+  }
+});
+
+// 3. Create or Promote User / Admin / Support by Mobile with detailed info
+router.post('/admin/users', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { mobile, first_name, last_name, email, job_title, role = 'admin' } = req.body;
+  const normalizedMobile = normalizeMobile(mobile || '');
+
+  if (!normalizedMobile) {
+    return res.status(422).json({ message: 'شماره موبایل نامعتبر است. لطفاً شماره معتبر ایران (مانند 09123456789) وارد کنید.' });
+  }
+
+  const targetRole = (['admin', 'support', 'user'].includes(role) ? role : 'admin') as 'admin' | 'support' | 'user';
+  
+  if (normalizedMobile === '09111273476' && targetRole !== 'admin') {
+    return res.status(403).json({ message: 'امکان خلع دسترسی از مالک و مدیر ارشد پروژه وجود ندارد.' });
+  }
+
+  const roleLabels: Record<string, string> = {
+    admin: 'مدیر سیستم (Admin)',
+    support: 'کارشناس پشتیبانی (Support)',
+    user: 'کاربر عادی (User)',
+  };
+
+  let user = db.getUserByMobile(normalizedMobile);
+
+  if (user) {
+    const oldRole = user.role;
+    user.role = targetRole;
+    if (first_name && first_name.trim()) user.first_name = String(first_name).trim();
+    if (last_name && last_name.trim()) user.last_name = String(last_name).trim();
+    if (email && email.trim()) user.email = String(email).trim();
+    if (job_title && job_title.trim()) user.job_title = String(job_title).trim();
+    user.updated_at = new Date().toISOString();
+    db.save();
+
+    const targetName = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile;
+    logPrivilegeEscalation(req, {
+      targetUserId: user.id,
+      targetUserName: targetName,
+      oldRole,
+      newRole: targetRole,
+      actionDescription: `بروزرسانی مشخصات و تغییر نقش کاربر ${normalizedMobile} به «${roleLabels[targetRole]}»`,
+    });
+
+    return res.json({
+      message: `کاربر با شماره ${normalizedMobile} یافت شد و نقش آن با موفقیت به «${roleLabels[targetRole]}» تنظیم شد.`,
+      user,
+    });
+  } else {
+    const newId = db.users.length > 0 ? Math.max(...db.users.map(u => u.id)) + 1 : 1;
+    const defaultJob = targetRole === 'admin' ? 'مدیر سیستم' : targetRole === 'support' ? 'کارشناس پشتیبانی' : null;
+    const newUser: User = {
+      id: newId,
+      mobile: normalizedMobile,
+      first_name: first_name && first_name.trim() ? String(first_name).trim() : null,
+      last_name: last_name && last_name.trim() ? String(last_name).trim() : null,
+      email: email && email.trim() ? String(email).trim() : null,
+      job_title: job_title && job_title.trim() ? String(job_title).trim() : defaultJob,
+      role: targetRole,
+      onboarding_step: 3,
+      onboarding_completed_at: new Date().toISOString(),
+      mobile_verified_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    db.users.push(newUser);
+    db.save();
+
+    const targetName = [newUser.first_name, newUser.last_name].filter(Boolean).join(' ') || newUser.mobile;
+    logPrivilegeEscalation(req, {
+      targetUserId: newUser.id,
+      targetUserName: targetName,
+      oldRole: 'none',
+      newRole: targetRole,
+      actionDescription: `تعریف و ثبت کاربر جدید با شماره ${normalizedMobile} و دسترسی «${roleLabels[targetRole]}»`,
+    });
+
+    return res.json({
+      message: `کاربر جدید با شماره ${normalizedMobile} ایجاد و دسترسی «${roleLabels[targetRole]}» اعطا شد.`,
+      user: newUser,
+    });
+  }
+});
+
+// 4. Update User Role by User ID (supports both PUT and POST)
+const handleRoleUpdate = (req: Request, res: Response) => {
   const targetUserId = Number(req.params.id);
   const { role } = req.body;
 
-  if (!['admin', 'user'].includes(role)) {
-    return res.status(422).json({ message: 'نقش کاربری نامعتبر است (باید admin یا user باشد).' });
+  if (!['admin', 'support', 'user'].includes(role)) {
+    return res.status(422).json({ message: 'نقش کاربری نامعتبر است (باید admin، support یا user باشد).' });
   }
 
   const targetUser = db.getUserById(targetUserId);
@@ -1308,8 +1502,19 @@ router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, (req: Requ
     return res.status(404).json({ message: 'کاربر مورد نظر یافت نشد.' });
   }
 
+  // Protect project owner from being demoted
+  if (targetUser.mobile === '09111273476' && role !== 'admin') {
+    return res.status(403).json({ message: 'امکان خلع دسترسی از مالک و مدیر ارشد پروژه وجود ندارد.' });
+  }
+
+  const roleLabels: Record<string, string> = {
+    admin: 'مدیر سیستم (Admin)',
+    support: 'کارشناس پشتیبانی (Support)',
+    user: 'کاربر عادی (User)',
+  };
+
   const oldRole = targetUser.role;
-  targetUser.role = role;
+  targetUser.role = role as 'admin' | 'support' | 'user';
   targetUser.updated_at = new Date().toISOString();
   db.save();
 
@@ -1320,13 +1525,48 @@ router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, (req: Requ
     targetUserName,
     oldRole,
     newRole: role,
-    actionDescription: `تغییر سطح دسترسی کاربر #${targetUser.id} (${targetUserName}) از «${oldRole}» به «${role}»`,
+    actionDescription: `تغییر سطح دسترسی کاربر #${targetUser.id} (${targetUserName}) از «${roleLabels[oldRole] || oldRole}» به «${roleLabels[role]}»`,
   });
 
   return res.json({
-    message: `نقش کاربر با موفقیت به «${role === 'admin' ? 'مدیر سیستم' : 'کاربر عادی'}» تغییر یافت.`,
+    message: `نقش کاربر با موفقیت به «${roleLabels[role]}» تغییر یافت.`,
     user: targetUser,
   });
+};
+
+router.put('/admin/users/:id/role', authMiddleware, adminMiddleware, handleRoleUpdate);
+router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, handleRoleUpdate);
+
+// 5. Delete User by ID (with owner protection)
+router.delete('/admin/users/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const targetUserId = Number(req.params.id);
+  const targetUser = db.getUserById(targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر مورد نظر یافت نشد.' });
+  }
+
+  if (targetUser.mobile === '09111273476') {
+    return res.status(403).json({ message: 'امکان حذف حساب مالک و مدیر ارشد سامانه وجود ندارد.' });
+  }
+
+  const idx = db.users.findIndex(u => u.id === targetUserId);
+  if (idx >= 0) {
+    const removed = db.users.splice(idx, 1)[0];
+    db.save();
+
+    const targetUserName = [removed.first_name, removed.last_name].filter(Boolean).join(' ') || removed.mobile;
+    logPrivilegeEscalation(req, {
+      targetUserId: removed.id,
+      targetUserName,
+      oldRole: removed.role,
+      newRole: 'deleted',
+      actionDescription: `حذف حساب کاربری ${removed.mobile} (${targetUserName}) از سامانه توسط مدیر`,
+    });
+
+    return res.json({ message: `کاربر «${targetUserName}» با موفقیت حذف گردید.` });
+  }
+
+  return res.status(404).json({ message: 'کاربر یافت نشد.' });
 });
 
 // -------------------------------------------------------------
@@ -1377,6 +1617,190 @@ router.get('/admin/audit-logs/export', authMiddleware, adminMiddleware, (req: Re
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename=karovita-audit-logs-${new Date().toISOString().slice(0, 10)}.json`);
   return res.send(JSON.stringify(result.logs, null, 2));
+});
+
+// -------------------------------------------------------------
+// Unified Local Error Logging & Diagnostics Endpoints
+// -------------------------------------------------------------
+
+// 1. Client error report receiver (public/semi-public endpoint for browsers)
+router.post('/logs/client-error', (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const payload = jwt.verify(token, JWT_SECRET) as { sub: number };
+        const user = db.getUserById(payload.sub);
+        if (user) {
+          (req as any).user = user;
+        }
+      } catch {
+        // Continue unauthenticated if token invalid
+      }
+    }
+
+    const { message, name, stack, url, context, level } = req.body || {};
+    if (!message && !name) {
+      return res.status(400).json({ message: 'پیام خطا الزامی است.' });
+    }
+
+    const log = logClientError({ message, name, stack, url, context, level }, req);
+    return res.status(201).json({ status: 'ok', id: log.id });
+  } catch (err) {
+    return res.status(500).json({ message: 'خطا در ثبت لاگ محلی.' });
+  }
+});
+
+// 2. Admin: Get system error logs with filtering
+router.get('/admin/error-logs', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const level = (req.query.level as string) || 'all';
+  const source = (req.query.source as string) || 'all';
+  const resolved = req.query.resolved as string;
+  const search = (req.query.search as string) || '';
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+
+  const logs = errorLogger.getLogs({
+    level,
+    source,
+    resolved: resolved === 'true' ? true : resolved === 'false' ? false : 'all',
+    search,
+    limit,
+  });
+
+  const stats = errorLogger.getStats();
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'ERROR_LOGS',
+    resourceId: 'VIEWER',
+    actionDescription: 'مشاهده و بازبینی لاگ‌های خطای محلی سامانه',
+    details: { filters: { level, source, search }, returned_count: logs.length },
+  });
+
+  return res.json({ logs, stats });
+});
+
+// 3. Admin: Get error statistics
+router.get('/admin/error-logs/stats', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
+  const stats = errorLogger.getStats();
+  return res.json({ stats });
+});
+
+// 4. Admin: Mark error as resolved / unresolved
+router.post('/admin/error-logs/:id/resolve', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const resolved = req.body.resolved !== undefined ? Boolean(req.body.resolved) : true;
+  const success = errorLogger.markResolved(id, resolved);
+
+  if (!success) {
+    return res.status(404).json({ message: 'رکورد خطا یافت نشد.' });
+  }
+
+  logConfigChange(req, {
+    configKey: `error_log_${id}_resolved`,
+    oldValue: !resolved,
+    newValue: resolved,
+    actionDescription: `تغییر وضعیت بررسی خطای «${id}» به ${resolved ? 'حل‌شده' : 'حل‌نشده'}`,
+  });
+
+  return res.json({ message: `وضعیت خطا به ${resolved ? 'بررسی‌شده' : 'در انتظار بررسی'} تغییر یافت.` });
+});
+
+// 5. Admin: Clear all error logs
+router.post('/admin/error-logs/clear', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  errorLogger.clearLogs();
+
+  logSecurityEvent(req, {
+    eventType: 'CONFIGURATION_CHANGE',
+    severity: 'WARNING',
+    actionDescription: 'پاکسازی کامل فایل و لیست لاگ‌های خطای سامانه توسط مدیر',
+  });
+
+  return res.json({ message: 'کلیه لاگ‌های خطای محلی با موفقیت پاکسازی شدند.' });
+});
+
+// 6. Admin: Export error logs (JSON or text log file)
+router.get('/admin/error-logs/export', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const format = (req.query.format as string) || 'json';
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'ERROR_LOGS_EXPORT',
+    resourceId: format,
+    actionDescription: `دانلود فایل خروجی لاگ‌های خطای سامانه با فرمت ${format.toUpperCase()}`,
+  });
+
+  if (format === 'text' || format === 'log') {
+    const rawText = errorLogger.getRawLogText();
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename=karovita-errors-${new Date().toISOString().slice(0, 10)}.log`);
+    return res.send(rawText || 'No logs recorded.');
+  }
+
+  const logs = errorLogger.getLogs({ limit: 1000 });
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename=karovita-error-logs-${new Date().toISOString().slice(0, 10)}.json`);
+  return res.send(JSON.stringify(logs, null, 2));
+});
+
+// 7. Admin: Trigger a simulated test error
+router.post('/admin/error-logs/test', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { type = 'server', message = 'این یک خطای آزمایشی جهت بررسی سلامت سیستم لاگ است.' } = req.body || {};
+
+  const testErr = new Error(`[Test] ${message}`);
+  const created = logServerError(testErr, {
+    test: true,
+    triggeredByAdmin: (req as any).user?.mobile,
+    triggerTime: new Date().toISOString(),
+  }, req, 'warn', type === 'database' ? 'database' : 'api');
+
+  return res.status(201).json({
+    message: 'خطای آزمایشی با موفقیت در فایل data/error_logs.json ثبت گردید.',
+    log: created,
+  });
+});
+
+// -------------------------------------------------------------
+// Core Web Vitals & Performance Monitoring Endpoints
+// -------------------------------------------------------------
+
+// 1. Client Web Vitals beacon receiver (public endpoint for periodic performance logs)
+router.post('/logs/vitals', (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const payload = jwt.verify(token, JWT_SECRET) as { sub: number };
+        const user = db.getUserById(payload.sub);
+        if (user) {
+          (req as any).user = user;
+        }
+      } catch {
+        // Continue unauthenticated if token invalid
+      }
+    }
+
+    const { url, metrics = {}, connection, memory } = req.body || {};
+    const entry = performanceLogger.logVitals({ url, metrics, connection, memory }, req);
+    return res.status(201).json({ status: 'ok', id: entry.id });
+  } catch (err) {
+    return res.status(500).json({ message: 'خطا در ثبت معیارهای کارایی.' });
+  }
+});
+
+// 2. Admin: Get recorded web vitals and aggregated performance statistics
+router.get('/admin/vitals', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 300);
+  const vitals = performanceLogger.getVitals(limit);
+  const stats = performanceLogger.getStats();
+
+  return res.json({ vitals, stats });
+});
+
+// 3. Admin: Clear web vitals logs
+router.post('/admin/vitals/clear', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  performanceLogger.clearLogs();
+  return res.json({ message: 'لاگ‌های پایش کارایی Core Web Vitals با موفقیت پاکسازی شدند.' });
 });
 
 // -------------------------------------------------------------
@@ -1475,6 +1899,21 @@ router.post('/tickets', authMiddleware, ticketSubmissionLimiter, (req: Request, 
     attachments: validAttachments,
     ip_address: ip,
   });
+
+  // Send push notification to Admins and Support staff
+  try {
+    const adminSubs = db.getAllPushSubscriptions().filter(s => s.role === 'admin' || s.role === 'support');
+    if (adminSubs.length > 0) {
+      broadcastWebPush(adminSubs, {
+        title: `تیکت جدید: ${subject}`,
+        body: `تیکت شماره ${ticket.ticket_number} توسط کاربر ثبت شد.`,
+        url: `/admin`,
+        tag: `ticket-${ticket.id}`,
+      }).catch(() => {});
+    }
+  } catch (err) {
+    // Ignore push delivery error on creation
+  }
 
   return res.status(201).json({
     message: 'تیکت شما با موفقیت ثبت گردید.',
@@ -1594,13 +2033,35 @@ router.post('/tickets/:id/messages', authMiddleware, ticketMessageLimiter, (req:
       ip_address: ip,
     });
 
-    // If support/admin responded to user's ticket, send SMS notification to user's mobile number
+    // If support/admin responded to user's ticket, send SMS & Push notification to user
     if (senderType === 'support') {
       const ticketUser = db.getUserById(ticket.user_id);
       if (ticketUser && ticketUser.mobile) {
         sendTicketReplySms(ticketUser.mobile, ticket.ticket_number, ticket.subject, message).catch((err: any) => {
           console.error('[SMS send error in ticket reply]', err.message);
         });
+      }
+
+      // Web Push to ticket owner
+      const userSubs = db.getPushSubscriptions({ user_id: ticket.user_id });
+      if (userSubs.length > 0) {
+        broadcastWebPush(userSubs, {
+          title: `پاسخ به تیکت #${ticket.ticket_number}`,
+          body: `${senderName}: ${message.length > 80 ? message.substring(0, 80) + '...' : message}`,
+          url: `/support?ticketId=${ticket.id}`,
+          tag: `ticket-${ticket.id}`,
+        }).catch(() => {});
+      }
+    } else {
+      // Regular user sent message: notify admins & support staff
+      const staffSubs = db.getAllPushSubscriptions().filter(s => s.role === 'admin' || s.role === 'support');
+      if (staffSubs.length > 0) {
+        broadcastWebPush(staffSubs, {
+          title: `پیام جدید در تیکت #${ticket.ticket_number}`,
+          body: `${senderName}: ${message.length > 80 ? message.substring(0, 80) + '...' : message}`,
+          url: `/admin`,
+          tag: `ticket-${ticket.id}`,
+        }).catch(() => {});
       }
     }
 
@@ -1783,6 +2244,233 @@ router.put('/admin/tickets/:id/status', authMiddleware, adminMiddleware, (req: R
   } catch (err: any) {
     return res.status(400).json({ message: err.message || 'خطا در تغییر وضعیت.' });
   }
+});
+
+// 13. Admin: Clear all tickets (cleanup test tickets)
+router.delete('/admin/tickets/clear-all', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const result = db.clearAllTickets();
+  logConfigChange(req, {
+    resourceType: 'TICKET_CLEANUP',
+    resourceId: 0,
+    actionDescription: `حذف و پاک‌سازی تمام تیکت‌های تستی (${result.clearedCount} تیکت)`,
+    details: { clearedCount: result.clearedCount },
+  });
+  return res.json({ message: 'تمام تیکت‌های تستی با موفقیت پاک شدند.', clearedCount: result.clearedCount });
+});
+
+// 14. Admin: Delete single ticket
+router.delete('/admin/tickets/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const ticketId = Number(req.params.id);
+  const deleted = db.deleteTicket(ticketId);
+  if (!deleted) {
+    return res.status(404).json({ message: 'تیکت مورد نظر یافت نشد.' });
+  }
+  logConfigChange(req, {
+    resourceType: 'TICKET_DELETION',
+    resourceId: ticketId,
+    actionDescription: `حذف تیکت شماره ${ticketId}`,
+    details: { ticket_id: ticketId },
+  });
+  return res.json({ message: 'تیکت مورد نظر با موفقیت حذف شد.' });
+});
+
+// -------------------------------------------------------------
+// Progressive Web App (PWA) & Web Push Endpoints
+// -------------------------------------------------------------
+
+// Helper: Extract user optionally from auth header
+function getOptionalUser(req: Request): User | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.split(' ')[1];
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { sub: number };
+    return db.getUserById(payload.sub) || null;
+  } catch {
+    return null;
+  }
+}
+
+// 1. Get VAPID Public Key for client subscription
+router.get('/push/public-key', (_req: Request, res: Response) => {
+  const publicKey = getVapidPublicKey();
+  return res.json({ publicKey });
+});
+
+// 2. Register or update Push Subscription
+router.post('/push/subscribe', (req: Request, res: Response) => {
+  const { subscription } = req.body;
+  if (!subscription || !subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
+    return res.status(422).json({ message: 'اطلاعات اشتراک اعلان ناقص است.' });
+  }
+
+  const optionalUser = getOptionalUser(req);
+  const userAgent = req.headers['user-agent'] || 'Unknown Browser';
+  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+
+  const registered = db.addOrUpdatePushSubscription({
+    user_id: optionalUser ? optionalUser.id : null,
+    user_mobile: optionalUser ? optionalUser.mobile : null,
+    role: optionalUser ? optionalUser.role : 'guest',
+    endpoint: subscription.endpoint,
+    keys: {
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    },
+    user_agent: userAgent,
+    ip_address: ip,
+  });
+
+  return res.status(201).json({
+    success: true,
+    message: 'دستگاه شما با موفقیت برای دریافت اعلان‌ها ثبت شد.',
+    subscription_id: registered.id,
+  });
+});
+
+// 3. Unsubscribe from Push Notifications
+router.post('/push/unsubscribe', (req: Request, res: Response) => {
+  const { endpoint } = req.body;
+  if (!endpoint) {
+    return res.status(422).json({ message: 'شناسه endpoint الزامی است.' });
+  }
+
+  const removed = db.removePushSubscription(endpoint);
+  return res.json({
+    success: true,
+    removed,
+    message: removed ? 'اشتراک اعلان‌ها با موفقیت لغو شد.' : 'اشتراک یافت نشد.',
+  });
+});
+
+// 4. Send Test Push Notification to the caller or specific subscription
+router.post('/push/test', async (req: Request, res: Response) => {
+  const { endpoint, title, body } = req.body;
+  let targetSub = endpoint ? db.pushSubscriptions.find(s => s.endpoint === endpoint) : null;
+
+  if (!targetSub) {
+    const optionalUser = getOptionalUser(req);
+    if (optionalUser) {
+      const userSubs = db.getPushSubscriptions({ user_id: optionalUser.id });
+      if (userSubs.length > 0) {
+        targetSub = userSubs[userSubs.length - 1];
+      }
+    }
+  }
+
+  if (!targetSub && db.pushSubscriptions.length > 0) {
+    targetSub = db.pushSubscriptions[db.pushSubscriptions.length - 1];
+  }
+
+  if (!targetSub) {
+    return res.status(404).json({
+      success: false,
+      message: 'هیچ اشتراک اعلانی برای ارسال پیام آزمایشی یافت نشد. لطفاً ابتدا دکمه فعال‌سازی اعلان را بزنید.',
+    });
+  }
+
+  const payload: PushNotificationPayload = {
+    title: title || 'کارویتا | اعلان آزمایشی PWA',
+    body: body || 'سیستم وب‌پوش و سرویس‌ورکر کارویتا با موفقیت فعال و متصل است! 🚀',
+    icon: '/icon-192.svg',
+    badge: '/badge-72.svg',
+    url: '/admin',
+    tag: 'karovita-test-notification',
+  };
+
+  const result = await sendWebPush(targetSub, payload);
+
+  if (result.success) {
+    return res.json({
+      success: true,
+      message: 'اعلان آزمایشی با موفقیت به دستگاه شما ارسال گردید.',
+      result,
+    });
+  } else {
+    // If endpoint is expired or invalid (410 / 404), clean it up
+    if (result.statusCode === 410 || result.statusCode === 404) {
+      db.removePushSubscription(targetSub.endpoint);
+    }
+    return res.status(500).json({
+      success: false,
+      message: `خطا در تحویل وب‌پوش: ${result.error || 'پاسخ ناموفق از سرور پوش'}`,
+      result,
+    });
+  }
+});
+
+// 5. Admin: Get Push notification subscribers list & statistics
+router.get('/admin/push/subscribers', authMiddleware, adminOrSupportMiddleware, (req: Request, res: Response) => {
+  const all = db.getAllPushSubscriptions();
+  const total = all.length;
+  const admin_count = all.filter(s => s.role === 'admin').length;
+  const support_count = all.filter(s => s.role === 'support').length;
+  const user_count = all.filter(s => s.role === 'user').length;
+  const guest_count = all.filter(s => s.role === 'guest' || !s.role).length;
+
+  return res.json({
+    total,
+    stats: {
+      admin_count,
+      support_count,
+      user_count,
+      guest_count,
+    },
+    subscribers: all.map(s => ({
+      id: s.id,
+      user_id: s.user_id,
+      user_mobile: s.user_mobile,
+      role: s.role,
+      user_agent: s.user_agent,
+      ip_address: s.ip_address,
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+    })),
+  });
+});
+
+// 6. Admin: Broadcast custom push notification to users/admins
+router.post('/admin/push/broadcast', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  const { title, body, targetRole = 'all', url = '/' } = req.body;
+  if (!title || !body) {
+    return res.status(422).json({ message: 'عنوان و متن پیام اعلان الزامی است.' });
+  }
+
+  let targets = db.getAllPushSubscriptions();
+  if (targetRole && targetRole !== 'all') {
+    targets = targets.filter(s => s.role === targetRole);
+  }
+
+  if (targets.length === 0) {
+    return res.status(404).json({ message: 'هیچ دستگاه فعالی در گروه انتخابی برای دریافت اعلان وجود ندارد.' });
+  }
+
+  const payload: PushNotificationPayload = {
+    title,
+    body,
+    icon: '/icon-192.svg',
+    badge: '/badge-72.svg',
+    url,
+    tag: `karovita-broadcast-${Date.now()}`,
+  };
+
+  const { sent, failed } = await broadcastWebPush(targets, payload);
+
+  logConfigChange(req, {
+    resourceType: 'PUSH_NOTIFICATION_BROADCAST',
+    resourceId: 'BROADCAST',
+    actionDescription: `ارسال اعلان وب‌پوش همگانی («${title}») به گروه ${targetRole}`,
+    details: { title, body, targetRole, url, sent_count: sent, failed_count: failed },
+  });
+
+  return res.json({
+    message: `اعلان همگانی ارسال شد. (موفق: ${sent}، ناموفق: ${failed})`,
+    sent,
+    failed,
+    total_targets: targets.length,
+  });
 });
 
 export default router;
