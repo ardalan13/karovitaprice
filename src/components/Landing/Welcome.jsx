@@ -68,14 +68,6 @@ export function Welcome() {
               <span>ورود به حساب</span>
             </button>
           </div>
-
-          {/* Login text link */}
-          <div className="hero-signin-row">
-            <span>قبلاً ثبت‌نام کرده‌اید؟</span>
-            <button className="hero-signin-link" onClick={() => go('login')}>
-              ورود به حساب
-            </button>
-          </div>
         </div>
 
         {/* Bottom Features Quad Row */}

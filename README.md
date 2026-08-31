@@ -1,34 +1,29 @@
-# 🚀 سامانه جامع کارویتا (Karovita Cloud ERP & Customer Portal)
+# 🚀 سامانه جامع کارویتا (KaroVita Cloud ERP & Customer Portal)
 
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18.3-blue.svg)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-purple.svg)](https://vitejs.dev/)
-[![Express](https://img.shields.io/badge/Express-4.21-lightgrey.svg)](https://expressjs.com/)
-[![Laravel Ready](https://img.shields.io/badge/Laravel-10.x%20%2F%2011.x-red.svg)](https://laravel.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg)](https://www.typescriptlang.org/)
+[![PHP Version](https://img.shields.io/badge/PHP-%3E%3D8.1-777BB4.svg)](https://www.php.net/)
+[![Laravel](https://img.shields.io/badge/Laravel-10.x%20%2F%2011.x-FF2D20.svg)](https://laravel.com/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
+[![MySQL](https://img.shields.io/badge/MySQL-5.7%2B%20%2F%208.0-4479A1.svg)](https://www.mysql.com/)
 [![PWA Ready](https://img.shields.io/badge/PWA-Ready-orange.svg)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-یک پلتفرم کامل و مدرن فول‌استک برای **محاسبه هوشمند قیمت و تعرفه ماژول‌های ERP**، **خرید و مدیریت اشتراک‌های سازمانی**، **ورود مستقیم به پنل ERP با ساب‌دامین اختصاصی (`crm.karovita.ir`)**، **وب‌اپلیکیشن پیش‌رونده (PWA)**، **سیستم جامع تیکتینگ و پشتیبانی دپارتمانی**، **پنل مدیریت ارشد ماژولار با نمودارهای زنده مالی**، **درگاه پیامک سریع OTP با SMS.ir**، و **سامانه امنیتی و حسابرسی لاگ‌ها (Audit Logger)**.
+یک پلتفرم کامل و مدرن سازمانی با **بک‌اند PHP Laravel (REST API)** و **فرانت‌اند مدرن React** برای **محاسبه هوشمند قیمت و تعرفه ماژول‌های ERP**، **خرید و مدیریت اشتراک‌های سازمانی**، **ورود مستقیم به پنل ERP با ساب‌دامین اختصاصی (`crm.karovita.ir`)**، **وب‌اپلیکیشن پیش‌رونده (PWA)**، **سیستم جامع تیکتینگ و پشتیبانی دپارتمانی**، **پنل مدیریت ارشد ماژولار با نمودارهای زنده مالی**، **درگاه پیامک سریع OTP با SMS.ir**، و **سامانه امنیتی و حسابرسی لاگ‌ها (Audit Logger)**.
 
 ---
 
 ## 📑 فهرست مطالب
 1. [معرفی و امکانات کلیدی](#-امکانات-و-قابلیت‌های-کلیدی)
-2. [تغییرات و به‌روزرسانی‌های اخیر پروژه (Changelog)](#-تغییرات-و-به‌روزرسانی‌های-اخیر-پروژه)
-3. [معماری و پشته فناوری (Tech Stack)](#-معماری-و-پشته-فناوری-tech-stack)
-4. [پیش‌نیازهای سیستمی](#-پیش‌نیازهای-سیستمی-prerequisites)
-5. [راهنمای نصب محلی در ویندوز (Windows Setup)](#-راهنمای-نصب-و-راه‌اندازی-در-ویندوز-windows-setup)
-6. [راهنمای جامع استقرار در محیط پروداکشن (Production Deployment)](#-راهنمای-جامع-استقرار-در-محیط-پروداکشن-production)
-   - [بخش الف: نصب روی هاست اشتراکی DirectAdmin (پشتیبانی از Laravel + React و Node.js)](#بخش-الف-راهنمای-استقرار-روی-هاست-اشتراکی-directadmin-پیشنهادی)
-   - [بخش ب: نصب روی هاست اشتراکی cPanel](#بخش-ب-راهنمای-استقرار-روی-هاست-اشتراکی-cpanel)
-   - [بخش ج: استقرار روی سرور لینوکس VPS / اختصاصی با PM2 و Nginx](#بخش-ج-استقرار-روی-سرور-لینوکس-vps--اختصاصی-با-pm2-و-وبسرور-nginx)
-   - [بخش د: استقرار با Docker و Docker Compose](#بخش-د-استقرار-با-docker-و-docker-compose)
-7. [معماری و ساختار تبدیل به لاراول (Laravel Backend Architecture)](#-معماری-و-ساختار-تبدیل-به-لاراول-laravel-backend)
-8. [تنظیم متغیرهای محیطی (.env)](#-تنظیم-متغیرهای-محیطی-environment-variables)
-9. [ساختار پوشه‌ها و فایل‌های پروژه](#-ساختار-پروژه-project-structure)
+2. [معماری و پشته فناوری (Tech Stack)](#-معماری-و-پشته-فناوری-tech-stack)
+3. [پیش‌نیازهای سرور و هاست](#-پیش‌نیازهای-سرور-و-هاست-prerequisites)
+4. [راهنمای جامع نصب و استقرار روی هاست اشتراکی DirectAdmin (پیشنهادی)](#-راهنمای-استقرار-روی-هاست-اشتراکی-directadmin-پیشنهادی)
+5. [راهنمای استقرار روی هاست اشتراکی cPanel](#-راهنمای-استقرار-روی-هاست-اشتراکی-cpanel)
+6. [راهنمای نصب روی سرور لینوکس اختصاصی / VPS (Nginx / Apache + PHP-FPM)](#-راهنمای-استقرار-روی-سرور-لینوکس-vps--اختصاصی)
+7. [معماری روت‌ها و کنترلرهای Laravel](#-معماری-روت‌ها-و-کنترلرهای-laravel)
+8. [تنظیم متغیرهای محیطی لاراول (.env)](#-تنظیم-متغیرهای-محیطی-laravel-env)
+9. [ساختار فایل‌ها و پوشه‌های پروژه](#-ساختار-پروژه-project-structure)
 10. [اطلاعات مدیر ارشد و حساب پیش‌فرض](#-اطلاعات-مدیر-ارشد-و-حساب-پیشفرض)
-11. [دستورات کاربردی و اسکریپت‌ها](#-دستورات-کاربردی-scripts)
+11. [دستورات کاربردی Artisan و Composer](#-دستورات-کاربردی-artisan-و-composer)
 
 ---
 
@@ -40,141 +35,163 @@
 * 🔗 **دسترسی سریع به پنل سازمانی:** اتصال دکمه «ورود به پنل شخصی ERP» مستقیماً به پرتال سامانه (`https://crm.karovita.ir`).
 * 🌓 **پشتیبانی کامل از تم روشن و تاریک (Dark/Light Mode):** با لود پیش‌فرض در حالت روز (Light Mode) و دکمه تغییر وضعیت.
 
-### ۲. سیستم پیامک OTP و احراز هویت
+### ۲. سیستم پیامک OTP و احراز هویت سریع
 * 📲 **درگاه پیامک SMS.ir (Fast Send / Verify REST API):** ارسال آنی کدهای یکبارمصرف با شناسه قالب اختصاصی (`418155`) و پارامتر `#CODE#`.
-* 🛡️ **کنترل امنیتی Rate Limiting:** جلوگیری از ارسال رگباری پیامک و حملات اسپم به مسیرهای لاگین.
+* 🛡️ **کنترل امنیتی و صدور توکن Bearer:** احراز هویت بدون سشن سنتی از طریق جدول `auth_tokens` سازگار با SPA و PWA.
 
 ### ۳. سیستم جامع پشتیبانی و تیکتینگ (Ticketing System)
 * 🎫 **ثبت و پیگیری تیکت:** تفکیک دپارتمان‌ها (فروش، فنی، مالی، مدیریت)، وضعیت‌ها و اولویت‌ها.
-* 📦 **اتصال هوشمند به خریدهای واقعی کاربر:** نمایش اختصاصی پکیج‌ها و اشتراک‌های خریداری‌شده کاربر در فرم ثبت تیکت و حذف نام‌های تستی قدیمی.
+* 📦 **اتصال هوشمند به خریدهای واقعی کاربر:** نمایش اختصاصی پکیج‌ها و اشتراک‌های خریداری‌شده کاربر در فرم ثبت تیکت.
 * 🔍 **جستجو و فیلتر پیشرفته:** امکان جستجوی سریع شماره تیکت، موضوع، دپارتمان و نام کاربر با تبدیل خودکار ارقام فارسی/انگلیسی.
 * 👨‍💼 **پنل ادمین تیکت‌ها:** پاسخگویی، تغییر وضعیت و ابزار اختصاصی پاک‌سازی تیکت‌های تستی.
 
 ### ۴. پنل مدیریت ارشد و آمار مالی زنده
-* 📈 **نمودار روند عملکرد فروش و درآمد ماهانه (`SalesPerformanceChart`):** نمودار مقایسه‌ای و تحلیلی با قابلیت سوئیچ بین حالت‌های هفتگی، روزانه و تفکیک ماژول‌ها، متصل به دیتابیس تراکنش‌ها و نمایش وضعیت خام تا زمان ثبت اولین خرید.
+* 📈 **نمودار روند عملکرد فروش و درآمد ماهانه (`SalesPerformanceChart`):** نمودار مقایسه‌ای و تحلیلی با قابلیت سوئیچ بین حالت‌های هفتگی، روزانه و تفکیک ماژول‌ها، متصل به دیتابیس تراکنش‌های لاراول.
 * ⚙️ **مدیریت کامل قیمت‌گذاری و ماژول‌ها:** افزودن، ویرایش قیمت ماژول‌ها، تعریف اصناف و کدهای تخفیف.
 * 👥 **مدیریت کاربران و نقش‌ها:** مشاهده لیست کاربران و تخصیص نقش‌های Admin / User.
-* 🛡️ **ثبت لاگ‌های حسابرسی (Audit Logging) و خطای محلی:** مانیتورینگ کلیه رخدادهای حساس و ثبت خطاها در فایل‌های محلی.
-
----
-
-## 🔄 تغییرات و به‌روزرسانی‌های اخیر پروژه
-
-در آخرین نسخه، تغییرات و بهینه‌سازی‌های اساسی زیر در سامانه اعمال شده است:
-
-1. **حذف دیتای قدیمی پکیج‌ها در تیکتینگ:**
-   - اسامی آزمایشی قدیمی (نظیر تیک‌آف، پرواز، صعود) حذف و اندپوینت `/user/purchased-packages` برای دریافت اختصاصی اشتراک‌های واقعیِ کاربر خریدار پیاده‌سازی شد.
-2. **یکپارچه‌سازی و اتصال زنده نمودار فروش ماهانه در پنل مدیریت:**
-   - کامپوننت `SalesPerformanceChart` با کتابخانه Recharts بازطراحی شد و به صورت زنده از جدول `transactions` دیتابیس تغذیه می‌شود.
-3. **بهبود صفحه نخست (لندینگ):**
-   - دکمه «مشاهده پلن‌ها» جای خود را به دکمه مستقیم و سریع **«ورود به حساب»** داد.
-4. **تنظیم پیش‌فرض رابط کاربری روی حالت روز (Light Mode):**
-   - تم سامانه به صورت پیش‌فرض در حالت روشن و استاندارد بارگذاری می‌شود.
-5. **بهینه‌سازی هدر و حذف نماد تستی «م»:**
-   - بخش کاراکتر اضافی در کنار دکمه تم حذف و هدر مدیریت مینیمال شد.
-6. **آماده‌سازی معماری تبدیل به Laravel جهت هاست‌های اشتراکی DirectAdmin.**
+* 🛡️ **ثبت لاگ‌های حسابرسی (Audit Logging):** مانیتورینگ کلیه رخدادهای حساس و ثبت در جدول `audit_logs`.
 
 ---
 
 ## 🛠️ معماری و پشته فناوری (Tech Stack)
 
-| بخش | تکنولوژی |
-| :--- | :--- |
-| **فرانت‌اند (Frontend)** | React 18.3، Vite 5.4، Lucide React، Recharts، Tailwind & Custom CSS Variables |
-| **بک‌اند پیش‌فرض (Node.js)** | Node.js (v20+)، Express 4.21، TypeScript، tsx |
-| **بک‌اند جایگزین (Laravel)** | PHP 8.1+ / 8.2، Laravel 10.x / 11.x، MySQL / MariaDB |
-| **بانک اطلاعاتی** | Flat JSON Database (`data/db.json`) یا MySQL پروداکشن |
-| **درگاه پیامک OTP** | SMS.ir REST API (Verify Endpoint) با قالب ۴۱۸۱۵۵ |
-| **وب‌پوش و اعلان** | Web Push API (پروتکل VAPID / RFC-8292) |
-| **کامپایل سرور** | esbuild (تولید خروجی تک‌فایلی بهینه `dist/server.cjs`) |
+| بخش | تکنولوژی | توضیحات |
+| :--- | :--- | :--- |
+| **بک‌اند (Backend)** | **PHP 8.1+ / 8.2+ & Laravel (10.x / 11.x)** | توسعه‌یافته بر پایه معماری ماژولار MVC و RESTful API |
+| **فرانت‌اند (Frontend)** | **React 18.3 & Vite 5.4** | کامپوننت‌های ماژولار، Lucide React، Recharts و PWA |
+| **پایگاه داده (Database)** | **MySQL 5.7+ / MariaDB 10.3+** | مایگریشن‌های استاندارد Eloquent ORM |
+| **احراز هویت (Auth)** | **Bearer API Token Authentication** | جدول اختصاصی `auth_tokens` با تاریخ انقضا |
+| **درگاه پیامک OTP** | **SMS.ir REST API (Verify Endpoint)** | ارسال فوق سریع پترنی با قالب ۴۱۸۱۵۵ |
+| **وب‌سرور پشتیبانی‌شده** | **Apache (mod_rewrite) / Nginx / LiteSpeed** | کاملاً سازگار با DirectAdmin و cPanel |
 
 ---
 
-## 📋 پیش‌نیازهای سیستمی (Prerequisites)
+## 📋 پیش‌نیازهای سرور و هاست (Prerequisites)
 
-1. **Node.js**: نسخه `20.x` یا بالاتر — [دانلود Node.js](https://nodejs.org/)
-2. **npm** (نسخه `10.x` یا بالاتر)
-3. **Git**
-4. *(در صورت استفاده از لاراول)*: **PHP 8.1+** به همراه Composer و اکستنشن‌های `pdo_mysql`, `mbstring`, `openssl`, `tokenizer`, `xml`, `ctype`, `json`, `bcmath`, `curl`.
+پیش از نصب، از فعال بودن موارد زیر در هاست یا سرور اطمینان حاصل کنید:
+1. **PHP:** نسخه `8.1` یا `8.2` یا `8.3` (قابل انتخاب از منوی Select PHP Version در دایرکت‌ادمین یا سی‌پنل)
+2. **اکستنشن‌های PHP فعال:**
+   - `pdo_mysql`
+   - `mbstring`
+   - `openssl`
+   - `tokenizer`
+   - `xml`
+   - `ctype`
+   - `json`
+   - `bcmath`
+   - `curl`
+3. **دیتابیس:** MySQL 5.7+ یا MariaDB 10.3+
+4. **Composer** (برای نصب وابستگی‌های PHP در صورت دسترسی به SSH یا ترمینال)
 
 ---
 
-## 💻 راهنمای نصب و راه‌اندازی در ویندوز (Windows Setup)
+## 🚀 راهنمای استقرار روی هاست اشتراکی DirectAdmin (پیشنهادی)
 
-```powershell
-# ۱. دریافت سورس
-git clone https://github.com/your-username/karovita.git
-cd karovita
+در هاست‌های اشتراکی با کنترل پنل DirectAdmin، به دلیل ساختار امنیتی استاندارد، کدهای لاراول در خارج از وب‌روت قرار می‌گیرند و فرانت‌اند React در `public_html` قرار می‌گیرد.
 
-# ۲. نصب وابستگی‌ها
-npm install
+### ساختار پوشه‌بندی در هاست دایرکت‌ادمین:
 
-# ۳. ایجاد فایل تنظیمات محیطی
-Copy-Item .env.example .env
-
-# ۴. اجرای سرور توسعه
-npm run dev
+```text
+/home/username/
+├── backend/                  <-- کدهای کامل پروژه لاراول (پشت وب‌روت جهت امنیت)
+│   ├── app/
+│   ├── config/
+│   ├── database/
+│   ├── routes/
+│   ├── .env                  <-- متصل به دیتابیس MySQL
+│   └── ...
+└── public_html/              <-- پوشه در دسترس عموم
+    ├── index.html            <-- فایل خروجی بیلد React
+    ├── assets/               <-- فایل‌های CSS و JS فرانت‌اند React
+    ├── .htaccess             <-- ریدایرکت خودکار SPA Routing و هدایت /api/ به لاراول
+    └── api/                  <-- پوشه فایل ایندکس لاراول
+        ├── index.php         <-- اشاره به ../backend/public/index.php
+        └── .htaccess
 ```
-برنامه در آدرس `http://localhost:3000` در دسترس خواهد بود.
 
----
+### مراحل گام‌به‌گام نصب در DirectAdmin:
 
-## 🚀 راهنمای جامع استقرار در محیط پروداکشن (Production)
+#### گام ۱: ساخت پایگاه داده MySQL
+1. وارد کنترل پنل **DirectAdmin** شوید.
+2. از منوی **MySQL Management** (یا Database Management) گزینه **Create New Database** را بزنید.
+3. یک دیتابیس، نام کاربری و رمز عبور قوی ایجاد نمایید (مثال: `user_karovita`).
 
-### آماده‌سازی فایل‌های نهایی (Build)
-پیش از هرگونه استقرار، در ریشه پروژه دستور زیر را اجرا کنید:
+#### گام ۲: آپلود کدهای لاراول (Backend)
+1. وارد **File Manager** شوید.
+2. در مسیر `/home/username/` (یک مرحله قبل از `public_html`) یک پوشه با نام `backend` بسازید.
+3. محتویات پوشه `backend/` پروژه را داخل این پوشه آپلود و اکسترکت کنید.
+4. فایل `.env` را در پوشه `backend` ایجاد کرده و مشخصات دیتابیس را وارد نمایید:
+   ```env
+   APP_NAME=KaroVita
+   APP_ENV=production
+   APP_KEY=base64:XyZ...GeneratedKey...
+   APP_DEBUG=false
+   APP_URL=https://your-domain.com
+
+   DB_CONNECTION=mysql
+   DB_HOST=127.0.0.1
+   DB_PORT=3306
+   DB_DATABASE=user_karovita
+   DB_USERNAME=user_dbuser
+   DB_PASSWORD=YourSecurePassword123!
+
+   SMS_DRIVER=sms_ir
+   SMS_IR_API_KEY=ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z
+   SMS_IR_TEMPLATE_ID=418155
+   SMS_IR_PARAM_NAME=CODE
+   ```
+
+#### گام ۳: اجرای مایگریشن‌ها و سیدر پیش‌فرض
+از طریق ترمینال یا SSH (و یا اجرای اسکریپت PHP):
 ```bash
-npm run build
+cd /home/username/backend
+php artisan migrate --seed --force
 ```
-این دستور:
-- فرانت‌اند React را داخل پوشه `dist/` بیلد می‌کند (حاوی `index.html`، فایل‌های JS و CSS و Assets).
-- بک‌اند Node.js را به عنوان یک فایل مستقل در `dist/server.cjs` کامپایل می‌کند.
+*(تمامی ۱۰ جدول پایگاه داده به همراه اطلاعات کاربر مدیر ارشد و ماژول‌های تعرفه ساخته می‌شوند)*
 
----
+#### گام ۴: راه‌اندازی نقطه ورود API در `public_html/api`
+1. در پوشه `public_html`، یک ساب‌فولدر با نام `api` بسازید.
+2. یک فایل با نام `index.php` در داخل `public_html/api/` ایجاد کرده و محتوای زیر را در آن قرار دهید:
+   ```php
+   <?php
+   use Illuminate\Contracts\Http\Kernel;
+   use Illuminate\Http\Request;
 
-### بخش الف: راهنمای استقرار روی هاست اشتراکی DirectAdmin (پیشنهادی)
+   define('LARAVEL_START', microtime(true));
 
-هاست‌های اشتراکی DirectAdmin امکان اجرای فرانت‌اند React در کنار بک‌اند (چه نسخه **Laravel** و چه نسخه **Node.js**) را فراهم می‌کنند.
+   require __DIR__.'/../../backend/vendor/autoload.php';
+   $app = require_once __DIR__.'/../../backend/bootstrap/app.php';
 
-#### سناریو ۱: استقرار با بک‌اند لاراول (Laravel) و فرانت‌اند React
+   $kernel = $app->make(Kernel::class);
 
-1. **آپلود کدهای لاراول:**
-   - یک پوشه خارج از وب‌روت (مثلاً در `/home/username/laravel_api`) ایجاد کنید و فایل‌های پروژه لاراول را داخل آن قرار دهید.
-   - دیتابیس MySQL را از بخش **MySQL Management** دایرکت‌ادمین بسازید و اطلاعات آن را در فایل `.env` لاراول وارد نمایید:
-     ```env
-     APP_ENV=production
-     APP_DEBUG=false
-     APP_URL=https://yourdomain.com
-     DB_CONNECTION=mysql
-     DB_HOST=127.0.0.1
-     DB_DATABASE=your_db_name
-     DB_USERNAME=your_db_user
-     DB_PASSWORD=your_db_password
-     ```
-   - دستورات مایگریشن را اجرا کنید:
-     ```bash
-     php artisan migrate --force
-     ```
+   $response = $kernel->handle(
+       $request = Request::capture()
+   )->send();
 
-2. **تنظیم پوشه `public_html`:**
-   - محتویات پوشه `dist/` حاصل از بیلد React را داخل `public_html` آپلود کنید.
-   - پوشه `public` لاراول را در مسیری مثل `public_html/api` کپی کرده و فایل `index.php` آن را طوری تنظیم کنید که به مسیر `/home/username/laravel_api/vendor/autoload.php` و `/home/username/laravel_api/bootstrap/app.php` اشاره کند:
-     ```php
-     require __DIR__.'/../../laravel_api/vendor/autoload.php';
-     $app = require_once __DIR__.'/../../laravel_api/bootstrap/app.php';
-     ```
+   $kernel->terminate($request, $response);
+   ```
+3. فایل `public_html/api/.htaccess` را بسازید:
+   ```apache
+   <IfModule mod_rewrite.c>
+       RewriteEngine On
+       RewriteCond %{REQUEST_FILENAME} !-d
+       RewriteCond %{REQUEST_FILENAME} !-f
+       RewriteRule ^ index.php [L]
+   </IfModule>
+   ```
 
-3. **تنظیم فایل `.htaccess` در `public_html` برای React (SPA Routing):**
-   یک فایل `.htaccess` در ریشه `public_html` با محتوای زیر ایجاد کنید:
+#### گام ۵: آپلود فرانت‌اند React در `public_html`
+1. فایل‌های حاصل از بیلد فرانت‌اند React (شامل `index.html`، پوشه `assets/`، `manifest.json` و `sw.js`) را مستقیماً داخل `public_html` قرار دهید.
+2. فایل `.htaccess` اصلی در `public_html` را به این صورت تنظیم نمایید تا مسیریابی React Router بدون خطا کار کند:
    ```apache
    <IfModule mod_rewrite.c>
      RewriteEngine On
      RewriteBase /
-     
-     # مسیرهای API را مستقیماً به پوشه api/ لاراول هدایت کن
+
+     # مسیرهای API را به پوشه لاراول هدایت کن
      RewriteRule ^api/(.*)$ api/index.php [QSA,L]
 
-     # سایر مسیرها را به index.html فرانت‌اند بفرست (SPA)
+     # فرانت‌اند تک‌صفحه‌ای React (SPA)
      RewriteRule ^index\.html$ - [L]
      RewriteCond %{REQUEST_FILENAME} !-f
      RewriteCond %{REQUEST_FILENAME} !-d
@@ -184,48 +201,23 @@ npm run build
 
 ---
 
-#### سناریو ۲: استقرار با Node.js در DirectAdmin (از طریق Setup Node.js App)
+## 🌐 راهنمای استقرار روی هاست اشتراکی cPanel
 
-1. در پنل DirectAdmin به بخش **Setup Node.js App** (یا CloudLinux NodeJS Selector) بروید.
-2. روی **Create Application** کلیک کنید:
-   - **Node.js version:** نسخه `20.x` یا بالاتر را انتخاب کنید.
-   - **Application mode:** روی `Production` قرار دهید.
-   - **Application root:** مسیر پوشه پروژه (مثلاً `karovita_app`).
-   - **Application startup file:** مقدار `dist/server.cjs` را وارد کنید.
-3. فایل‌های بیلدشده پروژه (`package.json`, `dist/`, `data/`) را داخل پوشه مشخص‌شده آپلود کنید.
-4. روی دکمه **Run NPM Install** کلیک کرده و سپس **Restart** را بزنید.
-
----
-
-### بخش ب: راهنمای استقرار روی هاست اشتراکی cPanel
-
-1. **ساخت برنامه Node.js:**
-   - از بخش Software وارد **Setup Node.js App** شوید.
-   - مشخصات: Node.js 20+، Startup file: `dist/server.cjs`.
-2. **انتقال فایل‌ها:**
-   - فایل‌های `dist/`, `data/`, `package.json`, `.env` را به پوشه اپلیکیشن انتقال دهید.
-3. **تنظیم SSL:**
-   - از بخش **Let's Encrypt SSL** یا **AutoSSL** گواهی رایگان دامنه را فعال نمایید.
+1. از بخش **MySQL Databases** دیتابیس و یوزر مربوطه را بسازید.
+2. پوشه `backend/` را در شاخه ریشه اکانت (`/home/username/backend`) قرار دهید.
+3. در فایل `.env` لاراول مقادیر `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` را تنظیم کنید.
+4. در **Terminal** داخل cPanel دستور زیر را اجرا کنید:
+   ```bash
+   php artisan migrate --seed --force
+   ```
+5. فایل‌های بیلدشده React را در `public_html` آپلود کرده و فایل `public_html/.htaccess` را مطابق بخش DirectAdmin قرار دهید.
 
 ---
 
-### بخش ج: استقرار روی سرور لینوکس (VPS / اختصاصی) با PM2 و وب‌سرور Nginx
+## 🖥️ راهنمای استقرار روی سرور لینوکس (VPS / اختصاصی)
 
-#### ۱. اجرای سرور با PM2
-```bash
-# نصب سراسری PM2
-npm install -g pm2
+کانفیگ وب‌سرور **Nginx** به همراه **PHP-FPM**:
 
-# راه‌اندازی سرور پروداکشن
-pm2 start dist/server.cjs --name "karovita-app" --env NODE_ENV=production
-
-# ذخیره پروسه جهت اجرای خودکار پس از ریبوت
-pm2 save
-pm2 startup
-```
-
-#### ۲. کانفیگ Nginx به همراه SSL و کش‌لس کردن سرویس‌ورکر PWA
-فایل کانفیگ در `/etc/nginx/sites-available/karovita.conf`:
 ```nginx
 server {
     listen 80;
@@ -237,117 +229,99 @@ server {
     listen 443 ssl http2;
     server_name yourdomain.com www.yourdomain.com;
 
+    root /var/www/karovita/public_html;
+    index index.html index.php;
+
     ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
 
     # هدرهای امنیتی
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
-    # جلوگیری از کش شدن سرویس‌ورکر PWA
+    # روت‌های API لاراول
+    location /api {
+        alias /var/www/karovita/backend/public;
+        try_files $uri $uri/ @laravel;
+        
+        location ~ \.php$ {
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME /var/www/karovita/backend/public/index.php;
+            fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        }
+    }
+
+    location @laravel {
+        rewrite /api/(.*)$ /api/index.php?/$1 last;
+    }
+
+    # فرانت‌اند React (SPA)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # عدم کش شدن سرویس‌ورکر PWA
     location = /sw.js {
-        proxy_pass http://127.0.0.1:3000;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Service-Worker-Allowed "/";
     }
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
 }
 ```
-اجرای دستورات فعال‌سازی:
-```bash
-ln -s /etc/nginx/sites-available/karovita.conf /etc/nginx/sites-enabled/
-nginx -t
-systemctl restart nginx
-```
 
 ---
 
-### بخش د: استقرار با Docker و Docker Compose
+## 🏛️ معماری روت‌ها و کنترلرهای Laravel
 
-#### فایل `Dockerfile`:
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+تمامی اندپوینت‌های پروژه در فایل `backend/routes/api.php` تعریف شده و با کنترلرهای اختصاصی زیر مدیریت می‌شوند:
 
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV PORT=3000
-COPY package*.json ./
-RUN npm ci --only=production
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/data ./data
-EXPOSE 3000
-CMD ["node", "dist/server.cjs"]
-```
-
-#### اجرای کانتینر:
-```bash
-docker build -t karovita-app .
-docker run -d -p 3000:3000 --name karovita-container -v $(pwd)/data:/app/data karovita-app
-```
-
----
-
-## 🏛️ معماری و ساختار تبدیل به لاراول (Laravel Backend)
-
-جهت تبدیل بک‌اند به Laravel بدون تغییر در فرانت‌اند React، روت‌های زیر در `routes/api.php` پیاده‌سازی شده‌اند:
-
-### نگاشت روت‌های API (Route Mappings)
-
-| متد | مسیر روت (Route URL) | کنترلر لاراول | توضیحات |
+| متد HTTP | آدرس روت (Route) | کنترلر و اکشن | توضیحات |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/send-otp` | `AuthController@sendOtp` | ارسال پیامک کد یکبارمصرف با SMS.ir |
-| `POST` | `/api/auth/verify-otp` | `AuthController@verifyOtp` | بررسی کد و صدور توکن ورود (Bearer) |
-| `GET` | `/api/auth/me` | `AuthController@me` | دریافت اطلاعات کاربر جاری |
-| `GET` | `/api/user/profile` | `UserController@getProfile` | دریافت پروفایل کاربر |
-| `GET` | `/api/user/company` | `UserController@getCompany` | دریافت اطلاعات شرکت کاربر |
-| `POST` | `/api/user/company` | `UserController@saveCompany` | ثبت یا ویرایش مشخصات شرکت |
-| `GET` | `/api/user/purchased-packages` | `UserController@getPurchasedPackages` | لیست اشتراک‌ها و پکیج‌های خریداری‌شده کاربر |
+| `POST` | `/api/auth/send-otp` | `AuthController@sendOtp` | ارسال پیامک کد یکبارمصرف با درگاه SMS.ir |
+| `POST` | `/api/auth/verify-otp` | `AuthController@verifyOtp` | تایید کد ۵ رقمی و صدور توکن ورود ۶۴ بیتی |
+| `GET` | `/api/auth/me` | `AuthController@me` | دریافت مشخصات کاربر احرازهویت‌شده |
+| `POST` | `/api/auth/logout` | `AuthController@logout` | ابطال و حذف توکن کاربر |
+| `GET` | `/api/user/profile` | `UserController@getProfile` | پروفایل کاربر |
+| `PUT` | `/api/user/profile` | `UserController@updateProfile` | ویرایش نام و مشخصات کاربر |
+| `GET` | `/api/user/company` | `UserController@getCompany` | دریافت اطلاعات حقوقی شرکت |
+| `POST` | `/api/user/company` | `UserController@saveCompany` | ثبت یا ذخیره مشخصات شرکت |
+| `GET` | `/api/user/purchased-packages` | `UserController@getPurchasedPackages` | اشتراک‌ها و پکیج‌های خریداری‌شده کاربر |
 | `GET` | `/api/departments` | `TicketController@getDepartments` | لیست دپارتمان‌های پشتیبانی |
 | `GET` | `/api/tickets` | `TicketController@index` | لیست تیکت‌های کاربر |
 | `POST` | `/api/tickets` | `TicketController@store` | ثبت تیکت جدید |
-| `GET` | `/api/tickets/{id}` | `TicketController@show` | دریافت پیام‌های یک تیکت |
+| `GET` | `/api/tickets/{id}` | `TicketController@show` | مشاهده پیام‌های تیکت |
 | `POST` | `/api/tickets/{id}/reply` | `TicketController@reply` | ارسال پاسخ در تیکت |
+| `PATCH` | `/api/tickets/{id}/close` | `TicketController@close` | بستن تیکت توسط کاربر |
 | `POST` | `/api/orders/create` | `OrderController@create` | صدور فاکتور و ایجاد سفارش خرید |
-| `GET` | `/api/admin/overview` | `AdminController@overview` | آمار کلان داشبورد و تراکنش‌های زنده |
-| `GET` | `/api/admin/users` | `AdminController@users` | مدیریت کاربران و تغییر نقش‌ها |
-| `GET` | `/api/admin/audit-logs` | `AdminController@auditLogs` | مشاهده لاگ‌های امنیتی و حسابرسی |
+| `POST` | `/api/transactions/verify` | `OrderController@verifyTransaction` | تایید پرداخت و فعال‌سازی آنی اشتراک |
+| `GET` | `/api/admin/overview` | `AdminController@overview` | آمار کلان، درآمد و داده‌های زنده نمودار فروش |
+| `GET` | `/api/admin/users` | `AdminController@users` | لیست کاربران با امکان تغییر وضعیت/نقش |
+| `GET` | `/api/admin/tickets` | `AdminController@tickets` | تیکت‌های پشتیبانی در پنل مدیریت |
+| `GET` | `/api/admin/audit-logs` | `AdminController@auditLogs` | مشاهده لاگ‌های حسابرسی و امنیتی |
+| `GET` | `/api/pricing/modules` | `PricingController@getModules` | لیست ماژول‌های فعال برای محاسبه‌گر |
+| `POST` | `/api/admin/pricing/save` | `PricingController@saveAdminPricing` | ذخیره قیمت و ماژول‌ها توسط مدیر |
 
 ---
 
-## ⚙️ تنظیم متغیرهای محیطی (.env)
+## ⚙️ تنظیم متغیرهای محیطی Laravel (.env)
 
 | نام متغیر | توضیح | مقدار پیشنهادی |
 | :--- | :--- | :--- |
-| `NODE_ENV` | حالت اجرای سرور (`development` یا `production`) | `production` |
-| `APP_KEY` | کلید محرمانه رمزنگاری توکن‌های ورود JWT | یک رشته تصادفی ۶۴ کاراکتری |
-| `FRONTEND_URL` | دامنه دسترسی وب‌سایت | `https://yourdomain.com` |
-| `SMS_DRIVER` | درایور ارسال پیامک (`sms_ir` یا `mediana` یا `log`) | `sms_ir` |
-| `SMS_IR_API_KEY` | کلید API درگاه SMS.ir | `ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z` |
-| `SMS_IR_TEMPLATE_ID` | شناسه قالب پیامک تأیید در SMS.ir | `418155` |
-| `SMS_IR_PARAM_NAME` | نام متغیر داخل قالب SMS.ir | `CODE` |
-| `VAPID_PUBLIC_KEY` | کلید عمومی وب‌پوش (اختیاری) | *تولید خودکار در صورت خالی بودن* |
-| `VAPID_PRIVATE_KEY` | کلید خصوصی وب‌پوش (اختیاری) | *تولید خودکار در صورت خالی بودن* |
-| `VAPID_SUBJECT` | ایمیل یا آدرس تماس صاحب وب‌پوش | `mailto:admin@karovita.ir` |
+| `APP_NAME` | نام اپلیکیشن | `KaroVita` |
+| `APP_ENV` | محیط اجرا | `production` |
+| `APP_KEY` | کلید رمزنگاری لاراول | تولید خودکار با `php artisan key:generate` |
+| `APP_DEBUG` | نمایش خطاهای سیستمی | `false` (در محیط عملیاتی) |
+| `APP_URL` | دامنه اصلی سایت | `https://yourdomain.com` |
+| `DB_CONNECTION` | درایور پایگاه داده | `mysql` |
+| `DB_HOST` | آدرس سرور دیتابیس | `127.0.0.1` |
+| `DB_PORT` | پورت دیتابیس | `3306` |
+| `DB_DATABASE` | نام دیتابیس در هاست | `your_db_name` |
+| `DB_USERNAME` | نام کاربری دیتابیس | `your_db_user` |
+| `DB_PASSWORD` | کلمه عبور دیتابیس | `your_db_password` |
+| `SMS_DRIVER` | درایور ارسال پیامک | `sms_ir` |
+| `SMS_IR_API_KEY` | کلید درگاه SMS.ir | `ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z` |
+| `SMS_IR_TEMPLATE_ID` | شناسه قالب تایید SMS.ir | `418155` |
+| `SMS_IR_PARAM_NAME` | نام پارامتر متغیر در قالب | `CODE` |
 
 ---
 
@@ -355,62 +329,65 @@ docker run -d -p 3000:3000 --name karovita-container -v $(pwd)/data:/app/data ka
 
 ```text
 karovita/
-├── server/                    # کدهای بک‌اند و API سرور (Node.js & Express)
-│   ├── routes.ts              # مسیرهای اصلی API، احراز هویت، تیکت‌ها و سفارشات
-│   ├── db.ts                  # لایه اتصال و مدیریت بانک داده
-│   ├── smsService.ts          # سرویس ارسال پیامک OTP (SMS.ir / Mediana)
-│   ├── webPush.ts             # ماژول ارسال اعلان وب (Web Push VAPID)
-│   ├── errorLogger.ts         # سامانه ثبت محلی خطاهای برنامه
-│   ├── auditLogger.ts         # سیستم ثبت لاگ‌های امنیتی و حسابرسی
-│   └── rateLimiters.ts        # میدل‌ورهای جلوگیری از حملات Brute-Force
-├── src/                       # کدهای فرانت‌اند (React 18 + Vite)
-│   ├── components/            # کامپوننت‌های ماژولار رابط کاربری
-│   │   ├── Admin/             # پنل‌های مدیریتی (قیمت‌گذاری، تیکت‌ها، لاگ‌ها، کاربران)
-│   │   ├── Common/            # کامپوننت‌های مشترک (دکمه تم Dark/Light، بنر آفلاین و...)
-│   │   ├── Dashboard/         # نمودارهای تحلیلی فروش با Recharts و آمارها
-│   │   ├── PricingConfigurator/# فرم هوشمند محاسبه و انتخاب ماژول‌های ERP
-│   │   ├── Subscription/      # پنجره جزئیات پکیج و کارت‌های اشتراک
-│   │   └── Tickets/           # رابط تیکتینگ مشتریان و کارشناسان پشتیبانی
-│   ├── styles/                # استایل‌های سراسری، تم تاریک/روشن و PWA
-│   ├── App.jsx                # کامپوننت اصلی و مسیریابی
-│   └── main.jsx               # نقطه ورود React و رندر برنامه
-├── data/                      # ذخیره‌سازی داده‌های محلی و فایل‌های لاگ
-│   ├── db.json                # پایگاه داده JSON در حالت خام
-│   ├── vapid.json             # کلیدهای وب‌پوش
-│   └── error_logs.json        # لاگ‌های خطای سامانه
-├── public/                    # فایل‌های استاتیک، مانیفست PWA، سرویس‌ورکر (sw.js)
-├── .env.example               # فایل نمونه متغیرهای محیطی
-├── package.json               # اطلاعات پکیج‌ها و اسکریپت‌های پروژه
-├── tsx / vite.config.js       # کانفیگ‌های کامپایل و بیلد
-└── README.md                  # مستندات کامل پروژه
+├── backend/                       # بک‌اند کامل فریم‌ورک PHP Laravel
+│   ├── app/
+│   │   ├── Http/
+│   │   │   ├── Controllers/       # کنترلرهای Auth, User, Ticket, Order, Admin, Pricing
+│   │   │   └── Middleware/        # میدل‌ور احراز هویت توکن (TokenAuth) و ادمین
+│   │   └── Models/                # مدل‌های Eloquent (User, Order, Ticket, Subscription, ...)
+│   ├── database/
+│   │   ├── migrations/            # مایگریشن‌های ساخت جداول دیتابیس MySQL
+│   │   └── seeders/               # سیدر اطلاعات اولیه و حساب مدیر ارشد
+│   ├── routes/
+│   │   └── api.php                # تمام مسیرهای استاندارد RESTful API
+│   ├── .env.example               # نمونه تنظیمات محیطی لاراول
+│   └── composer.json              # نیازمندی‌ها و وابستگی‌های پکیج‌های PHP
+├── src/                           # فرانت‌اند مدرن React 18
+│   ├── components/                # کامپوننت‌های رابط کاربری
+│   │   ├── Admin/                 # پنل‌های مدیریت تعرفه، تیکت‌ها، کاربران و لاگ‌ها
+│   │   ├── Common/                # دکمه تم روشن/تاریک و ابزارهای عمومی
+│   │   ├── Dashboard/             # نمودار تحلیلی روند فروش ماهانه با Recharts
+│   │   ├── Landing/               # صفحه نخست (Welcome) با دکمه ورود
+│   │   ├── PricingConfigurator/   # محاسبه‌گر تعرفه ماژول‌های ERP
+│   │   ├── Subscription/          # جزئیات پکیج‌ها و پلن‌ها
+│   │   └── Tickets/               # سیستم تیکتینگ کاربران و کارشناسان
+│   ├── styles/                    # استایل‌های سراسری، تم روز/شب و PWA
+│   ├── App.jsx                    # روتینگ اصلی فرانت‌اند
+│   └── main.jsx                   # نقطه ورود React
+├── public/                        # فایل‌های استاتیک، مانیفست PWA و لوگوها
+├── package.json                   # اسکریپت‌های بیلد فرانت‌اند
+└── README.md                      # مستندات جامع پروژه
 ```
 
 ---
 
 ## 👑 اطلاعات مدیر ارشد و حساب پیش‌فرض
 
-کلیه داده‌های تستی و ساختگی پاک‌سازی شده و پایگاه داده در وضعیت خام با تنها کاربر مدیر ارشد فعال است:
+کلیه داده‌های تستی پاک‌سازی شده و پایگاه داده با اجرای Seeder لاراول حاوی تنها حساب مدیر ارشد فعال است:
 
-| نقش | شماره موبایل | نام مدیر | دسترسی‌ها |
+| نقش | شماره موبایل | نام مدیر ارشد | سطح دسترسی |
 | :--- | :--- | :--- | :--- |
-| **مدیر ارشد (Super Admin)** | `09111273476` | اردلان داوودی | دسترسی کامل به داشبورد، مدیریت تعرفه‌ها، تیکت‌ها، کاربران و لاگ‌ها |
+| **مدیر ارشد سامانه (Super Admin)** | `09111273476` | اردلان داوودی | دسترسی نامحدود به داشبورد، مدیریت تعرفه‌ها، تیکت‌ها، کاربران و لاگ‌ها |
 
 ---
 
-## ⚡ دستورات کاربردی (Scripts)
+## ⚡ دستورات کاربردی Artisan و Composer
 
 | دستور | عملکرد |
 | :--- | :--- |
-| `npm run dev` | اجرای همزمان کلاینت و سرور با Hot-Reload برای محیط توسعه |
-| `npm run build` | کامپایل کامل فرانت‌اند و ایجاد سرور تک‌فایلی پروداکشن در `dist/` |
-| `npm start` | اجرای نسخه بیلدشده پروداکشن (`node dist/server.cjs`) |
+| `composer install --no-dev --optimize-autoloader` | نصب و بهینه‌سازی وابستگی‌های PHP برای پروداکشن |
+| `php artisan key:generate` | تولید کلید رمزنگاری امن `APP_KEY` در فایل `.env` |
+| `php artisan migrate --force` | اجرای مایگریشن‌ها و ایجاد جداول دیتابیس MySQL |
+| `php artisan db:seed --force` | ایجاد اطلاعات پایه (حساب مدیر ارشد، دپارتمان‌ها و تعرفه‌ها) |
+| `php artisan config:cache` | کش کردن کانفیگ‌ها جهت افزایش سرعت در هاست |
+| `php artisan route:cache` | کش کردن روت‌های API جهت بیشترین سرعت پاسخ‌دهی |
 
 ---
 
 **توسعه‌یافته برای سامانه کارویتا (KaroVita Cloud ERP)**  
-جهت انتقال به مخزن گیت‌هاب:
+جهت ارسال تغییرات به مخزن گیت‌هاب:
 ```bash
 git add .
-git commit -m "docs: update production deployment guides and changelog"
+git commit -m "feat: complete PHP Laravel backend transition and directadmin deployment docs"
 git push -u origin main
 ```
