@@ -215,6 +215,41 @@ export function logSubscriptionChange(
 }
 
 /**
+ * Log Financial Events (e.g. online invoice payments, orders, transactions)
+ */
+export function logFinancialEvent(
+  req: Request,
+  params: {
+    actionType?: string;
+    orderId?: number;
+    transactionId?: number;
+    amount?: number;
+    referenceId?: string;
+    userId?: number;
+    actionDescription: string;
+    details?: Record<string, any>;
+  }
+): AuditLog {
+  return logAudit({
+    req,
+    actionType: 'FINANCIAL_TRANSACTION',
+    actionDescription: params.actionDescription,
+    resourceType: 'ORDER_INVOICE',
+    resourceId: params.orderId || params.transactionId || null,
+    status: 'SUCCESS',
+    details: {
+      action_type: params.actionType || 'PAYMENT',
+      order_id: params.orderId,
+      transaction_id: params.transactionId,
+      amount: params.amount,
+      reference_id: params.referenceId,
+      user_id: params.userId,
+      ...params.details,
+    },
+  });
+}
+
+/**
  * Express middleware to automatically audit access to sensitive endpoints
  */
 export function auditSensitiveAccessMiddleware(

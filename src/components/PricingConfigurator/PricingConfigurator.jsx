@@ -109,6 +109,12 @@ export function PricingConfigurator({
     return modules.filter(m => selectedModuleIds.includes(m.id));
   }, [modules, selectedModuleIds]);
 
+  // Default locked modules for the active preset
+  const defaultPresetModuleIds = useMemo(() => {
+    const currentPreset = presets.find(p => p.id === activePreset);
+    return Array.isArray(currentPreset?.default_modules) ? currentPreset.default_modules : [];
+  }, [presets, activePreset]);
+
   // Real-time Pricing Calculations
   const calculations = useMemo(() => {
     const modulesTotal = selectedModules.reduce((sum, m) => sum + (Number(m.price) || 0), 0);
@@ -318,6 +324,7 @@ export function PricingConfigurator({
               stepNumber={moduleGridStepNum}
               modules={modules}
               selectedModuleIds={selectedModuleIds}
+              defaultModuleIds={defaultPresetModuleIds}
               lockedDependenciesMap={lockedDependenciesMap}
               onToggleModule={handleToggleModule}
             />

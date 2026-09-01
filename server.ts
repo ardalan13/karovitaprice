@@ -6,6 +6,7 @@ import apiRoutes from './server/routes';
 import { initServerLogger, logServerError } from './server/errorLogger';
 import { applySecurityHeaders } from './server/securityHeaders';
 import { globalApiLimiter } from './server/rateLimiters';
+import { getHealthStatus } from './server/healthCheck';
 
 async function startServer() {
   initServerLogger();
@@ -26,9 +27,10 @@ async function startServer() {
   // Global rate limiter for API endpoints
   app.use('/api', globalApiLimiter);
 
-  // Health check route
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', app: 'karovita_erp' });
+  // Health check route with full database, SMS, and cache status
+  app.get('/api/health', getHealthStatus);
+  app.get('/api/ping', (_req, res) => {
+    res.json({ status: 'ok', app: 'karovita_erp', timestamp: Date.now() });
   });
 
   // API routes FIRST

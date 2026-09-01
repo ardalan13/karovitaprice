@@ -1,11 +1,12 @@
 import React from 'react';
-import { Check, Lock } from 'lucide-react';
+import { Check, Lock, ShieldCheck } from 'lucide-react';
 import { toPersianDigits } from './configuratorData';
 
 export function ModuleGrid({
   stepNumber = 2,
   modules,
   selectedModuleIds,
+  defaultModuleIds = [],
   lockedDependenciesMap = {},
   onToggleModule,
 }) {
@@ -45,23 +46,32 @@ export function ModuleGrid({
         <div className="erp-modules-grid">
           {orderedModules.map(mod => {
             const isSelected = selectedModuleIds.includes(mod.id);
+            const isDefaultPreset = defaultModuleIds.includes(mod.id);
             const lockedBy = lockedDependenciesMap[mod.id];
-            const isLocked = isSelected && Array.isArray(lockedBy) && lockedBy.length > 0;
+            const isDepLocked = isSelected && Array.isArray(lockedBy) && lockedBy.length > 0;
+            const isLocked = isDefaultPreset || isDepLocked;
+
+            let tooltipText = undefined;
+            if (isDefaultPreset) {
+              tooltipText = 'ماژول پایه و پیش‌فرض این صنعت (غیرقابل حذف)';
+            } else if (isDepLocked) {
+              tooltipText = `پیش‌نیاز اجباری برای: ${lockedBy.join('، ')}`;
+            }
 
             return (
               <div
                 key={mod.id}
                 id={`module-card-${mod.id}`}
-                className={`erp-module-card ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''}`}
+                className={`erp-module-card ${isSelected ? 'selected' : ''} ${isLocked ? 'locked' : ''} ${isDefaultPreset ? 'default-preset' : ''}`}
                 onClick={() => {
                   if (!isLocked) {
                     onToggleModule(mod.id);
                   }
                 }}
-                title={isLocked ? `پیش‌نیاز اجباری برای: ${lockedBy.join('، ')}` : undefined}
+                title={tooltipText}
                 role="checkbox"
                 aria-checked={isSelected}
-                tabIndex={0}
+                tabIndex={isLocked ? -1 : 0}
                 onKeyDown={e => {
                   if (e.key === ' ' || e.key === 'Enter') {
                     e.preventDefault();
@@ -69,7 +79,12 @@ export function ModuleGrid({
                   }
                 }}
               >
-                <span className="erp-module-title">{mod.title}</span>
+                <div className="erp-module-info">
+                  <span className="erp-module-title">{mod.title}</span>
+                  {isDefaultPreset && (
+                    <span className="erp-default-pill">پایه</span>
+                  )}
+                </div>
 
                 <div className={`erp-module-checkbox ${isSelected ? 'checked' : ''} ${isLocked ? 'disabled' : ''}`}>
                   {isSelected && (

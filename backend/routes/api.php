@@ -7,12 +7,16 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\PricingController;
+use App\Http\Controllers\HealthController;
 
 /*
 |--------------------------------------------------------------------------
-| Public Routes
+| Public Routes & Health Probes
 |--------------------------------------------------------------------------
 */
+Route::get('/health', [HealthController::class, 'check']);
+Route::get('/ping', [HealthController::class, 'ping']);
+
 Route::post('/auth/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::get('/pricing/modules', [PricingController::class, 'getModules']);

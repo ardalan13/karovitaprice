@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Order\CreateOrderRequest;
+use App\Http\Requests\Order\VerifyTransactionRequest;
 use App\Models\Order;
 use App\Models\Transaction;
 use App\Models\Subscription;
@@ -10,13 +12,15 @@ use App\Models\AuditLog;
 use Carbon\Carbon;
 
 class OrderController extends Controller {
-    public function create(Request $request) {
+    public function create(CreateOrderRequest $request) {
         $user = $request->user();
-        $amount = (int) $request->input('amount', 0);
-        $moduleIds = $request->input('module_ids', []);
-        $userCount = (int) $request->input('user_count', 5);
-        $billingPeriod = $request->input('billing_period', 'monthly');
-        $packageName = $request->input('package_name', 'اشتراک ماژول‌های ERP');
+        $validated = $request->validated();
+
+        $amount = (int) $validated['amount'];
+        $moduleIds = $validated['module_ids'] ?? [];
+        $userCount = (int) ($validated['user_count'] ?? 5);
+        $billingPeriod = $validated['billing_period'] ?? 'monthly';
+        $packageName = $validated['package_name'] ?? 'اشتراک ماژول‌های ERP';
 
         $orderNumber = 'ORD-' . date('Ymd') . '-' . rand(1000, 9999);
 
@@ -48,10 +52,16 @@ class OrderController extends Controller {
         return response()->json(['data' => $order]);
     }
 
-    public function verifyTransaction(Request $request) {
+    public function verifyTransaction(VerifyTransactionRequest $request) {
         $user = $request->user();
-        $orderId = $request->input('order_id');
-        $order = Order::where('id', $orderId)->firstOrFail();
+        $validated = $request->validated();
+        $orderId = $validated['order_id'];
+
+        $order = Order::where('id', $orderId)
+            ->when($user->role !== 'admin', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->firstOrFail();
 
         $trackingCode = 'TRX-' . time() . '-' . rand(100, 999);
 

@@ -21,9 +21,12 @@ import {
   ChevronDown,
   Info,
   ExternalLink,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Package,
+  CreditCard
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { AdminUserDetailsModal } from './AdminUserDetailsModal';
 
 export function AdminUsersManagement({ data = [], reload }) {
   const list = Array.isArray(data) ? data : [];
@@ -932,11 +935,32 @@ export function AdminUsersManagement({ data = [], reload }) {
                         )}
                       </td>
 
-                      {/* Subscriptions */}
+                      {/* Subscriptions Count (Non-clickable) */}
                       <td style={{ padding: '14px 16px', color: '#475569' }}>
-                        <span style={{ background: '#f8fafc', padding: '3px 8px', borderRadius: '5px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: 600 }}>
-                          {(user.subscriptions_count || 0).toLocaleString('fa-IR')} اشتراک
-                        </span>
+                        <div
+                          style={{
+                            background: user.subscriptions_count > 0 ? '#eff6ff' : '#f8fafc',
+                            color: user.subscriptions_count > 0 ? '#1d4ed8' : '#64748b',
+                            border: `1px solid ${user.subscriptions_count > 0 ? '#bfdbfe' : '#e2e8f0'}`,
+                            padding: '5px 10px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            userSelect: 'none',
+                            width: 'fit-content'
+                          }}
+                          title={`تعداد کل اشتراک‌های ثبت‌شده برای این کاربر: ${(user.subscriptions_count || 0).toLocaleString('fa-IR')}`}
+                        >
+                          <Package size={13} color={user.subscriptions_count > 0 ? '#2563eb' : '#94a3b8'} />
+                          <span>
+                            {(user.subscriptions_count || 0) > 0 
+                              ? `${Number(user.subscriptions_count).toLocaleString('fa-IR')} اشتراک` 
+                              : 'بدون اشتراک'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -944,24 +968,27 @@ export function AdminUsersManagement({ data = [], reload }) {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                           <button
                             type="button"
-                            title="مشاهده جزئیات کامل کاربر"
+                            title="مشاهده جزئیات، اشتراک‌ها و خریدهای کاربر"
                             onClick={() => setShowDetailsModal(user)}
                             style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#64748b',
+                              background: '#f0f9ff',
+                              border: '1px solid #bae6fd',
+                              color: '#0284c7',
                               cursor: 'pointer',
-                              padding: '5px',
+                              padding: '5px 10px',
                               borderRadius: '6px',
                               display: 'inline-flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
+                              gap: '4px',
+                              fontSize: '12px',
+                              fontWeight: 600,
                               transition: 'background 0.15s'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            onMouseEnter={e => e.currentTarget.style.background = '#e0f2fe'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#f0f9ff'}
                           >
-                            <Info size={16} />
+                            <Info size={14} />
+                            <span>جزئیات و اشتراک</span>
                           </button>
 
                           {!isOwner && (
@@ -1300,103 +1327,13 @@ export function AdminUsersManagement({ data = [], reload }) {
         </div>
       )}
 
-      {/* 5. Modal: View User Details */}
+      {/* 5. Modal: View Full User Details, Subscriptions & Order/Module Management */}
       {showDetailsModal && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-          padding: '16px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '16px',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
-            width: '100%',
-            maxWidth: '480px',
-            border: '1px solid #e2e8f0',
-            overflow: 'hidden',
-            direction: 'rtl',
-            fontFamily: 'inherit'
-          }}>
-            <div style={{
-              padding: '18px 24px',
-              borderBottom: '1px solid #f1f5f9',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: '#f8fafc'
-            }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                شناسنامه و مشخصات کاربر
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowDetailsModal(null)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13.5px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>شماره همراه:</span>
-                <strong style={{ fontFamily: 'monospace', direction: 'ltr' }}>{showDetailsModal.mobile}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>نام و نام خانوادگی:</span>
-                <strong>{[showDetailsModal.first_name, showDetailsModal.last_name].filter(Boolean).join(' ') || '—'}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>سمت سازمانی:</span>
-                <span>{showDetailsModal.job_title || '—'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>ایمیل:</span>
-                <span style={{ direction: 'ltr' }}>{showDetailsModal.email || '—'}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>شرکت / صنف:</span>
-                <strong>{showDetailsModal.company_name || '—'}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span style={{ color: '#64748b' }}>سطح دسترسی:</span>
-                <span style={{ fontWeight: 700, color: showDetailsModal.role === 'admin' ? '#b91c1c' : showDetailsModal.role === 'support' ? '#c2410c' : '#0369a1' }}>
-                  {showDetailsModal.role === 'admin' ? 'مدیر سیستم (Admin)' : showDetailsModal.role === 'support' ? 'کارشناس پشتیبانی (Support)' : 'کاربر عادی (User)'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span style={{ color: '#64748b' }}>تعداد اشتراک‌ها:</span>
-                <span>{(showDetailsModal.subscriptions_count || 0).toLocaleString('fa-IR')} عدد</span>
-              </div>
-            </div>
-
-            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #f1f5f9', textAlign: 'left' }}>
-              <button
-                type="button"
-                onClick={() => setShowDetailsModal(null)}
-                style={{
-                  background: '#0870d1',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 20px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
-              >
-                بستن
-              </button>
-            </div>
-          </div>
-        </div>
+        <AdminUserDetailsModal
+          userId={showDetailsModal.id}
+          onClose={() => setShowDetailsModal(null)}
+          onUserUpdated={reload}
+        />
       )}
 
     </div>

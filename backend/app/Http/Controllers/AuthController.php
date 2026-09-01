@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Auth\SendOtpRequest;
+use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Models\User;
 use App\Models\OtpCode;
 use App\Models\AuthToken;
@@ -12,14 +14,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 
 class AuthController extends Controller {
-    public function sendOtp(Request $request) {
-        $mobile = trim((string) $request->input('mobile', ''));
-        // Normalize Persian digits to English
-        $mobile = strtr($mobile, ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);
-
-        if (!$mobile || !preg_match('/^09[0-9]{9}$/', $mobile)) {
-            return response()->json(['error' => 'شماره موبایل وارد شده نامعتبر است (باید ۱۱ رقمی و با ۰۹ شروع شود)'], 400);
-        }
+    public function sendOtp(SendOtpRequest $request) {
+        $mobile = $request->validated()['mobile'];
 
         // Generate 5 digit code
         $code = (string) rand(10000, 99999);
@@ -66,11 +62,10 @@ class AuthController extends Controller {
         ]);
     }
 
-    public function verifyOtp(Request $request) {
-        $mobile = trim((string) $request->input('mobile', ''));
-        $code = trim((string) $request->input('code', ''));
-        $mobile = strtr($mobile, ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);
-        $code = strtr($code, ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9']);
+    public function verifyOtp(VerifyOtpRequest $request) {
+        $validated = $request->validated();
+        $mobile = $validated['mobile'];
+        $code = $validated['code'];
 
         $otp = OtpCode::where('mobile', $mobile)
             ->where('code', $code)

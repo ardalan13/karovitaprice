@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Ticket\StoreTicketRequest;
+use App\Http\Requests\Ticket\ReplyTicketRequest;
 use App\Models\Department;
 use App\Models\Ticket;
 use App\Models\TicketMessage;
 use App\Models\AuditLog;
+use App\Services\AuditLogger;
 
 class TicketController extends Controller {
     public function getDepartments() {
@@ -32,33 +35,25 @@ class TicketController extends Controller {
         return response()->json(['data' => $tickets]);
     }
 
-    public function store(Request $request) {
+    public function store(StoreTicketRequest $request) {
         $user = $request->user();
-        $subject = trim($request->input('subject', ''));
-        $message = trim($request->input('message', ''));
-        $departmentId = $request->input('department_id');
-        $serviceName = $request->input('service_name');
-        $priority = $request->input('priority', 'medium');
-
-        if (!$subject || !$message) {
-            return response()->json(['error' => 'موضوع و متن پیام تیکت الزامی هستند'], 400);
-        }
+        $validated = $request->validated();
 
         $ticket = Ticket::create([
             'user_id' => $user->id,
-            'department_id' => $departmentId,
-            'subject' => $subject,
-            'service_name' => $serviceName,
-            'priority' => $priority,
+            'department_id' => $validated['department_id'] ?? null,
+            'subject' => $validated['subject'],
+            'service_name' => $validated['service_name'] ?? null,
+            'priority' => $validated['priority'] ?? 'medium',
             'status' => 'pending',
         ]);
 
         TicketMessage::create([
             'ticket_id' => $ticket->id,
             'user_id' => $user->id,
-            'message' => $message,
+            'message' => $validated['message'],
             'is_admin' => false,
-            'attachments' => $request->input('attachments', []),
+            'attachments' => $validated['attachments'] ?? [],
         ]);
 
         AuditLog::create([
@@ -87,13 +82,9 @@ class TicketController extends Controller {
         return response()->json(['data' => $ticket]);
     }
 
-    public function reply(Request $request, $id) {
+    public function reply(ReplyTicketRequest $request, $id) {
         $user = $request->user();
-        $messageText = trim($request->input('message', ''));
-
-        if (!$messageText) {
-            return response()->json(['error' => 'متن پیام الزامی است'], 400);
-        }
+        $validated = $request->validated();
 
         $ticket = Ticket::where('id', $id)
             ->when($user->role !== 'admin', function ($q) use ($user) {
@@ -106,13 +97,19 @@ class TicketController extends Controller {
         $msg = TicketMessage::create([
             'ticket_id' => $ticket->id,
             'user_id' => $user->id,
-            'message' => $messageText,
+            'message' => $validated['message'],
             'is_admin' => $isAdmin,
-            'attachments' => $request->input('attachments', []),
+            'attachments' => $validated['attachments'] ?? [],
         ]);
 
         $ticket->status = $isAdmin ? 'answered' : 'customer_response';
         $ticket->save();
+
+        if ($isAdmin) {
+            AuditLogger::logTicketAdminAction($ticket->id, "ارسال پاسخ مدیریتی به تیکت #{$ticket->id}", [
+                'details' => ['message_snippet' => mb_substr($validated['message'], 0, 100)],
+            ], $user);
+        }
 
         return response()->json(['data' => $msg, 'message' => 'پاسخ شما ارسال شد']);
     }
@@ -127,6 +124,10 @@ class TicketController extends Controller {
 
         $ticket->status = 'closed';
         $ticket->save();
+
+        if ($user->role === 'admin') {
+            AuditLogger::logTicketAdminAction($ticket->id, "بستن تیکت #{$ticket->id} توسط مدیر", [], $user);
+        }
 
         return response()->json(['message' => 'تیکت بسته شد']);
     }

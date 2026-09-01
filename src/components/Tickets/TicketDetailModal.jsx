@@ -40,6 +40,8 @@ export function TicketDetailModal({
 
   // Modals & Action States
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [unmaskedSecurityIds, setUnmaskedSecurityIds] = useState({});
 
@@ -147,6 +149,21 @@ export function TicketDetailModal({
       alert(err.message || 'خطا در بستن تیکت');
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleDeleteTicket() {
+    try {
+      setDeleting(true);
+      await api(`/admin/tickets/${ticketId}`, { method: 'DELETE' });
+      setShowDeleteConfirm(false);
+      if (onTicketUpdated) onTicketUpdated();
+      window.dispatchEvent(new CustomEvent('ticket-updated'));
+      onClose();
+    } catch (err) {
+      alert(err.message || 'خطا در حذف تیکت');
+    } finally {
+      setDeleting(false);
     }
   }
 

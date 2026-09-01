@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Pricing\SaveAdminPricingRequest;
 use App\Models\PricingModule;
+use App\Services\AuditLogger;
 
 class PricingController extends Controller {
     public function getModules() {
@@ -34,8 +36,11 @@ class PricingController extends Controller {
         return response()->json(['data' => $modules]);
     }
 
-    public function saveAdminPricing(Request $request) {
-        $modules = $request->input('modules', []);
+    public function saveAdminPricing(SaveAdminPricingRequest $request) {
+        $validated = $request->validated();
+        $modules = $validated['modules'];
+        $oldModules = PricingModule::all()->toArray();
+        
         foreach ($modules as $m) {
             if (!empty($m['id'])) {
                 PricingModule::updateOrCreate(
@@ -50,6 +55,10 @@ class PricingController extends Controller {
                 );
             }
         }
+
+        $newModules = PricingModule::all()->toArray();
+        AuditLogger::logPricingChange($oldModules, $newModules, $request->user());
+
         return response()->json(['message' => 'تعرفه‌ها با موفقیت ذخیره شدند']);
     }
 }

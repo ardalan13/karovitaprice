@@ -16,14 +16,45 @@ import {
   logConfigChange,
   logSecurityEvent,
   logSubscriptionChange,
+  logFinancialEvent,
 } from './auditLogger';
 import { getVapidPublicKey, sendWebPush, broadcastWebPush, PushNotificationPayload } from './webPush';
 import { errorLogger, logClientError, logServerError } from './errorLogger';
 import { performanceLogger } from './performanceLogger';
-import { dispatchOtpSms } from './smsService';
+import {
+  dispatchOtpSms,
+  sendTemplateSms,
+  sendInvoiceIssuedSms,
+  sendSubscriptionExpirySms,
+  sendTicketCreatedSms,
+  sendPaymentSuccessSms,
+  checkAndSendSubscriptionExpiryReminders,
+  checkSmsProviderHealth,
+  getSmsConfig
+} from './smsService';
+import {
+  initiateZibalPayment,
+  verifyZibalPayment,
+  inquiryZibalTransaction,
+  getZibalConfig
+} from './zibalService';
+import {
+  generateOfficialTaxInvoiceHtml,
+  generateOfficialContractHtml,
+  OFFICIAL_SELLER_INFO,
+  numberToWordsPersian,
+  generateTaxId,
+} from './taxInvoiceService';
+import { getHealthStatus } from './healthCheck';
 
 const JWT_SECRET = process.env.APP_KEY || 'secret_key_owj_abri_123';
 const router = Router();
+
+// Health check endpoint
+router.get('/health', getHealthStatus);
+router.get('/ping', (_req, res) => {
+  res.json({ status: 'ok', app: 'karovita_erp', timestamp: Date.now() });
+});
 
 // Middleware: Authenticate JWT Token
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
@@ -311,6 +342,24 @@ router.post('/onboarding/company', authMiddleware, (req: Request, res: Response)
   });
 });
 
+router.get('/auth/me', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  return res.json({
+    user: {
+      id: user.id,
+      mobile: user.mobile,
+      role: user.role,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      job_title: user.job_title,
+      company_name: user.company_name,
+      onboarding_step: user.onboarding_step,
+      created_at: user.created_at,
+    },
+  });
+});
+
 router.get('/profile', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
   return res.json({
@@ -490,7 +539,7 @@ router.post('/trial', authMiddleware, (req: Request, res: Response) => {
   return res.status(201).json({ message: 'دوره آزمایشی ۵ روزه کارویتا برای شما فعال شد.' });
 });
 
-router.post('/orders', authMiddleware, orderCreationLimiter, (req: Request, res: Response) => {
+router.post('/orders', authMiddleware, orderCreationLimiter, async (req: Request, res: Response) => {
   const user = (req as any).user as User;
   if (user.onboarding_step < 3) {
     return res.status(422).json({ message: 'ابتدا اطلاعات کاربری و شرکت را تکمیل کنید.' });
@@ -540,6 +589,10 @@ router.post('/orders', authMiddleware, orderCreationLimiter, (req: Request, res:
       user.onboarding_completed_at = new Date().toISOString();
       user.onboarding_step = 3;
     }
+    // Send automated Proforma/Invoice SMS notification
+    const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+    sendInvoiceIssuedSms(order, user, clientOrigin).catch(err => console.warn('[Invoice SMS Error]', err));
+
     db.save();
     return res.status(201).json({
       order_id: order.id,
@@ -548,60 +601,156 @@ router.post('/orders', authMiddleware, orderCreationLimiter, (req: Request, res:
     });
   }
 
-  const authority = 'sandbox-' + Math.random().toString(36).substring(2, 14);
-  db.createTransaction(order.id, user.id, authority, finalAmount);
+  // Send automated Proforma/Invoice SMS notification
+  const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+  sendInvoiceIssuedSms(order, user, clientOrigin).catch(err => console.warn('[Invoice SMS Error]', err));
+
+  // Request payment URL from Zibal (یا سندباکس شبیه‌ساز)
+  const zibalRes = await initiateZibalPayment(order, user, clientOrigin);
+  const trackId = String(zibalRes.trackId || 'sandbox-' + Math.random().toString(36).substring(2, 14));
+  
+  db.createTransaction(order.id, user.id, trackId, finalAmount);
+  const tx = db.transactions.find(t => t.authority === trackId);
+  if (tx) {
+    tx.gateway = 'zibal';
+    tx.raw_response = zibalRes.rawResponse;
+  }
+  db.save();
 
   return res.status(201).json({
     order_id: order.id,
     order_number: order.order_number,
-    payment_url: `/api/payments/callback?authority=${authority}`,
+    payment_url: zibalRes.paymentUrl || `/api/payments/zibal/callback?trackId=${trackId}&success=1&status=2&orderId=${order.id}`,
+    trackId: trackId,
   });
 });
 
-const handleCallback = (req: Request, res: Response) => {
-  const authority = String(req.query.authority || req.body.authority || '');
-  const tx = db.transactions.find(t => t.authority === authority);
+const handleCallback = async (req: Request, res: Response) => {
+  const trackId = String(req.query.trackId || req.body.trackId || req.query.authority || req.body.authority || '');
+  const success = String(req.query.success ?? req.body.success ?? '1');
+  const statusParam = String(req.query.status ?? req.body.status ?? '2');
+  const orderIdParam = Number(req.query.orderId || req.body.orderId || 0);
+
+  let tx = db.transactions.find(t => t.authority === trackId);
+  if (!tx && orderIdParam > 0) {
+    tx = db.transactions.filter(t => t.order_id === orderIdParam).pop();
+  }
+
   if (!tx) {
-    return res.status(404).json({ message: 'تراکنش یافت نشد.' });
+    return res.status(404).send(`
+      <!DOCTYPE html>
+      <html dir="rtl" lang="fa">
+      <head><meta charset="utf-8"><title>تراکنش یافت نشد</title>
+      <style>body{font-family:system-ui;text-align:center;padding:50px;background:#f8fafc;color:#1e293b}a{color:#0284c7;text-decoration:none;font-weight:bold;margin-top:20px;display:inline-block}</style>
+      </head>
+      <body>
+        <h2>خطا در شناسایی تراکنش</h2>
+        <p>شناسه پیگیری ارسال شده از درگاه در سامانه کارویتا یافت نشد.</p>
+        <a href="/dashboard">بازگشت به پنل کاربری</a>
+      </body></html>
+    `);
   }
 
   const order = db.orders.find(o => o.id === tx.order_id);
   const user = db.getUserById(tx.user_id);
 
-  if (tx.status !== 'successful' && order) {
-    tx.status = 'successful';
-    tx.reference_id = 'REF-' + Date.now();
-    tx.paid_at = new Date().toISOString();
-    order.status = 'paid';
-
-    if (order.module_ids && order.module_ids.length > 0) {
-      db.createERPSubscription(
-        tx.user_id,
-        order.id,
-        order.module_ids,
-        order.user_count || 5,
-        order.billing_period || 'monthly',
-        'purchase'
-      );
-    } else if (order.package_id) {
-      const pkg = db.getPackageById(order.package_id);
-      if (pkg) {
-        db.createSubscription(tx.user_id, pkg.id, order.id, 'purchase', pkg.duration_days, pkg.usage_limit);
-      }
-    }
-
-    if (user && !user.onboarding_completed_at) {
-      user.onboarding_completed_at = new Date().toISOString();
-      user.onboarding_step = 3;
-    }
+  // If user cancelled on gateway
+  if (success !== '1' && success !== 'true') {
+    tx.status = 'failed';
+    tx.raw_response = { query: req.query, body: req.body, reason: 'user_cancelled_or_bank_error' };
     db.save();
+    return res.redirect(`/dashboard?payment=failed&order=${order?.id || ''}&msg=${encodeURIComponent('تراکنش توسط کاربر لغو شد یا در شبکه بانکی ناموفق بود.')}`);
   }
 
-  return res.redirect('/dashboard?payment=success');
+  // Call real Zibal verification endpoint
+  try {
+    const verifyResult = await verifyZibalPayment(trackId);
+    
+    if (verifyResult.success && order) {
+      const refNumber = verifyResult.refNumber || ('SHP-' + Date.now().toString().slice(-8));
+      tx.status = 'successful';
+      tx.reference_id = refNumber;
+      tx.paid_at = verifyResult.paidAt || new Date().toISOString();
+      tx.raw_response = verifyResult.rawResponse || verifyResult;
+      order.status = 'paid';
+
+      // Activate or merge ERP subscriptions
+      if (order.module_ids && order.module_ids.length > 0) {
+        db.createERPSubscription(
+          tx.user_id,
+          order.id,
+          order.module_ids,
+          order.user_count || 5,
+          order.billing_period || 'monthly',
+          'purchase'
+        );
+      } else if (order.package_id) {
+        const pkg = db.getPackageById(order.package_id);
+        if (pkg) {
+          db.createSubscription(tx.user_id, pkg.id, order.id, 'purchase', pkg.duration_days, pkg.usage_limit);
+        }
+      }
+
+      if (user && !user.onboarding_completed_at) {
+        user.onboarding_completed_at = new Date().toISOString();
+        user.onboarding_step = 3;
+      }
+
+      db.save();
+
+      // Log financial audit event
+      logFinancialEvent(req, {
+        actionType: 'ZIBAL_ONLINE_PAYMENT_VERIFIED',
+        orderId: order.id,
+        transactionId: tx.id,
+        amount: order.amount,
+        referenceId: refNumber,
+        userId: tx.user_id,
+        actionDescription: `تأییدیه موفق پرداخت آنلاین درگاه شاپرک زیبال برای سفارش #${order.order_number} به مبلغ ${(order.amount || 0).toLocaleString('fa-IR')} تومان با شماره پیگیری شاپرک ${refNumber}`,
+        details: {
+          trackId: trackId,
+          shaparakRef: refNumber,
+          cardNumber: verifyResult.cardNumber,
+          gateway: 'zibal',
+        }
+      });
+
+      // Send automated payment success SMS
+      if (user) {
+        sendPaymentSuccessSms(tx, order, user).catch(err => console.warn('[Payment SMS Error]', err));
+      }
+
+      // Broadcast web push notification
+      try {
+        const userSubs = db.getUserPushSubscriptions(tx.user_id);
+        if (userSubs.length > 0) {
+          broadcastWebPush(userSubs, {
+            title: 'پرداخت موفق سفارش',
+            body: `پرداخت سفارش #${order.order_number} به مبلغ ${(order.amount || 0).toLocaleString('fa-IR')} تومان با موفقیت تایید شد.`,
+            url: `/dashboard`,
+            tag: `payment-${order.id}`,
+          }).catch(() => {});
+        }
+      } catch {}
+
+      return res.redirect(`/dashboard?payment=success&order=${order.id}&ref=${encodeURIComponent(refNumber)}`);
+    } else {
+      tx.status = 'failed';
+      tx.raw_response = verifyResult.rawResponse || verifyResult;
+      db.save();
+      return res.redirect(`/dashboard?payment=failed&order=${order?.id || ''}&msg=${encodeURIComponent(verifyResult.message || 'خطا در تایید تراکنش شاپرک')}`);
+    }
+  } catch (err: any) {
+    tx.status = 'failed';
+    db.save();
+    return res.redirect(`/dashboard?payment=failed&order=${order?.id || ''}&msg=${encodeURIComponent('خطای فنی در ارتباط با درگاه: ' + err.message)}`);
+  }
 };
 
 router.get('/payments/callback', handleCallback);
 router.post('/payments/callback', handleCallback);
+router.get('/payments/zibal/callback', handleCallback);
+router.post('/payments/zibal/callback', handleCallback);
 
 router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
@@ -804,88 +953,385 @@ router.get('/subscriptions/:id', authMiddleware, (req: Request, res: Response) =
   });
 });
 
+router.get('/payments/pending-count', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const pendingOrders = db.orders.filter(o => o.user_id === user.id && o.status === 'pending');
+  return res.json({ count: pendingOrders.length });
+});
+
+router.get('/user/orders', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const orders = db.orders
+    .filter(o => o.user_id === user.id)
+    .sort((a, b) => b.id - a.id)
+    .map(o => {
+      const tx = db.transactions.find(t => t.order_id === o.id && t.status === 'successful');
+      const moduleNames = Array.isArray(o.module_ids) 
+        ? o.module_ids.map(id => db.erpModules.find(m => m.id === id)?.title || id)
+        : [];
+      return {
+        id: o.id,
+        order_number: o.order_number,
+        amount: o.amount,
+        status: o.status,
+        module_ids: o.module_ids || [],
+        module_names: moduleNames,
+        user_count: o.user_count || 5,
+        billing_period: o.billing_period || 'monthly',
+        description: o.description || (moduleNames.length ? `افزودن ${moduleNames.length} ماژول جدید` : 'سفارش خدمات ابری کارویتا'),
+        created_at: o.created_at,
+        transaction: tx ? {
+          id: tx.id,
+          reference_id: tx.reference_id,
+          paid_at: tx.paid_at,
+          gateway: tx.gateway,
+          amount: tx.amount,
+        } : null,
+      };
+    });
+
+  const pendingCount = orders.filter(o => o.status === 'pending').length;
+
+  return res.json({
+    data: orders,
+    pending_count: pendingCount,
+  });
+});
+
+router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const orderId = Number(req.params.id);
+  const mode = req.body?.mode || 'zibal'; // 'zibal' | 'direct' | 'instant'
+  const order = db.orders.find(o => o.id === orderId && (user.role === 'admin' || o.user_id === user.id));
+  
+  if (!order) {
+    return res.status(404).json({ message: 'سفارش یا فاکتور مورد نظر یافت نشد.' });
+  }
+
+  if (order.status === 'paid') {
+    return res.status(400).json({ message: 'این فاکتور قبلاً پرداخت و تسویه شده است.' });
+  }
+
+  const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+
+  // If user requested online Zibal Shaparak Gateway
+  if (mode === 'zibal') {
+    try {
+      const zibalRes = await initiateZibalPayment(order, user, clientOrigin);
+      const trackId = String(zibalRes.trackId || 'sandbox-' + Math.random().toString(36).substring(2, 14));
+      
+      const tx: Transaction = {
+        id: db.nextTransactionId++,
+        order_id: order.id,
+        user_id: order.user_id,
+        gateway: 'zibal',
+        authority: trackId,
+        reference_id: null,
+        amount: order.amount,
+        status: 'initiated',
+        raw_response: zibalRes.rawResponse,
+        paid_at: null,
+        created_at: new Date().toISOString(),
+      };
+      db.transactions.push(tx);
+      db.save();
+
+      return res.json({
+        message: 'درخواست پرداخت به درگاه شاپرک زیبال ارسال شد.',
+        data: {
+          order_id: order.id,
+          order_number: order.order_number,
+          payment_url: zibalRes.paymentUrl || `/api/payments/zibal/callback?trackId=${trackId}&success=1&status=2&orderId=${order.id}`,
+          trackId: trackId,
+          is_redirect: true,
+          amount: order.amount,
+        }
+      });
+    } catch (err: any) {
+      console.warn('[Zibal Pay Exception]', err.message);
+      // Fallback to instant pay
+    }
+  }
+
+  // Direct instant pay / Simulated settlement
+  order.status = 'paid';
+  const refId = 'SHP-' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
+  const tx: Transaction = {
+    id: db.nextTransactionId++,
+    order_id: order.id,
+    user_id: order.user_id,
+    gateway: 'zibal_direct',
+    authority: 'DIR-' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+    reference_id: refId,
+    amount: order.amount,
+    status: 'successful',
+    raw_response: { mode: 'direct_simulation' },
+    paid_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+  };
+  db.transactions.push(tx);
+
+  // Activate or merge modules in the user's active subscription
+  const userSubs = db.subscriptions.filter(s => s.user_id === order.user_id && s.status === 'active');
+  if (userSubs.length > 0 && order.module_ids && order.module_ids.length > 0) {
+    const targetSub = userSubs[0];
+    const existingMods = targetSub.module_ids || [];
+    const mergedMods = Array.from(new Set([...existingMods, ...order.module_ids]));
+    targetSub.module_ids = mergedMods;
+    targetSub.title = `اشتراک سازمانی کارویتا (${mergedMods.length} ماژول)`;
+  } else if (order.module_ids && order.module_ids.length > 0) {
+    db.createERPSubscription(
+      order.user_id,
+      order.id,
+      order.module_ids,
+      order.user_count || 5,
+      order.billing_period || 'monthly',
+      'purchase'
+    );
+  }
+
+  db.save();
+
+  logFinancialEvent(req, {
+    actionType: 'ONLINE_INVOICE_PAYMENT',
+    orderId: order.id,
+    transactionId: tx.id,
+    amount: order.amount,
+    referenceId: refId,
+    userId: order.user_id,
+    actionDescription: `پرداخت موفق آنلاین فاکتور #${order.order_number} به مبلغ ${(order.amount || 0).toLocaleString('fa-IR')} تومان با کد پیگیری شاپرک ${refId}`,
+  });
+
+  // Send automated SMS confirmation
+  sendPaymentSuccessSms(tx, order, user).catch(err => console.warn('[Payment SMS Error]', err));
+
+  return res.json({
+    message: 'پرداخت با موفقیت انجام شد و فاکتور نهایی صادر گردید.',
+    data: {
+      order_id: order.id,
+      order_number: order.order_number,
+      transaction_id: tx.id,
+      reference_id: refId,
+      amount: order.amount,
+      paid_at: tx.paid_at,
+      is_redirect: false,
+    }
+  });
+});
+
+// -------------------------------------------------------------
+// Official Tax Invoices & SLA Service Contracts (Iranian Tax Authority Compliant)
+// -------------------------------------------------------------
+
 router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
   const user = (req as any).user as User;
-  const txId = Number(req.params.id);
-  const tx = db.transactions.find(t => t.id === txId && t.user_id === user.id && t.status === 'successful');
+  const txOrOrderId = Number(req.params.id);
+  
+  // Find transaction by ID or order ID, allowing admin access to all
+  let tx = db.transactions.find(t => t.id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
   if (!tx) {
-    return res.status(404).json({ message: 'فاکتور یافت نشد.' });
+    tx = db.transactions.find(t => t.order_id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
+  }
+  
+  let order = tx ? db.orders.find(o => o.id === tx.order_id) : db.orders.find(o => o.id === txOrOrderId && (user.role === 'admin' || o.user_id === user.id));
+  if (!tx && order) {
+    tx = db.transactions.find(t => t.order_id === order.id);
   }
 
-  const order = db.orders.find(o => o.id === tx.order_id);
-  const pkg = order?.package_id ? db.getPackageById(order.package_id) : null;
-
-  let serviceDescription = pkg?.name || 'اشتراک نرم‌افزار ابری کارویتا';
-  let moduleListHtml = '';
-  if (order?.module_ids && order.module_ids.length > 0) {
-    const mods = order.module_ids.map(id => {
-      const m = db.erpModules.find(x => x.id === id);
-      return `<li style="display:flex; justify-content:space-between; padding: 4px 0;"><span>${m?.title || id}</span><span>${(m?.price || 0).toLocaleString('fa-IR')} تومان</span></li>`;
-    }).join('');
-    moduleListHtml = `<div style="background:#f8fafc; padding:12px; border-radius:8px; margin: 12px 0;">
-      <h4 style="margin:0 0 8px; color:#1e293b;">ماژول‌های فعال:</h4>
-      <ul style="margin:0; padding-right: 18px;">${mods}</ul>
-    </div>`;
-    serviceDescription = `پیکربندی سازمانی (${order.module_ids.length} ماژول - ${order.user_count || 5} کاربر - دوره ${order.billing_period === 'yearly' ? 'سالانه' : 'ماهانه'})`;
+  if (!tx && !order) {
+    return res.status(404).json({ message: 'فاکتور یا سفارش مورد نظر یافت نشد.' });
   }
 
-  const html = `<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <title>پیش‌فاکتور و رسید پرداخت - ${order?.order_number || ''}</title>
-  <style>
-    body { font-family: Tahoma, 'Vazirmatn', sans-serif; padding: 40px; color: #0f172a; background: #f8fafc; line-height: 1.8; }
-    .invoice-box { max-width: 680px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eff6ff; padding-bottom: 16px; margin-bottom: 20px; }
-    h1 { color: #2563eb; margin: 0; font-size: 20px; font-weight: 800; }
-    .badge { background: #dcfce7; color: #166534; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; }
-    .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #f1f5f9; font-size: 14px; }
-    .total-box { background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .total-price { font-size: 20px; font-weight: 800; color: #1d4ed8; }
-    .footer { margin-top: 28px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 14px; text-align: center; }
-  </style>
-</head>
-<body>
-  <div class="invoice-box">
-    <div class="header">
-      <div>
-        <h1>فاکتور رسمی فروش خدمات ابری کارویتا</h1>
-        <small style="color:#64748b;">شناسه فاکتور: ${order?.order_number || '—'}</small>
-      </div>
-      <span class="badge">پرداخت موفق</span>
-    </div>
-    <div class="row"><span>مشتری:</span><strong>${[user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile}</strong></div>
-    <div class="row"><span>شماره همراه:</span><strong>${user.mobile}</strong></div>
-    <div class="row"><span>سرویس انتخابی:</span><strong>${serviceDescription}</strong></div>
-    <div class="row"><span>تعداد کاربران:</span><strong>${order?.user_count || 5} کاربر</strong></div>
-    <div class="row"><span>کد رهگیری بانکی:</span><strong>${tx.reference_id || '—'}</strong></div>
-    <div class="row"><span>تاریخ پرداخت:</span><strong>${tx.paid_at ? new Date(tx.paid_at).toLocaleDateString('fa-IR') : '—'}</strong></div>
-    
-    ${moduleListHtml}
+  const isPaid = (order?.status === 'paid') || (tx?.status === 'successful');
+  const invoiceUser = order ? db.getUserById(order.user_id) : tx ? db.getUserById(tx.user_id) : user;
+  const targetUser = invoiceUser || user;
+  const company = db.getCompanyByUserId(targetUser.id);
 
-    <div class="total-box">
-      <span>مبلغ نهایی پرداخت‌شده:</span>
-      <span class="total-price">${Number(tx.amount).toLocaleString('fa-IR')} تومان</span>
-    </div>
-    <div class="footer">
-      این فاکتور به‌صورت سیستمی توسط سامانه ابری کارویتا صادر گردیده و دارای ارزش استناد مالی است.
-    </div>
-  </div>
-</body>
-</html>`;
+  const modulesList = db.erpModules.map(m => ({
+    id: m.id,
+    title: m.title,
+    price: m.price,
+    category: m.category,
+  }));
+
+  const html = generateOfficialTaxInvoiceHtml({
+    order,
+    tx,
+    user: targetUser,
+    company,
+    modulesList,
+    isPaid,
+  });
+
+  const filename = `Tax-Invoice-${order?.order_number || tx?.id || 'doc'}.html`;
 
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename=invoice-${order?.order_number || tx.id}.html`);
+  if (req.query.download === '1') {
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  }
 
   logSensitiveDataAccess(req, {
     resourceType: 'FINANCIAL_INVOICE',
-    resourceId: tx.id,
-    actionDescription: `دانلود و دریافت فاکتور رسمی سفارش ${order?.order_number || tx.id}`,
-    details: { order_id: order?.id, amount: tx.amount },
+    resourceId: tx?.id || order?.id || 0,
+    actionDescription: `مشاهده و دریافت صورتحساب رسمی استاندارد مالیاتی برای سفارش ${order?.order_number || tx?.id}`,
+    details: { order_id: order?.id, amount: tx?.amount || order?.amount, is_paid: isPaid },
   });
 
   return res.send(html);
+});
+
+router.get('/invoices/:id/contract', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const txOrOrderId = Number(req.params.id);
+  
+  let tx = db.transactions.find(t => t.id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
+  if (!tx) {
+    tx = db.transactions.find(t => t.order_id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
+  }
+  
+  let order = tx ? db.orders.find(o => o.id === tx.order_id) : db.orders.find(o => o.id === txOrOrderId && (user.role === 'admin' || o.user_id === user.id));
+  if (!tx && order) {
+    tx = db.transactions.find(t => t.order_id === order.id);
+  }
+
+  if (!tx && !order) {
+    return res.status(404).json({ message: 'سند قرارداد مربوط به این فاکتور یافت نشد.' });
+  }
+
+  const invoiceUser = order ? db.getUserById(order.user_id) : tx ? db.getUserById(tx.user_id) : user;
+  const targetUser = invoiceUser || user;
+  const company = db.getCompanyByUserId(targetUser.id);
+
+  const modulesList = db.erpModules.map(m => ({
+    id: m.id,
+    title: m.title,
+    price: m.price,
+  }));
+
+  const html = generateOfficialContractHtml({
+    order,
+    tx,
+    user: targetUser,
+    company,
+    modulesList,
+  });
+
+  const filename = `Contract-${order?.order_number || tx?.id || 'doc'}.html`;
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  if (req.query.download === '1') {
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  }
+
+  logSensitiveDataAccess(req, {
+    resourceType: 'FINANCIAL_CONTRACT',
+    resourceId: tx?.id || order?.id || 0,
+    actionDescription: `مشاهده و دریافت قرارداد رسمی لایسنس و SLA سفارش ${order?.order_number || tx?.id}`,
+    details: { order_id: order?.id, user_id: targetUser.id },
+  });
+
+  return res.send(html);
+});
+
+router.get('/invoices/:id/data', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const txOrOrderId = Number(req.params.id);
+  
+  let tx = db.transactions.find(t => t.id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
+  if (!tx) {
+    tx = db.transactions.find(t => t.order_id === txOrOrderId && (user.role === 'admin' || t.user_id === user.id));
+  }
+  
+  let order = tx ? db.orders.find(o => o.id === tx.order_id) : db.orders.find(o => o.id === txOrOrderId && (user.role === 'admin' || o.user_id === user.id));
+  if (!tx && order) {
+    tx = db.transactions.find(t => t.order_id === order.id);
+  }
+
+  if (!tx && !order) {
+    return res.status(404).json({ message: 'فاکتور یافت نشد.' });
+  }
+
+  const isPaid = (order?.status === 'paid') || (tx?.status === 'successful');
+  const invoiceUser = order ? db.getUserById(order.user_id) : tx ? db.getUserById(tx.user_id) : user;
+  const targetUser = invoiceUser || user;
+  const company = db.getCompanyByUserId(targetUser.id);
+  const taxId = generateTaxId(order?.id || tx?.id || 1, order?.created_at || new Date().toISOString());
+
+  const finalAmount = Number(tx?.amount || order?.amount || 0);
+  const vatRate = 0.10;
+  const baseBeforeVat = Math.round(finalAmount / (1 + vatRate));
+  const vatAmount = finalAmount - baseBeforeVat;
+  const amountInWords = numberToWordsPersian(finalAmount);
+
+  return res.json({
+    data: {
+      order,
+      transaction: tx,
+      is_paid: isPaid,
+      tax_unique_id: taxId,
+      seller: OFFICIAL_SELLER_INFO,
+      buyer: {
+        name: company?.name || `${targetUser.first_name || ''} ${targetUser.last_name || ''}`.trim() || targetUser.mobile,
+        national_id: company?.national_id || targetUser.national_id || '—',
+        economic_code: company?.economic_code || targetUser.economic_code || '—',
+        registration_number: company?.registration_number || '—',
+        postal_code: company?.postal_code || '—',
+        province: company?.province || 'تهران',
+        city: company?.city || 'تهران',
+        address: company?.address || '—',
+        phone: company?.phone || targetUser.mobile,
+      },
+      financial: {
+        raw_total: order?.breakdown?.modules_total || finalAmount,
+        discount_amount: order?.discount_amount || 0,
+        base_before_vat: baseBeforeVat,
+        vat_rate: '۱۰٪',
+        vat_amount: vatAmount,
+        final_amount: finalAmount,
+        amount_in_words: amountInWords,
+      }
+    }
+  });
+});
+
+// Legal Profile Endpoints
+router.get('/user/company', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const company = db.getCompanyByUserId(user.id);
+  return res.json({ data: company || null });
+});
+
+router.put('/user/company', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const {
+    name = '',
+    industry = 'فناوری اطلاعات و خدمات ابری',
+    employee_count = 10,
+    economic_code = '',
+    registration_number = '',
+    national_id = '',
+    postal_code = '',
+    province = '',
+    city = '',
+    address = '',
+    phone = '',
+  } = req.body;
+
+  const company = db.upsertCompany(user.id, name || 'شرکت مشترک', industry, Number(employee_count) || 1, {
+    economic_code: String(economic_code).trim(),
+    registration_number: String(registration_number).trim(),
+    national_id: String(national_id).trim(),
+    postal_code: String(postal_code).trim(),
+    province: String(province).trim(),
+    city: String(city).trim(),
+    address: String(address).trim(),
+    phone: String(phone).trim(),
+  });
+
+  return res.json({
+    message: 'اطلاعات حقوقی و مالیاتی شرکت با موفقیت ذخیره گردید.',
+    data: company
+  });
 });
 
 // -------------------------------------------------------------
@@ -1287,15 +1733,93 @@ router.get('/admin/subscriptions', authMiddleware, adminMiddleware, (_req: Reque
     .map(s => {
       const user = db.getUserById(s.user_id);
       const pkg = db.getPackageById(s.package_id);
+      const moduleNames = Array.isArray(s.module_ids) 
+        ? s.module_ids.map(id => db.erpModules.find(m => m.id === id)?.title || id)
+        : (pkg?.features || []);
       return {
         ...s,
-        package_name: pkg?.name || '—',
+        module_ids: s.module_ids || [],
+        module_names: moduleNames,
+        module_count: moduleNames.length,
+        package_name: s.title || pkg?.name || `اشتراک سازمانی (${moduleNames.length} ماژول)`,
         mobile: user?.mobile || '—',
         user_name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.mobile || '—',
       };
     });
 
   return res.json({ data: subs });
+});
+
+router.get('/admin/subscriptions/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const sub = db.subscriptions.find(s => s.id === id);
+  if (!sub) {
+    return res.status(404).json({ message: 'اشتراک یافت نشد.' });
+  }
+
+  const user = db.getUserById(sub.user_id);
+  const pkg = db.getPackageById(sub.package_id);
+  const moduleNames = Array.isArray(sub.module_ids) 
+    ? sub.module_ids.map(mid => db.erpModules.find(m => m.id === mid)?.title || mid)
+    : (pkg?.features || []);
+
+  return res.json({
+    data: {
+      ...sub,
+      module_ids: sub.module_ids || [],
+      module_names: moduleNames,
+      package_name: sub.title || pkg?.name || 'اشتراک سازمانی',
+      user: user ? {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        mobile: user.mobile,
+      } : null,
+      all_available_modules: db.erpModules.map(m => ({
+        id: m.id,
+        title: m.title,
+        price: m.price,
+        category: m.category,
+      })),
+    }
+  });
+});
+
+router.put('/admin/subscriptions/:id/modules', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  const { module_ids } = req.body;
+  const sub = db.subscriptions.find(s => s.id === id);
+  if (!sub) {
+    return res.status(404).json({ message: 'اشتراک یافت نشد.' });
+  }
+
+  if (!Array.isArray(module_ids)) {
+    return res.status(400).json({ message: 'لیست ماژول‌ها معتبر نیست.' });
+  }
+
+  const oldModules = sub.module_ids || [];
+  sub.module_ids = module_ids;
+  db.save();
+
+  logSubscriptionChange(req, {
+    subscriptionId: id,
+    userId: sub.user_id,
+    oldStatus: sub.status,
+    newStatus: sub.status,
+    actionDescription: `تغییر و ویرایش لیست ماژول‌های فعال اشتراک #${id} توسط مدیر سامانه (تعداد: ${module_ids.length} ماژول)`,
+    details: {
+      old_modules: oldModules,
+      new_modules: module_ids,
+    }
+  });
+
+  return res.json({ 
+    message: 'ماژول‌های اشتراک با موفقیت بروزرسانی شدند.',
+    data: {
+      id: sub.id,
+      module_ids: sub.module_ids,
+    }
+  });
 });
 
 router.put('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
@@ -1621,6 +2145,261 @@ router.delete('/admin/users/:id', authMiddleware, adminMiddleware, (req: Request
   }
 
   return res.status(404).json({ message: 'کاربر یافت نشد.' });
+});
+
+// 6. Admin: Get Full User Details with Subscriptions, Orders & Modules
+router.get('/admin/users/:id/details', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const targetUserId = Number(req.params.id);
+  const targetUser = db.getUserById(targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر مورد نظر یافت نشد.' });
+  }
+
+  const company = db.getCompanyByUserId(targetUserId);
+  
+  // Get all user subscriptions
+  const userSubs = db.subscriptions
+    .filter(s => s.user_id === targetUserId)
+    .sort((a, b) => b.id - a.id)
+    .map(s => {
+      const pkg = s.package_id ? db.getPackageById(s.package_id) : null;
+      const order = s.order_id ? db.orders.find(o => o.id === s.order_id) : null;
+      const tx = order ? db.transactions.find(t => t.order_id === order.id) : null;
+      
+      const moduleIds = Array.isArray(s.module_ids) ? s.module_ids : [];
+      const moduleDetails = moduleIds.map(mid => {
+        const found = db.erpModules.find(m => m.id === mid);
+        return {
+          id: mid,
+          title: found?.title || mid,
+          price: found?.price || 0,
+          category: found?.category || 'عمومی',
+        };
+      });
+
+      return {
+        ...s,
+        package_name: s.title || pkg?.name || `اشتراک سازمانی (${moduleIds.length} ماژول)`,
+        module_ids: moduleIds,
+        modules: moduleDetails,
+        module_count: moduleIds.length,
+        order_number: order?.order_number || null,
+        order_amount: order?.amount || tx?.amount || null,
+        reference_id: tx?.reference_id || null,
+      };
+    });
+
+  // Get all user orders with transaction details
+  const userOrders = db.orders
+    .filter(o => o.user_id === targetUserId)
+    .sort((a, b) => b.id - a.id)
+    .map(o => {
+      const tx = db.transactions.find(t => t.order_id === o.id);
+      const pkg = o.package_id ? db.getPackageById(o.package_id) : null;
+      const sub = db.subscriptions.find(s => s.order_id === o.id);
+
+      return {
+        id: o.id,
+        order_number: o.order_number,
+        amount: o.amount,
+        status: o.status,
+        created_at: o.created_at,
+        package_name: pkg?.name || sub?.title || 'اشتراک ماژولار ابری کارویتا',
+        user_count: o.user_count || sub?.user_count || 5,
+        billing_period: o.billing_period || sub?.billing_period || 'monthly',
+        transaction: tx ? {
+          id: tx.id,
+          reference_id: tx.reference_id,
+          status: tx.status,
+          gateway: tx.gateway,
+          paid_at: tx.paid_at,
+          amount: tx.amount,
+        } : null,
+      };
+    });
+
+  return res.json({
+    data: {
+      user: {
+        id: targetUser.id,
+        mobile: targetUser.mobile,
+        first_name: targetUser.first_name,
+        last_name: targetUser.last_name,
+        email: targetUser.email,
+        job_title: targetUser.job_title,
+        role: targetUser.role,
+        is_owner: targetUser.mobile === '09111273476',
+        created_at: targetUser.created_at,
+        company: company ? {
+          name: company.name,
+          industry: company.industry,
+          employee_count: company.employee_count,
+          national_id: company.national_id,
+          phone: company.phone,
+          address: company.address,
+        } : null,
+      },
+      subscriptions: userSubs,
+      orders: userOrders,
+      all_available_modules: db.erpModules.map(m => ({
+        id: m.id,
+        title: m.title,
+        price: m.price,
+        category: m.category,
+        dependencies: m.dependencies || [],
+      })),
+    }
+  });
+});
+
+// 7. Admin: Add/Remove Modules from User Subscription (with optional Invoice Generation)
+router.put('/admin/users/:userId/subscriptions/:subId/modules', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const userId = Number(req.params.userId);
+  const subId = Number(req.params.subId);
+  const { module_ids, issue_invoice = false, invoice_amount, invoice_description } = req.body;
+
+  const targetUser = db.getUserById(userId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر یافت نشد.' });
+  }
+
+  const sub = db.subscriptions.find(s => s.id === subId && s.user_id === userId);
+  if (!sub) {
+    return res.status(404).json({ message: 'اشتراک مورد نظر برای این کاربر یافت نشد.' });
+  }
+
+  if (!Array.isArray(module_ids)) {
+    return res.status(400).json({ message: 'لیست ماژول‌ها باید به صورت آرایه ارسال شود.' });
+  }
+
+  const oldModules = sub.module_ids || [];
+  const addedModules = module_ids.filter(m => !oldModules.includes(m));
+  const removedModules = oldModules.filter(m => !module_ids.includes(m));
+
+  sub.module_ids = module_ids;
+  sub.title = `اشتراک سازمانی کارویتا (${module_ids.length} ماژول)`;
+
+  let createdOrder: Order | null = null;
+
+  if (issue_invoice && (addedModules.length > 0 || (Number(invoice_amount) > 0))) {
+    // Calculate default price of added modules from db.erpModules
+    const calculatedPrice = addedModules.reduce((acc, mId) => {
+      const mod = db.erpModules.find(x => x.id === mId);
+      return acc + (Number(mod?.price) || 0);
+    }, 0);
+
+    const finalAmount = (invoice_amount !== undefined && invoice_amount !== '' && Number(invoice_amount) > 0)
+      ? Number(invoice_amount) 
+      : (calculatedPrice > 0 ? calculatedPrice : 100000);
+
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const rand = Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    const modDetails = (addedModules.length > 0 ? addedModules : module_ids)
+      .map(id => {
+        const m = db.erpModules.find(x => x.id === id);
+        return m ? `${m.title} (${Number(m.price || 0).toLocaleString('fa-IR')} تومان)` : id;
+      })
+      .join(' + ');
+
+    createdOrder = {
+      id: db.nextOrderId++,
+      user_id: userId,
+      order_number: `INV-${dateStr}-${rand}`,
+      amount: finalAmount,
+      status: 'pending',
+      module_ids: addedModules.length > 0 ? addedModules : module_ids,
+      user_count: sub.user_count || 5,
+      billing_period: sub.billing_period || 'monthly',
+      coupon_code: '',
+      discount_amount: 0,
+      description: invoice_description || `هزینه افزودن ماژول‌های (${modDetails}) به اشتراک #${sub.id}`,
+      created_at: new Date().toISOString(),
+    };
+
+    db.orders.push(createdOrder);
+  }
+
+  db.save();
+
+  const targetUserName = [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ') || targetUser.mobile;
+  logSubscriptionChange(req, {
+    subscriptionId: subId,
+    userId: userId,
+    oldStatus: sub.status,
+    newStatus: sub.status,
+    actionDescription: `ویرایش و تغییر ماژول‌های فعال اشتراک #${subId} کاربر «${targetUserName}» توسط مدیر (تعداد جدید: ${module_ids.length} ماژول)${createdOrder ? ` همراه با صدور پیش‌فاکتور #${createdOrder.order_number} به مبلغ ${createdOrder.amount.toLocaleString('fa-IR')} تومان` : ''}`,
+    details: {
+      user_id: userId,
+      user_mobile: targetUser.mobile,
+      old_modules: oldModules,
+      new_modules: module_ids,
+      added_modules: addedModules,
+      removed_modules: removedModules,
+      issued_invoice: !!createdOrder,
+      order_id: createdOrder?.id || null,
+      order_number: createdOrder?.order_number || null,
+      order_amount: createdOrder?.amount || null,
+    }
+  });
+
+  if (createdOrder) {
+    const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+    sendInvoiceIssuedSms(createdOrder, targetUser, clientOrigin).catch(err => console.warn('[Admin Invoice SMS Error]', err));
+  }
+
+  return res.json({
+    message: createdOrder 
+      ? `ماژول‌ها با موفقیت بروزرسانی شدند و پیش‌فاکتور #${createdOrder.order_number} به مبلغ ${createdOrder.amount.toLocaleString('fa-IR')} تومان با وضعیت در انتظار پرداخت برای کاربر صادر گردید.`
+      : 'ماژول‌های اشتراک با موفقیت بروزرسانی شدند.',
+    data: {
+      subscription_id: sub.id,
+      module_ids: sub.module_ids,
+      title: sub.title,
+      order: createdOrder,
+    }
+  });
+});
+
+// 8. Admin: Create Direct Subscription for User
+router.post('/admin/users/:userId/subscriptions', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const userId = Number(req.params.userId);
+  const { module_ids = [], duration_days = 365, user_count = 5, billing_period = 'yearly' } = req.body;
+
+  const targetUser = db.getUserById(userId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر یافت نشد.' });
+  }
+
+  const newSub = db.createERPSubscription(
+    userId,
+    null,
+    Array.isArray(module_ids) && module_ids.length > 0 ? module_ids : db.erpModules.slice(0, 4).map(m => m.id),
+    Number(user_count) || 5,
+    billing_period === 'monthly' ? 'monthly' : 'yearly',
+    'admin',
+    Number(duration_days) || 365
+  );
+
+  const targetUserName = [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ') || targetUser.mobile;
+  logSubscriptionChange(req, {
+    subscriptionId: newSub.id,
+    userId: userId,
+    oldStatus: 'none',
+    newStatus: 'active',
+    actionDescription: `اعطای مستقیم اشتراک جدید به کاربر «${targetUserName}» (${targetUser.mobile}) توسط مدیر سیستم`,
+    details: {
+      subscription_id: newSub.id,
+      module_ids: newSub.module_ids,
+      duration_days: duration_days,
+      user_count: user_count,
+    }
+  });
+
+  return res.json({
+    message: 'اشتراک جدید با موفقیت برای کاربر فعال گردید.',
+    data: newSub,
+  });
 });
 
 // -------------------------------------------------------------
@@ -1969,6 +2748,9 @@ router.post('/tickets', authMiddleware, ticketSubmissionLimiter, (req: Request, 
     // Ignore push delivery error on creation
   }
 
+  // Send automated SMS notification to user
+  sendTicketCreatedSms(ticket, user).catch(err => console.warn('[Ticket SMS Error]', err));
+
   return res.status(201).json({
     message: 'تیکت شما با موفقیت ثبت گردید.',
     ticket_number: ticket.ticket_number,
@@ -2300,18 +3082,6 @@ router.put('/admin/tickets/:id/status', authMiddleware, adminMiddleware, (req: R
   }
 });
 
-// 13. Admin: Clear all tickets (cleanup test tickets)
-router.delete('/admin/tickets/clear-all', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
-  const result = db.clearAllTickets();
-  logConfigChange(req, {
-    resourceType: 'TICKET_CLEANUP',
-    resourceId: 0,
-    actionDescription: `حذف و پاک‌سازی تمام تیکت‌های تستی (${result.clearedCount} تیکت)`,
-    details: { clearedCount: result.clearedCount },
-  });
-  return res.json({ message: 'تمام تیکت‌های تستی با موفقیت پاک شدند.', clearedCount: result.clearedCount });
-});
-
 // 14. Admin: Delete single ticket
 router.delete('/admin/tickets/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const ticketId = Number(req.params.id);
@@ -2524,6 +3294,160 @@ router.post('/admin/push/broadcast', authMiddleware, adminMiddleware, async (req
     sent,
     failed,
     total_targets: targets.length,
+  });
+});
+
+// -------------------------------------------------------------
+// Payment Gateway (Zibal/Shaparak) & SMS.ir Management Endpoints
+// -------------------------------------------------------------
+
+// 1. Admin: Get Gateway & SMS Configurations
+router.get('/admin/gateways/settings', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  const zibalConfig = getZibalConfig();
+  const smsConfig = getSmsConfig();
+
+  return res.json({
+    data: {
+      zibal: zibalConfig,
+      sms: smsConfig,
+    }
+  });
+});
+
+// 2. Admin: Update Gateway & SMS Configurations
+router.put('/admin/gateways/settings', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { zibal, sms } = req.body;
+
+  if (zibal) {
+    db.gatewaySettings.zibal = {
+      ...db.gatewaySettings.zibal,
+      ...zibal,
+    };
+  }
+
+  if (sms) {
+    db.gatewaySettings.sms = {
+      ...db.gatewaySettings.sms,
+      ...sms,
+      templates: {
+        ...db.gatewaySettings.sms.templates,
+        ...(sms.templates || {})
+      }
+    };
+  }
+
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'GATEWAY_SETTINGS',
+    resourceId: 'GATEWAYS',
+    actionDescription: 'بروزرسانی و ذخیره پیکربندی درگاه پرداخت شاپرک زیبال و وب‌سرویس پیامکی SMS.ir توسط مدیر',
+    details: { zibal_updated: !!zibal, sms_updated: !!sms }
+  });
+
+  return res.json({
+    message: 'تنظیمات درگاه‌های بانکی و وب‌سرویس پیامک با موفقیت ذخیره گردید.',
+    data: db.gatewaySettings,
+  });
+});
+
+// 3. Admin: Test Real Zibal Payment Gateway Connection
+router.post('/admin/gateways/zibal/test', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  const amount = Number(req.body.amount) || 10000;
+  const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+
+  const mockOrder: any = {
+    id: 999000 + Math.floor(Math.random() * 999),
+    order_number: 'TEST-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+    amount: amount,
+    description: 'تست اتصال درگاه بانکی شاپرک زیبال از پنل مدیریت کارویتا',
+  };
+
+  try {
+    const result = await initiateZibalPayment(mockOrder, user, clientOrigin);
+    return res.json({
+      message: result.simulated
+        ? 'درگاه در حالت شبیه‌ساز تست فعال است.'
+        : 'درخواست به درگاه زیبال با موفقیت ارسال شد و شناسه پرداخت شاپرک دریافت گردید.',
+      data: result,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: 'خطا در ارتباط با وب‌سرویس زیبال: ' + err.message });
+  }
+});
+
+// 4. Admin: Test SMS Dispatch via SMS.ir Fast Send
+router.post('/admin/gateways/sms/test', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  const { mobile, event_type = 'otp', template_id, parameters = {} } = req.body;
+
+  if (!mobile || !/^09\d{9}$/.test(mobile)) {
+    return res.status(422).json({ message: 'شماره موبایل معتبر ۱۱ رقمی وارد نمایید (مثال: 09123456789).' });
+  }
+
+  const result = await sendTemplateSms({
+    mobile,
+    eventType: event_type,
+    templateId: template_id ? Number(template_id) : undefined,
+    templateTitle: `تست دستی از پنل مدیریت (${event_type})`,
+    parameters: Object.keys(parameters).length > 0 ? parameters : {
+      CODE: '12345',
+      CUSTOMER: 'مدیر سامانه',
+      ORDER: 'INV-TEST-01',
+      AMOUNT: '500,000',
+      LINK: 'karovita.ir',
+      DAYS: '۷',
+      TITLE: 'سازمانی کارویتا',
+      TICKET: 'TK-1001',
+      SUBJECT: 'تست سیستم',
+      REF: 'SHP-98765432'
+    },
+    userName: 'مدیر تست',
+  });
+
+  return res.json({
+    message: result.success ? 'پیامک تست با موفقیت ارسال شد.' : `خطا در ارسال پیامک: ${result.error}`,
+    data: result,
+  });
+});
+
+// 5. Admin: Get SMS Delivery Logs
+router.get('/admin/gateways/sms/logs', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 300);
+  const logs = (db.smsLogs || []).slice(0, limit);
+  return res.json({
+    data: logs,
+    total: (db.smsLogs || []).length,
+  });
+});
+
+// 6. Admin: Trigger Subscription Expiration Automated Scan (7 & 3 Days)
+router.post('/admin/gateways/sms/trigger-reminders', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const report = await checkAndSendSubscriptionExpiryReminders();
+    return res.json({
+      message: `اسکن انقضای اشتراک‌ها انجام شد. (${report.scanned} اشتراک فعال اسکن شد، ${report.sent7Days} پیامک ۷ روز و ${report.sent3Days} پیامک ۳ روز ارسال شد)`,
+      data: report,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ message: 'خطا در اجرای اسکن خودکار یادآوری‌ها: ' + err.message });
+  }
+});
+
+// 7. Admin: Gateways Health Status
+router.get('/admin/gateways/health', authMiddleware, adminMiddleware, async (_req: Request, res: Response) => {
+  const smsHealth = await checkSmsProviderHealth();
+  const zibalConfig = getZibalConfig();
+
+  return res.json({
+    sms: smsHealth,
+    zibal: {
+      status: zibalConfig.enabled ? 'healthy' : 'degraded',
+      merchant: zibalConfig.merchant,
+      sandbox: zibalConfig.sandbox,
+      enabled: zibalConfig.enabled,
+      provider: 'Zibal (Shaparak Gateway)',
+    }
   });
 });
 

@@ -23,6 +23,14 @@ export interface Company {
   name: string;
   industry: string;
   employee_count: number;
+  economic_code?: string;
+  registration_number?: string;
+  national_id?: string;
+  postal_code?: string;
+  province?: string;
+  city?: string;
+  address?: string;
+  phone?: string;
   created_at: string;
   updated_at: string;
 }
@@ -164,6 +172,67 @@ export interface TicketAttachment {
   created_at: string;
 }
 
+export interface SmsLogEntry {
+  id: string;
+  timestamp: string;
+  mobile: string;
+  event_type: 'otp' | 'invoice_issued' | 'sub_expiry_7days' | 'sub_expiry_3days' | 'ticket_created' | 'payment_success' | 'custom_test';
+  template_id?: number;
+  template_title?: string;
+  parameters?: Record<string, string | number>;
+  status: 'sent' | 'failed' | 'simulated';
+  provider: string;
+  message_id?: string | number;
+  cost?: number;
+  error?: string;
+  user_name?: string;
+}
+
+export interface ZibalGatewayConfig {
+  merchant: string;
+  sandbox: boolean;
+  callback_url: string;
+  enabled: boolean;
+  description_prefix: string;
+  auto_verify: boolean;
+}
+
+export interface SmsTemplateConfig {
+  id: number;
+  enabled: boolean;
+  title: string;
+  description: string;
+  pattern: string;
+  required_params: string[];
+}
+
+export interface SmsGatewayConfig {
+  apiKey: string;
+  lineNumber: string;
+  provider: 'sms_ir' | 'kavenegar' | 'mediana';
+  enabled: boolean;
+  auto_reminders_enabled: boolean;
+  templates: {
+    otp: SmsTemplateConfig;
+    invoice_issued: SmsTemplateConfig;
+    sub_expiry_7days: SmsTemplateConfig;
+    sub_expiry_3days: SmsTemplateConfig;
+    ticket_created: SmsTemplateConfig;
+    payment_success: SmsTemplateConfig;
+  };
+}
+
+export interface SystemGatewaySettings {
+  zibal: ZibalGatewayConfig;
+  sms: SmsGatewayConfig;
+  subscription_reminder_log: {
+    subscription_id: number;
+    type: '7_days' | '3_days';
+    sent_at: string;
+    mobile: string;
+  }[];
+}
+
 export interface TicketHistory {
   id: number;
   ticket_id: number;
@@ -190,6 +259,7 @@ export type AuditActionType =
   | 'SUBSCRIPTION_CHANGE'
   | 'SECURITY_EVENT'
   | 'ORDER_MANAGEMENT'
+  | 'FINANCIAL_TRANSACTION'
   | 'TICKET_MANAGEMENT';
 
 export interface AuditLog {
@@ -334,6 +404,77 @@ class Database {
     step_modules_enabled: true,
   };
 
+  public gatewaySettings: SystemGatewaySettings = {
+    zibal: {
+      merchant: process.env.ZIBAL_MERCHANT || 'zibal',
+      sandbox: process.env.ZIBAL_SANDBOX !== 'false',
+      callback_url: '/api/payments/zibal/callback',
+      enabled: true,
+      description_prefix: 'سامانه ابری کارویتا - سفارش #',
+      auto_verify: true,
+    },
+    sms: {
+      apiKey: process.env.SMS_IR_API_KEY || 'ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z',
+      lineNumber: process.env.SMS_IR_LINE_NUMBER || '30007732',
+      provider: 'sms_ir',
+      enabled: true,
+      auto_reminders_enabled: true,
+      templates: {
+        otp: {
+          id: Number(process.env.SMS_IR_TEMPLATE_ID) || 418155,
+          enabled: true,
+          title: 'کد احراز هویت و ورود یکبار مصرف (OTP)',
+          description: 'ارسال فوری کد ورود ۵ رقمی کاربر با خطوط خدماتی بدون بلک‌لیست',
+          pattern: 'کد ورود شما به پنل کارویتا: #CODE#',
+          required_params: ['CODE'],
+        },
+        invoice_issued: {
+          id: Number(process.env.SMS_IR_TEMPLATE_INVOICE) || 418156,
+          enabled: true,
+          title: 'صدور پیش‌فاکتور جدید و سفارش خرید',
+          description: 'اطلاع‌رسانی صدور پیش‌فاکتور جدید و لینک تسویه حساب به کاربر',
+          pattern: 'کاربر گرامی #CUSTOMER#، پیش‌فاکتور سفارش ##ORDER# به مبلغ #AMOUNT# تومان صادر شد. لینک پرداخت: #LINK#',
+          required_params: ['CUSTOMER', 'ORDER', 'AMOUNT'],
+        },
+        sub_expiry_7days: {
+          id: Number(process.env.SMS_IR_TEMPLATE_EXPIRY_7) || 418157,
+          enabled: true,
+          title: 'یادآوری ۷ روز مانده به پایان اشتراک',
+          description: 'ارسال هشدار تمدید اشتراک ۷ روز قبل از غیرفعال‌سازی دسترسی‌های سازمانی',
+          pattern: 'کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.',
+          required_params: ['CUSTOMER', 'DAYS', 'TITLE'],
+        },
+        sub_expiry_3days: {
+          id: Number(process.env.SMS_IR_TEMPLATE_EXPIRY_3) || 418158,
+          enabled: true,
+          title: 'یادآوری فوری ۳ روز مانده به انقضای اشتراک',
+          description: 'ارسال هشدار فوری تمدید اشتراک جهت جلوگیری از انقطاع سرویس‌ها',
+          pattern: 'هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.',
+          required_params: ['CUSTOMER', 'DAYS', 'TITLE'],
+        },
+        ticket_created: {
+          id: Number(process.env.SMS_IR_TEMPLATE_TICKET) || 418159,
+          enabled: true,
+          title: 'ثبت و پیگیری تیکت پشتیبانی جدید',
+          description: 'اطلاع‌رسانی شماره پیگیری و دریافت تیکت جدید به کاربر و کارشناس پشتیبانی',
+          pattern: 'کاربر گرامی #CUSTOMER#، تیکت پشتیبانی شما با شماره #TICKET# و موضوع «#SUBJECT#» با موفقیت ثبت شد.',
+          required_params: ['CUSTOMER', 'TICKET', 'SUBJECT'],
+        },
+        payment_success: {
+          id: Number(process.env.SMS_IR_TEMPLATE_PAYMENT) || 418160,
+          enabled: true,
+          title: 'تسویه موفق فاکتور و تایید تراکنش شاپرک',
+          description: 'ارسال شناسه پیگیری بانکی شاپرک و تایید فعال‌سازی سرویس پس از پرداخت آنلاین',
+          pattern: 'کاربر گرامی #CUSTOMER#، پرداخت فاکتور ##ORDER# به مبلغ #AMOUNT# تومان با شماره پیگیری #REF# با موفقیت تایید شد.',
+          required_params: ['CUSTOMER', 'ORDER', 'AMOUNT', 'REF'],
+        },
+      },
+    },
+    subscription_reminder_log: [],
+  };
+
+  public smsLogs: SmsLogEntry[] = [];
+
   public auditLogs: AuditLog[] = [
     {
       id: 5001,
@@ -442,6 +583,8 @@ class Database {
         industryPresets: this.industryPresets,
         coupons: this.coupons,
         configuratorSettings: this.configuratorSettings,
+        gatewaySettings: this.gatewaySettings,
+        smsLogs: this.smsLogs,
       };
       fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
     } catch (err) {
@@ -479,6 +622,22 @@ class Database {
           if (data.industryPresets && Array.isArray(data.industryPresets)) this.industryPresets = data.industryPresets;
           if (data.coupons && Array.isArray(data.coupons)) this.coupons = data.coupons;
           if (data.configuratorSettings) this.configuratorSettings = { ...this.configuratorSettings, ...data.configuratorSettings };
+          if (data.gatewaySettings) {
+            this.gatewaySettings = {
+              ...this.gatewaySettings,
+              ...data.gatewaySettings,
+              zibal: { ...this.gatewaySettings.zibal, ...(data.gatewaySettings.zibal || {}) },
+              sms: {
+                ...this.gatewaySettings.sms,
+                ...(data.gatewaySettings.sms || {}),
+                templates: {
+                  ...this.gatewaySettings.sms.templates,
+                  ...(data.gatewaySettings.sms?.templates || {})
+                }
+              }
+            };
+          }
+          if (data.smsLogs && Array.isArray(data.smsLogs)) this.smsLogs = data.smsLogs;
 
           if (data.nextUserId) this.nextUserId = data.nextUserId;
           if (data.nextCompanyId) this.nextCompanyId = data.nextCompanyId;
@@ -946,12 +1105,22 @@ class Database {
     return this.companies.find(c => c.user_id === userId);
   }
 
-  upsertCompany(userId: number, name: string, industry: string, employee_count: number): Company {
+  upsertCompany(userId: number, name: string, industry: string, employee_count: number, extraFields?: Partial<Company>): Company {
     let company = this.getCompanyByUserId(userId);
     if (company) {
       company.name = name;
       company.industry = industry;
       company.employee_count = employee_count;
+      if (extraFields) {
+        if (extraFields.economic_code !== undefined) company.economic_code = extraFields.economic_code;
+        if (extraFields.registration_number !== undefined) company.registration_number = extraFields.registration_number;
+        if (extraFields.national_id !== undefined) company.national_id = extraFields.national_id;
+        if (extraFields.postal_code !== undefined) company.postal_code = extraFields.postal_code;
+        if (extraFields.province !== undefined) company.province = extraFields.province;
+        if (extraFields.city !== undefined) company.city = extraFields.city;
+        if (extraFields.address !== undefined) company.address = extraFields.address;
+        if (extraFields.phone !== undefined) company.phone = extraFields.phone;
+      }
       company.updated_at = new Date().toISOString();
     } else {
       company = {
@@ -960,6 +1129,14 @@ class Database {
         name,
         industry,
         employee_count,
+        economic_code: extraFields?.economic_code,
+        registration_number: extraFields?.registration_number,
+        national_id: extraFields?.national_id,
+        postal_code: extraFields?.postal_code,
+        province: extraFields?.province,
+        city: extraFields?.city,
+        address: extraFields?.address,
+        phone: extraFields?.phone,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };

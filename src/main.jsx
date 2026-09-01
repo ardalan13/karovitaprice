@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, Component } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus, Eye, LogIn, ExternalLink, FileText, BellRing, Bug } from 'lucide-react';
+import { LayoutDashboard, Users, Package, Receipt, User, LogOut, Building2, Clock3, CreditCard, CheckCircle2, ArrowLeft, ArrowRight, Menu, X, Settings, Edit3, Save, ShieldCheck, Lock, Phone, RotateCw, AlertCircle, Headphones, Plus, Eye, LogIn, ExternalLink, FileText, BellRing, Bug, MessageSquare } from 'lucide-react';
 import { api } from './services/api';
 import { initClientLogger, logError } from './services/logger';
 import { initPerformanceMonitoring } from './services/vitals';
@@ -19,11 +19,14 @@ import { AdminTicketsView } from './components/Tickets/AdminTicketsView';
 import { AuditLogsView } from './components/Admin/AuditLogsView';
 import PushNotificationAdminView from './components/Admin/PushNotificationAdminView';
 import { ErrorLogsAdminView } from './components/Admin/ErrorLogsAdminView';
+import { GatewayAndSmsAdminView } from './components/Admin/GatewayAndSmsAdminView';
 import OfflineBanner from './components/PWA/OfflineBanner';
 import PwaInstallPrompt from './components/PWA/PwaInstallPrompt';
 import { Welcome } from './components/Landing/Welcome';
 import { PricingConfigurator } from './components/PricingConfigurator/PricingConfigurator';
 import { SubscriptionDetailsModal } from './components/Subscription/SubscriptionDetailsModal';
+import { ERPWorkspaceView } from './components/Subscription/ERPWorkspaceView';
+import { UserPaymentsView } from './components/Payments/UserPaymentsView';
 import { ERPAdminPricingManagement } from './components/Admin/ERPAdminPricingManagement';
 import { AdminUsersManagement } from './components/Admin/AdminUsersManagement';
 import { ThemeToggle } from './components/Common/ThemeToggle';
@@ -183,7 +186,7 @@ function Auth() {
       <h1>{stage === 'mobile' ? 'ورود یا ثبت‌نام' : 'تأیید شماره همراه'}</h1>
       <p>
         {stage === 'mobile' 
-          ? 'برای ادامه شماره موبایل خود را وارد کنید (مثلاً 09111273476 برای ورود مدیریت یا شماره شخصی).' 
+          ? 'برای ادامه شماره موبایل خود را وارد کنید.' 
           : `کد تأیید ۵ رقمی پیامک‌شده به شماره ${mobile} را وارد کنید.`}
       </p>
       
@@ -1001,22 +1004,33 @@ const userNav = [
 function Shell({ admin = false, tab, setTab, children, name }) {
   const [open, setOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
+  const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
 
   const fetchBadge = () => {
     api('/tickets/badge')
       .then(res => setBadgeCount(res.count || 0))
       .catch(() => {});
+
+    if (!admin) {
+      api('/payments/pending-count')
+        .then(res => setPendingPaymentsCount(res.count || 0))
+        .catch(() => {});
+    }
   };
 
   useEffect(() => {
     fetchBadge();
     const timer = setInterval(fetchBadge, 8000);
     window.addEventListener('ticket-updated', fetchBadge);
+    window.addEventListener('payment-completed', fetchBadge);
+    window.addEventListener('order-updated', fetchBadge);
     return () => {
       clearInterval(timer);
       window.removeEventListener('ticket-updated', fetchBadge);
+      window.removeEventListener('payment-completed', fetchBadge);
+      window.removeEventListener('order-updated', fetchBadge);
     };
-  }, [tab]);
+  }, [tab, admin]);
 
   const nav = admin ? [
     ['overview', 'نمای کلی', LayoutDashboard],
@@ -1025,6 +1039,7 @@ function Shell({ admin = false, tab, setTab, children, name }) {
     ['orders', 'خرید و تراکنش‌ها', CreditCard],
     ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
     ['tickets', 'تیکت‌های پشتیبانی', Headphones],
+    ['gateways', 'درگاه شاپرک و SMS.ir', MessageSquare],
     ['audit', 'لاگ‌های امنیتی (Audit)', ShieldCheck],
     ['push', 'مدیریت PWA و اعلان‌ها', BellRing],
     ['errors', 'لاگ‌های خطای محلی (Errors)', Bug],
@@ -1039,14 +1054,24 @@ function Shell({ admin = false, tab, setTab, children, name }) {
         </div>
         <nav>
           {nav.map(([id, label, Icon]) => {
-            const hasBadge = (id === 'support' || id === 'tickets') && badgeCount > 0;
+            const hasTicketBadge = (id === 'support' || id === 'tickets') && badgeCount > 0;
+            const hasPaymentBadge = id === 'payments' && pendingPaymentsCount > 0;
             return (
               <button key={id} className={tab === id ? 'active' : ''} onClick={() => { setTab(id); setOpen(false); }}>
                 <Icon />
                 <span style={{ flex: 1, textAlign: 'right' }}>{label}</span>
-                {hasBadge && (
+                {hasTicketBadge && (
                   <span className="nav-badge" title={`${Number(badgeCount).toLocaleString('fa-IR')} تیکت باز یا پاسخ‌داده‌نشده`}>
                     {Number(badgeCount).toLocaleString('fa-IR')}
+                  </span>
+                )}
+                {hasPaymentBadge && (
+                  <span 
+                    className="nav-badge" 
+                    style={{ background: '#f59e0b', color: '#ffffff', animation: 'pulse 2s infinite' }}
+                    title={`${Number(pendingPaymentsCount).toLocaleString('fa-IR')} پیش‌فاکتور در انتظار پرداخت`}
+                  >
+                    {Number(pendingPaymentsCount).toLocaleString('fa-IR')}
                   </span>
                 )}
               </button>
@@ -1080,14 +1105,52 @@ function Dashboard() {
   const [d, setD] = useState(null);
   const [tab, setTab] = useState('overview');
   const [selectedSubForDetails, setSelectedSubForDetails] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
-  useEffect(() => {
+  const [paymentAlert, setPaymentAlert] = useState(null);
+
+  const refreshData = () => {
     api('/dashboard')
       .then(r => {
         if (r.user.role === 'admin') return location.href = '/admin';
         setD(r);
       })
-      .catch(() => location.href = '/');
+      .catch(() => {});
+
+    api('/payments/pending-count')
+      .then(r => setPendingCount(r.count || 0))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    // Check if returning from bank gateway with payment success query params
+    const searchParams = new URLSearchParams(window.location.search);
+    const paymentStatus = searchParams.get('payment');
+    const trackId = searchParams.get('trackId') || searchParams.get('ref') || searchParams.get('reference_id');
+
+    if (paymentStatus === 'success') {
+      setPaymentAlert({
+        type: 'success',
+        message: `پرداخت با موفقیت انجام شد و فاکتور تسویه گردید.${trackId ? ` (کد پیگیری شاپرک: ${trackId})` : ''}`,
+      });
+      // Clean up URL search params without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'failed') {
+      setPaymentAlert({
+        type: 'error',
+        message: 'تراکنش پرداخت ناموفق بود یا توسط کاربر لغو گردید.',
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    refreshData();
+
+    window.addEventListener('payment-completed', refreshData);
+    window.addEventListener('order-updated', refreshData);
+    return () => {
+      window.removeEventListener('payment-completed', refreshData);
+      window.removeEventListener('order-updated', refreshData);
+    };
   }, []);
 
   if (!d) return <Loader />;
@@ -1108,6 +1171,85 @@ function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* Payment Gateway Callback Feedback Banner */}
+      {paymentAlert && (
+        <div style={{
+          background: paymentAlert.type === 'error' ? '#fef2f2' : '#f0fdf4',
+          border: paymentAlert.type === 'error' ? '1px solid #fecaca' : '1px solid #bbf7d0',
+          color: paymentAlert.type === 'error' ? '#991b1b' : '#166534',
+          borderRadius: '12px',
+          padding: '14px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {paymentAlert.type === 'error' ? <AlertCircle size={20} /> : <CheckCircle2 size={20} />}
+            <span style={{ fontSize: '13.5px', fontWeight: 700 }}>{paymentAlert.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPaymentAlert(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '4px' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* Pending invoice alert banner in overview */}
+      {tab === 'overview' && pendingCount > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1px solid #fde68a',
+          borderRadius: '12px',
+          padding: '14px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#f59e0b', color: '#ffffff', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <AlertCircle size={16} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '13.5px', color: '#92400e' }}>
+                شما {Number(pendingCount).toLocaleString('fa-IR')} فاکتور در انتظار پرداخت دارید!
+              </strong>
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#b45309' }}>
+                برای فعال‌سازی کامل ماژول‌های افزوده شده، لطفاً نسبت به تسویه فاکتور خود اقدام فرمایید.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setTab('payments')}
+            style={{
+              background: '#b45309',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <CreditCard size={14} />
+            <span>مشاهده و پرداخت فاکتور</span>
+          </button>
+        </div>
+      )}
+
       {tab === 'overview' && (
         <>
           <div className="stats">
@@ -1132,18 +1274,7 @@ function Dashboard() {
         </Panel>
       )}
       {tab === 'payments' && (
-        <Panel title="خریدها و فاکتورها">
-          <Table 
-            headers={['شماره سفارش', 'نام پکیج', 'مبلغ', 'وضعیت', 'عملیات']}
-            rows={d.transactions.map(x => [
-              x.order_number,
-              x.package_name,
-              money(x.amount),
-              status(x.status),
-              <button key={x.id} className="link" onClick={() => invoice(x.id)}>دانلود فاکتور</button>
-            ])} 
-          />
-        </Panel>
+        <UserPaymentsView />
       )}
       {tab === 'support' && (
         <UserTicketsView />
@@ -1374,6 +1505,8 @@ function Admin() {
       {error && <div className="alert error">{error}</div>}
       {tab === 'tickets' ? (
         <AdminTicketsView />
+      ) : tab === 'gateways' ? (
+        <GatewayAndSmsAdminView />
       ) : tab === 'audit' ? (
         <AuditLogsView />
       ) : tab === 'push' ? (
@@ -1416,13 +1549,55 @@ function AdminContent({ tab, data, reload }) {
     return (
       <Panel>
         <Table 
-          headers={['شماره سفارش', 'کاربر', 'پکیج', 'مبلغ', 'وضعیت']}
+          headers={['شماره سفارش', 'کاربر', 'پکیج', 'مبلغ', 'وضعیت', 'اسناد رسمی مالیاتی و قرارداد']}
           rows={list.map(x => [
             x.order_number || '—',
             x.user_name || x.mobile || '—',
             x.package_name || '—',
             money(x.amount),
-            status(x.transaction_status || x.status)
+            status(x.transaction_status || x.status),
+            <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => window.open(`/api/invoices/${x.id}`, '_blank')}
+                style={{
+                  background: '#0870d1',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="مشاهده، چاپ و دریافت PDF فاکتور رسمی استاندارد دارایی"
+              >
+                فاکتور دارایی (PDF)
+              </button>
+              <button
+                type="button"
+                onClick={() => window.open(`/api/invoices/${x.id}/contract`, '_blank')}
+                style={{
+                  background: '#f8fafc',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  padding: '4px 8px',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="مشاهده و دریافت قرارداد رسمی لایسنس و SLA"
+              >
+                قرارداد (PDF)
+              </button>
+            </div>
           ])} 
         />
       </Panel>
@@ -1575,6 +1750,36 @@ function Guard({ children }) {
   return localStorage.getItem('token') ? children : <Navigate to="/" />;
 }
 
+function AdminGuard({ children }) {
+  const [isAdmin, setIsAdmin] = useState(null);
+  const nav = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAdmin(false);
+      return;
+    }
+    api('/dashboard')
+      .then(r => {
+        if (r && r.user && r.user.role === 'admin') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+          nav('/dashboard', { replace: true });
+        }
+      })
+      .catch(() => {
+        setIsAdmin(false);
+        nav('/', { replace: true });
+      });
+  }, [nav]);
+
+  if (isAdmin === null) return <Loader />;
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+
 function WorkspaceRoute() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -1634,7 +1839,7 @@ function App() {
         <Route path="/plans" element={<Guard><Plans /></Guard>} />
         <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
         <Route path="/workspace/:id" element={<Guard><WorkspaceRoute /></Guard>} />
-        <Route path="/admin" element={<Guard><Admin /></Guard>} />
+        <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </BrowserRouter>

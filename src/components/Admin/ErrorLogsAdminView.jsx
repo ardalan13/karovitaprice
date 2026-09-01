@@ -22,7 +22,13 @@ import {
   X,
   Database,
   Zap,
-  Activity
+  Activity,
+  CheckCheck,
+  AlertCircle,
+  Laptop,
+  Radio,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { logError } from '../../services/logger';
@@ -97,6 +103,10 @@ export function ErrorLogsAdminView() {
           unresolved: newStatus ? Math.max(0, stats.unresolved - 1) : stats.unresolved + 1,
         });
       }
+      setMessage({
+        type: 'success',
+        text: newStatus ? 'خطا به عنوان «بررسی و حل‌شده» ثبت گردید.' : 'خطا به وضعیت «در انتظار بررسی» تغییر یافت.'
+      });
     } catch (err) {
       setMessage({ type: 'error', text: err.message || 'خطا در تغییر وضعیت خطا' });
     }
@@ -109,7 +119,6 @@ export function ErrorLogsAdminView() {
       setLogs([]);
       if (stats) {
         setStats({
-          ...stats,
           total: 0,
           errors: 0,
           warnings: 0,
@@ -138,7 +147,7 @@ export function ErrorLogsAdminView() {
           simulated: true,
         });
         setTimeout(fetchLogs, 400);
-        setMessage({ type: 'success', text: 'خطای آزمایشی کلاینت با موفقیت ارسال و ثبت گردید.' });
+        setMessage({ type: 'success', text: 'خطای آزمایشی کلاینت با موفقیت ثبت گردید.' });
       } else {
         const res = await api('/admin/error-logs/test', {
           method: 'POST',
@@ -200,57 +209,221 @@ export function ErrorLogsAdminView() {
   const getLevelBadge = (level) => {
     switch (level) {
       case 'fatal':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">بحرانی (Fatal)</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 800,
+            background: '#fef2f2',
+            color: '#991b1b',
+            border: '1px solid #fecaca'
+          }}>
+            <ShieldAlert size={12} /> بحرانی (Fatal)
+          </span>
+        );
       case 'error':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200">خطا (Error)</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            background: '#fff1f2',
+            color: '#be123c',
+            border: '1px solid #fecdd3'
+          }}>
+            <AlertCircle size={12} /> خطا (Error)
+          </span>
+        );
       case 'warn':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">هشدار (Warn)</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 700,
+            background: '#fffbeb',
+            color: '#b45309',
+            border: '1px solid #fde68a'
+          }}>
+            <AlertTriangle size={12} /> هشدار (Warn)
+          </span>
+        );
       default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">اطلاع (Info)</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#eff6ff',
+            color: '#1d4ed8',
+            border: '1px solid #bfdbfe'
+          }}>
+            اطلاع (Info)
+          </span>
+        );
     }
   };
 
   const getSourceBadge = (source) => {
     switch (source) {
       case 'server':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300"><Server size={12} /> سرور</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#f1f5f9',
+            color: '#334155',
+            border: '1px solid #e2e8f0'
+          }}>
+            <Server size={12} /> سرور
+          </span>
+        );
       case 'client':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200"><Smartphone size={12} /> کلاینت / UI</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#f5f3ff',
+            color: '#6d28d9',
+            border: '1px solid #ddd6fe'
+          }}>
+            <Smartphone size={12} /> کلاینت / UI
+          </span>
+        );
       case 'api':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700 border border-indigo-200"><Globe size={12} /> API</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#eef2ff',
+            color: '#4338ca',
+            border: '1px solid #c7d2fe'
+          }}>
+            <Globe size={12} /> API
+          </span>
+        );
       case 'database':
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 border border-emerald-200"><Database size={12} /> دیتابیس</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#ecfdf5',
+            color: '#047857',
+            border: '1px solid #a7f3d0'
+          }}>
+            <Database size={12} /> دیتابیس
+          </span>
+        );
       default:
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">{source}</span>;
+        return (
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            padding: '3px 8px',
+            borderRadius: '6px',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: '#f8fafc',
+            color: '#64748b',
+            border: '1px solid #e2e8f0'
+          }}>
+            {source}
+          </span>
+        );
     }
   };
 
   return (
-    <div className="space-y-6 text-slate-800" dir="rtl">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }} dir="rtl" id="error-logs-admin-view">
+      
       {/* Sub-navigation Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        paddingBottom: '4px',
+        borderBottom: '1px solid #e2e8f0'
+      }}>
         <button
+          type="button"
           onClick={() => setActiveSubTab('errors')}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition ${
-            activeSubTab === 'errors'
-              ? 'bg-red-600 text-white shadow-xs'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            fontSize: '13px',
+            fontWeight: 800,
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            border: activeSubTab === 'errors' ? '1px solid #f43f5e' : '1px solid #e2e8f0',
+            background: activeSubTab === 'errors' ? 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)' : '#ffffff',
+            color: activeSubTab === 'errors' ? '#ffffff' : '#64748b',
+            boxShadow: activeSubTab === 'errors' ? '0 4px 12px rgba(225, 29, 72, 0.25)' : 'none'
+          }}
         >
-          <Bug size={14} />
-          مدیریت لاگ‌های خطای سامانه (Error Logs)
+          <Bug size={16} />
+          <span>مدیریت لاگ‌های خطای محلی (Error Tracking)</span>
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveSubTab('vitals')}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg transition ${
-            activeSubTab === 'vitals'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            fontSize: '13px',
+            fontWeight: 800,
+            borderRadius: '10px',
+            cursor: 'pointer',
+            transition: 'all 0.15s',
+            border: activeSubTab === 'vitals' ? '1px solid #10b981' : '1px solid #e2e8f0',
+            background: activeSubTab === 'vitals' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#ffffff',
+            color: activeSubTab === 'vitals' ? '#ffffff' : '#64748b',
+            boxShadow: activeSubTab === 'vitals' ? '0 4px 12px rgba(16, 185, 129, 0.25)' : 'none'
+          }}
         >
-          <Zap size={14} />
-          پایش کارایی و Core Web Vitals (Performance)
+          <Zap size={16} />
+          <span>پایش کارایی و Core Web Vitals (Performance)</span>
         </button>
       </div>
 
@@ -259,460 +432,859 @@ export function ErrorLogsAdminView() {
       ) : (
         <>
           {/* Top Header & Overview */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-red-50 text-red-600 border border-red-100">
-                <Bug size={24} />
-              </div>
-              <div>
-                <h2 className="text-xl font-black text-slate-900">سامانه محلی مدیریت و ردیابی خطاهای نرم‌افزار</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  ثبت مستقل و یکپارچه رویدادها، خطاهای کلاینت و سرور در فایل محلی <code className="bg-slate-100 text-slate-700 px-1 py-0.5 rounded text-[11px] font-mono">data/error_logs.json</code> بدون وابستگی به سرویس‌های ثالث
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={fetchLogs}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition disabled:opacity-50"
-              title="بارگذاری مجدد لاگ‌ها"
-            >
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-              بروزرسانی
-            </button>
-
-            <button
-              onClick={() => handleTriggerTest('server')}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition disabled:opacity-50"
-              title="تست ثبت لاگ سرور"
-            >
-              <Play size={14} />
-              تست لاگ سرور
-            </button>
-
-            <button
-              onClick={() => handleTriggerTest('client')}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition disabled:opacity-50"
-              title="تست ثبت لاگ کلاینت"
-            >
-              <Smartphone size={14} />
-              تست لاگ کلاینت
-            </button>
-
-            <button
-              onClick={() => handleDownload('text')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition"
-              title="دانلود فایل فرمت‌شده log"
-            >
-              <FileText size={14} />
-              دانلود .log
-            </button>
-
-            <button
-              onClick={() => handleDownload('json')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition"
-              title="دانلود فایل JSON"
-            >
-              <Download size={14} />
-              خروجی JSON
-            </button>
-
-            <button
-              onClick={() => setConfirmClearOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition"
-              title="پاکسازی لاگ‌ها"
-            >
-              <Trash2 size={14} />
-              پاکسازی
-            </button>
-          </div>
-        </div>
-
-        {/* Status Message Notification */}
-        {message && (
-          <div className={`mt-4 p-3 rounded-lg flex items-center justify-between text-xs font-medium ${
-            message.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-red-50 text-red-800 border border-red-200'
-          }`}>
-            <span>{message.text}</span>
-            <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-600">
-              <X size={14} />
-            </button>
-          </div>
-        )}
-
-        {/* Statistics Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-5">
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <span className="text-[11px] font-medium text-slate-500 block">کل رویدادها</span>
-              <span className="text-lg font-extrabold text-slate-900 mt-1 block">{stats.total?.toLocaleString('fa-IR')}</span>
-            </div>
-
-            <div className="bg-rose-50 p-3 rounded-lg border border-rose-200">
-              <span className="text-[11px] font-medium text-rose-600 block">در انتظار بررسی</span>
-              <span className="text-lg font-extrabold text-rose-700 mt-1 block">{stats.unresolved?.toLocaleString('fa-IR')}</span>
-            </div>
-
-            <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-              <span className="text-[11px] font-medium text-red-600 block">خطاهای سیستمی</span>
-              <span className="text-lg font-extrabold text-red-700 mt-1 block">{stats.errors?.toLocaleString('fa-IR')}</span>
-            </div>
-
-            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-              <span className="text-[11px] font-medium text-purple-600 block">خطاهای فرانت‌اند</span>
-              <span className="text-lg font-extrabold text-purple-700 mt-1 block">{stats.clientErrors?.toLocaleString('fa-IR')}</span>
-            </div>
-
-            <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
-              <span className="text-[11px] font-medium text-indigo-600 block">خطاهای بک‌اند</span>
-              <span className="text-lg font-extrabold text-indigo-700 mt-1 block">{stats.serverErrors?.toLocaleString('fa-IR')}</span>
-            </div>
-
-            <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
-              <span className="text-[11px] font-medium text-amber-600 block">خطاهای امروز</span>
-              <span className="text-lg font-extrabold text-amber-700 mt-1 block">{stats.todayErrors?.toLocaleString('fa-IR')}</span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-        <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row items-center gap-3">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute right-3 top-2.5 text-slate-400" size={16} />
-            <input
-              type="text"
-              placeholder="جستجو در پیام، نام خطا، آدرس URL، شماره موبایل کاربر، آدرس IP..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pr-9 pl-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <select
-              value={levelFilter}
-              onChange={(e) => setLevelFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">همه سطوح (Levels)</option>
-              <option value="fatal">بحرانی (Fatal)</option>
-              <option value="error">خطا (Error)</option>
-              <option value="warn">هشدار (Warn)</option>
-              <option value="info">اطلاع (Info)</option>
-            </select>
-
-            <select
-              value={sourceFilter}
-              onChange={(e) => setSourceFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">همه مبداها (Sources)</option>
-              <option value="server">سرور (Server)</option>
-              <option value="client">کلاینت / UI</option>
-              <option value="api">API Endpoints</option>
-              <option value="database">پایگاه داده</option>
-              <option value="unhandled">Unhandled</option>
-            </select>
-
-            <select
-              value={resolvedFilter}
-              onChange={(e) => setResolvedFilter(e.target.value)}
-              className="px-3 py-2 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">همه وضعیت‌ها</option>
-              <option value="false">در انتظار بررسی</option>
-              <option value="true">بررسی و حل شده</option>
-            </select>
-
-            <button
-              type="submit"
-              className="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
-            >
-              اعمال فیلتر
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Logs Table / List */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="py-16 text-center text-slate-400">
-            <RefreshCw size={24} className="animate-spin mx-auto mb-2 text-blue-500" />
-            <span className="text-xs font-medium">در حال خواندن فایل لاگ‌های محلی...</span>
-          </div>
-        ) : logs.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">
-            <CheckCircle2 size={36} className="mx-auto mb-2 text-emerald-500" />
-            <p className="text-sm font-bold text-slate-700">هیچ خطایی در سیستم یافت نشد</p>
-            <p className="text-xs text-slate-400 mt-1">کلیه اجزا و سرویس‌ها بدون ارور در حال فعالیت هستند.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
-                <tr>
-                  <th className="py-3 px-4 w-12 text-center">وضعیت</th>
-                  <th className="py-3 px-4">زمان رخداد</th>
-                  <th className="py-3 px-4">سطح / مبدأ</th>
-                  <th className="py-3 px-4">شرح خطا</th>
-                  <th className="py-3 px-4">مسیر / URL</th>
-                  <th className="py-3 px-4">کاربر / IP</th>
-                  <th className="py-3 px-4 text-center">عملیات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {logs.map((log) => (
-                  <tr key={log.id} className={`hover:bg-slate-50 transition ${log.resolved ? 'opacity-60 bg-slate-50/50' : ''}`}>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleToggleResolve(log)}
-                        className={`p-1 rounded-full transition ${
-                          log.resolved
-                            ? 'text-emerald-600 hover:text-emerald-700 bg-emerald-50'
-                            : 'text-slate-300 hover:text-emerald-500 bg-slate-100'
-                        }`}
-                        title={log.resolved ? 'علامت‌گذاری به عنوان حل‌نشده' : 'علامت‌گذاری به عنوان حل‌شده'}
-                      >
-                        <CheckCircle2 size={16} />
-                      </button>
-                    </td>
-
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                      {formatDate(log.timestamp)}
-                    </td>
-
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5">
-                        {getLevelBadge(log.level)}
-                        {getSourceBadge(log.source)}
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 max-w-xs md:max-w-md">
-                      <div className="font-semibold text-slate-800 truncate" title={log.message}>
-                        {log.name && <span className="text-slate-500 font-mono text-[11px] ml-1">{log.name}:</span>}
-                        {log.message}
-                      </div>
-                      {log.stack && (
-                        <span className="text-[10px] text-slate-400 block font-mono truncate mt-0.5">
-                          {log.stack.split('\n')[1] || log.stack.split('\n')[0]}
-                        </span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4 whitespace-nowrap font-mono text-[11px] text-slate-600">
-                      {log.url ? (
-                        <span className="truncate block max-w-[160px]" title={log.url}>
-                          {log.method && <span className="font-bold text-slate-700 ml-1">{log.method}</span>}
-                          {log.url}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-
-                    <td className="py-3 px-4 whitespace-nowrap text-slate-600">
-                      {log.user_mobile ? (
-                        <span className="font-medium text-blue-700 block">{log.user_mobile}</span>
-                      ) : (
-                        <span className="text-slate-400 block text-[11px]">میهمان</span>
-                      )}
-                      <span className="text-[10px] font-mono text-slate-400">{log.ip_address}</span>
-                    </td>
-
-                    <td className="py-3 px-4 text-center whitespace-nowrap">
-                      <button
-                        onClick={() => setSelectedLog(log)}
-                        className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition"
-                      >
-                        جزئیات و استک
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Detail Modal */}
-      {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-red-100 text-red-600">
-                  <AlertTriangle size={18} />
+          <div style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            padding: '22px 24px',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 20px rgba(15, 23, 42, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{
+                  background: '#ffe4e6',
+                  color: '#e11d48',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  border: '1px solid #fecdd3',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Bug size={26} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">مشخصات و ردگیری کامل خطای محلی</h3>
-                  <span className="text-[11px] text-slate-400 font-mono">{selectedLog.id}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <h1 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                      سامانه محلی مدیریت و ردیابی خطاهای نرم‌افزار
+                    </h1>
+                    <span style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      padding: '2px 8px',
+                      borderRadius: '20px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      fontFamily: 'monospace'
+                    }}>
+                      data/error_logs.json
+                    </span>
+                  </div>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                    ثبت مستقل و پایدار رویدادها و استک‌تریس خطاهای کلاینت و سرور بدون وابستگی به سرویس‌های ابری خارجی
+                  </p>
                 </div>
               </div>
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
-              >
-                <X size={18} />
-              </button>
+
+              {/* Quick Actions Buttons */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={fetchLogs}
+                  disabled={loading}
+                  style={{
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    color: '#334155',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    transition: 'all 0.15s'
+                  }}
+                  title="بارگذاری مجدد لاگ‌ها"
+                >
+                  <RefreshCw size={14} className={loading ? 'spin' : ''} />
+                  <span>بروزرسانی</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerTest('server')}
+                  disabled={actionLoading}
+                  style={{
+                    background: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    color: '#b45309',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="تست ثبت لاگ سرور"
+                >
+                  <Play size={14} />
+                  <span>تست لاگ سرور</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerTest('client')}
+                  disabled={actionLoading}
+                  style={{
+                    background: '#f5f3ff',
+                    border: '1px solid #ddd6fe',
+                    color: '#6d28d9',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: actionLoading ? 'not-allowed' : 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="تست ثبت لاگ کلاینت"
+                >
+                  <Smartphone size={14} />
+                  <span>تست لاگ کلاینت</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownload('text')}
+                  style={{
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    color: '#047857',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="دانلود فایل فرمت‌شده log"
+                >
+                  <FileText size={14} />
+                  <span>دانلود .log</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownload('json')}
+                  style={{
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#1d4ed8',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="دانلود فایل JSON"
+                >
+                  <Download size={14} />
+                  <span>خروجی JSON</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearOpen(true)}
+                  style={{
+                    background: '#fff1f2',
+                    border: '1px solid #fecdd3',
+                    color: '#be123c',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'all 0.15s'
+                  }}
+                  title="پاکسازی کلیه لاگ‌ها"
+                >
+                  <Trash2 size={14} />
+                  <span>پاکسازی</span>
+                </button>
+              </div>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1 text-xs">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">سطح خطا:</span>
-                  <div className="mt-1">{getLevelBadge(selectedLog.level)}</div>
+            {/* Notification Banner */}
+            {message && (
+              <div style={{
+                padding: '12px 16px',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '13px',
+                fontWeight: 600,
+                background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+                color: message.type === 'success' ? '#166534' : '#991b1b',
+                border: message.type === 'success' ? '1px solid #bbf7d0' : '1px solid #fecaca'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {message.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                  <span>{message.text}</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">مبدأ خطا:</span>
-                  <div className="mt-1">{getSourceBadge(selectedLog.source)}</div>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">وضعیت بررسی:</span>
-                  <span className={`mt-1 inline-block font-semibold ${selectedLog.resolved ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    {selectedLog.resolved ? 'بررسی شده' : 'در انتظار بررسی'}
+                <button
+                  type="button"
+                  onClick={() => setMessage(null)}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit' }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Statistics Cards */}
+            {stats && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gap: '12px',
+                marginTop: '4px'
+              }}>
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#64748b', display: 'block' }}>کل رویدادها</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.total || 0).toLocaleString('fa-IR')}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px]">زمان وقوع:</span>
-                  <span className="mt-1 inline-block font-mono text-slate-700">{formatDate(selectedLog.timestamp)}</span>
+
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#e11d48', display: 'block' }}>در انتظار بررسی</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#be123c', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.unresolved || 0).toLocaleString('fa-IR')}
+                  </span>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#dc2626', display: 'block' }}>خطاهای سیستمی</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#991b1b', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.errors || 0).toLocaleString('fa-IR')}
+                  </span>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#6d28d9', display: 'block' }}>خطاهای فرانت‌اند</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#5b21b6', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.clientErrors || 0).toLocaleString('fa-IR')}
+                  </span>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #c7d2fe' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#4338ca', display: 'block' }}>خطاهای بک‌اند</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#3730a3', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.serverErrors || 0).toLocaleString('fa-IR')}
+                  </span>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '14px 16px', borderRadius: '12px', border: '1px solid #fde68a' }}>
+                  <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#b45309', display: 'block' }}>خطاهای امروز</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#92400e', marginTop: '4px', display: 'block' }}>
+                    {Number(stats.todayErrors || 0).toLocaleString('fa-IR')}
+                  </span>
                 </div>
               </div>
+            )}
+          </div>
 
-              {/* Message */}
-              <div>
-                <span className="font-bold text-slate-700 block mb-1">پیام خطا (Message):</span>
-                <div className="p-3 bg-red-50/60 border border-red-200 text-red-900 rounded-xl font-medium text-xs leading-relaxed">
-                  {selectedLog.name && <span className="font-bold font-mono mr-1">[{selectedLog.name}]</span>}
-                  {selectedLog.message}
-                </div>
+          {/* Filter and Search Bar */}
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            padding: '16px 20px',
+            boxShadow: '0 2px 8px rgba(15, 23, 42, 0.03)'
+          }}>
+            <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+              <div style={{ position: 'relative', flex: '1 1 240px' }}>
+                <Search size={16} color="#94a3b8" style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="جستجو در پیام خطا، نام تابع، مسیر URL، شماره کاربر، آدرس IP..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 38px 9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
               </div>
 
-              {/* URL & Request Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 block text-[10px] mb-1">درخواست / آدرس:</span>
-                  <div className="font-mono text-slate-800 break-all text-[11px]">
-                    {selectedLog.method && <span className="font-bold text-blue-700 ml-1">[{selectedLog.method}]</span>}
-                    {selectedLog.url || 'N/A'}
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px' }}>
+                <select
+                  value={levelFilter}
+                  onChange={(e) => setLevelFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    background: '#ffffff',
+                    color: '#334155',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">همه سطوح (Levels)</option>
+                  <option value="fatal">بحرانی (Fatal)</option>
+                  <option value="error">خطا (Error)</option>
+                  <option value="warn">هشدار (Warn)</option>
+                  <option value="info">اطلاع (Info)</option>
+                </select>
+
+                <select
+                  value={sourceFilter}
+                  onChange={(e) => setSourceFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    background: '#ffffff',
+                    color: '#334155',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">همه مبدأها (Sources)</option>
+                  <option value="server">سرور (Server)</option>
+                  <option value="client">کلاینت / UI</option>
+                  <option value="api">API Endpoints</option>
+                  <option value="database">پایگاه داده</option>
+                  <option value="unhandled">Unhandled</option>
+                </select>
+
+                <select
+                  value={resolvedFilter}
+                  onChange={(e) => setResolvedFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '12.5px',
+                    background: '#ffffff',
+                    color: '#334155',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="all">همه وضعیت‌ها</option>
+                  <option value="false">در انتظار بررسی</option>
+                  <option value="true">بررسی و حل شده</option>
+                </select>
+
+                <button
+                  type="submit"
+                  style={{
+                    padding: '9px 18px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #0870d1 0%, #0284c7 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(8, 112, 209, 0.25)'
+                  }}
+                >
+                  اعمال فیلتر
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Logs Table */}
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 16px rgba(15, 23, 42, 0.03)',
+            overflow: 'hidden'
+          }}>
+            {loading ? (
+              <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+                <RefreshCw size={28} color="#0870d1" className="spin" style={{ margin: '0 auto 8px' }} />
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>در حال خواندن فایل لاگ‌های محلی...</span>
+              </div>
+            ) : logs.length === 0 ? (
+              <div style={{ padding: '48px', textAlign: 'center', color: '#64748b' }}>
+                <CheckCircle2 size={42} color="#10b981" style={{ margin: '0 auto 8px' }} />
+                <p style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>هیچ خطایی در سیستم ثبت نشده است</p>
+                <p style={{ margin: '4px 0 0', fontSize: '12.5px', color: '#94a3b8' }}>کلیه سرویس‌ها و کلاینت‌ها بدون ارور در حال فعالیت هستند.</p>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '12px', fontWeight: 700 }}>
+                      <th style={{ padding: '14px 16px', width: '50px', textAlign: 'center' }}>وضعیت</th>
+                      <th style={{ padding: '14px 16px' }}>زمان رخداد</th>
+                      <th style={{ padding: '14px 16px' }}>سطح / مبدأ</th>
+                      <th style={{ padding: '14px 16px' }}>شرح و عنوان خطا</th>
+                      <th style={{ padding: '14px 16px' }}>مسیر / URL</th>
+                      <th style={{ padding: '14px 16px' }}>کاربر / IP</th>
+                      <th style={{ padding: '14px 16px', textAlign: 'center' }}>عملیات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log) => (
+                      <tr
+                        key={log.id}
+                        style={{
+                          borderBottom: '1px solid #f1f5f9',
+                          background: log.resolved ? '#f8fafc' : '#ffffff',
+                          opacity: log.resolved ? 0.75 : 1,
+                          transition: 'background 0.15s'
+                        }}
+                      >
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleResolve(log)}
+                            style={{
+                              border: 'none',
+                              background: log.resolved ? '#dcfce7' : '#f1f5f9',
+                              color: log.resolved ? '#15803d' : '#94a3b8',
+                              padding: '6px',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                            title={log.resolved ? 'علامت‌گذاری به عنوان حل‌نشده' : 'علامت‌گذاری به عنوان بررسی و حل‌شده'}
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        </td>
+
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: '#64748b', fontSize: '11.5px', fontFamily: 'monospace' }}>
+                          {formatDate(log.timestamp)}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {getLevelBadge(log.level)}
+                            {getSourceBadge(log.source)}
+                          </div>
+                        </td>
+
+                        <td style={{ padding: '12px 16px', maxWidth: '340px' }}>
+                          <div style={{ fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.message}>
+                            {log.name && <span style={{ color: '#64748b', fontFamily: 'monospace', fontSize: '11px', marginLeft: '4px' }}>[{log.name}]</span>}
+                            {log.message}
+                          </div>
+                          {log.stack && (
+                            <span style={{ fontSize: '10.5px', color: '#94a3b8', display: 'block', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '2px', direction: 'ltr', textAlign: 'right' }}>
+                              {log.stack.split('\n')[1] || log.stack.split('\n')[0]}
+                            </span>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '11.5px', color: '#475569' }}>
+                          {log.url ? (
+                            <span style={{ display: 'inline-block', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.url}>
+                              {log.method && <strong style={{ color: '#0870d1', marginLeft: '4px' }}>{log.method}</strong>}
+                              {log.url}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#cbd5e1' }}>—</span>
+                          )}
+                        </td>
+
+                        <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>
+                          {log.user_mobile ? (
+                            <span style={{ fontWeight: 700, color: '#0870d1', display: 'block' }}>{log.user_mobile}</span>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontSize: '11.5px', display: 'block' }}>مهمان / ناشناس</span>
+                          )}
+                          <span style={{ fontSize: '10.5px', fontFamily: 'monospace', color: '#94a3b8' }}>{log.ip_address}</span>
+                        </td>
+
+                        <td style={{ padding: '12px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLog(log)}
+                            style={{
+                              background: '#eff6ff',
+                              border: '1px solid #bfdbfe',
+                              color: '#1d4ed8',
+                              padding: '5px 12px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            مشاهده و استک
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Detail Modal */}
+          {selectedLog && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(4px)'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                border: '1px solid #e2e8f0',
+                maxWidth: '680px',
+                width: '100%',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                {/* Modal Header */}
+                <div style={{
+                  padding: '16px 20px',
+                  borderBottom: '1px solid #f1f5f9',
+                  background: '#f8fafc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#fee2e2', color: '#dc2626', padding: '8px', borderRadius: '8px' }}>
+                      <AlertTriangle size={18} />
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                        مشخصات و ردگیری کامل خطای محلی
+                      </h3>
+                      <span style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>شناسه: {selectedLog.id}</span>
+                    </div>
                   </div>
-                  {selectedLog.status_code && (
-                    <span className="text-slate-500 text-[10px] mt-1 block">کد وضعیت: {selectedLog.status_code}</span>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLog(null)}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '4px' }}
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div style={{ padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', fontSize: '12.5px' }}>
+                  {/* Metadata Grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '10px',
+                    background: '#f8fafc',
+                    padding: '14px',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <div>
+                      <span style={{ fontSize: '10.5px', color: '#64748b', display: 'block' }}>سطح خطا:</span>
+                      <div style={{ marginTop: '4px' }}>{getLevelBadge(selectedLog.level)}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10.5px', color: '#64748b', display: 'block' }}>مبدأ خطا:</span>
+                      <div style={{ marginTop: '4px' }}>{getSourceBadge(selectedLog.source)}</div>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10.5px', color: '#64748b', display: 'block' }}>وضعیت بررسی:</span>
+                      <span style={{ marginTop: '4px', display: 'inline-block', fontWeight: 700, color: selectedLog.resolved ? '#15803d' : '#be123c' }}>
+                        {selectedLog.resolved ? 'بررسی و حل‌شده' : 'در انتظار بررسی'}
+                      </span>
+                    </div>
+                    <div>
+                      <span style={{ fontSize: '10.5px', color: '#64748b', display: 'block' }}>زمان وقوع:</span>
+                      <span style={{ marginTop: '4px', display: 'inline-block', fontFamily: 'monospace', color: '#334155' }}>
+                        {formatDate(selectedLog.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Message */}
+                  <div>
+                    <span style={{ fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>متن پیام خطا (Message):</span>
+                    <div style={{
+                      padding: '12px 14px',
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      color: '#9f1239',
+                      borderRadius: '10px',
+                      fontWeight: 600,
+                      lineHeight: 1.6
+                    }}>
+                      {selectedLog.name && <strong style={{ fontFamily: 'monospace', marginLeft: '6px' }}>[{selectedLog.name}]</strong>}
+                      {selectedLog.message}
+                    </div>
+                  </div>
+
+                  {/* URL & Request Details */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+                    <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>درخواست / آدرس URL:</span>
+                      <div style={{ fontFamily: 'monospace', color: '#1e293b', wordBreak: 'break-all' }}>
+                        {selectedLog.method && <strong style={{ color: '#0870d1', marginLeft: '4px' }}>[{selectedLog.method}]</strong>}
+                        {selectedLog.url || 'N/A'}
+                      </div>
+                      {selectedLog.status_code && (
+                        <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                          کد وضعیت HTTP: {selectedLog.status_code}
+                        </span>
+                      )}
+                    </div>
+
+                    <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '4px' }}>اطلاعات کاربر و کلاینت:</span>
+                      <div style={{ color: '#1e293b' }}>
+                        <div>کاربر: {selectedLog.user_mobile || selectedLog.user_id || 'ناشناس / مهمان'}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>IP: {selectedLog.ip_address}</div>
+                        <div style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={selectedLog.user_agent}>
+                          UA: {selectedLog.user_agent}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stack Trace */}
+                  {selectedLog.stack && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 700, color: '#334155' }}>ردپای پشته (Stack Trace):</span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(selectedLog.stack, 'stack')}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: '#0870d1',
+                            fontSize: '11.5px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontWeight: 600
+                          }}
+                        >
+                          {copiedId === 'stack' ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
+                          <span>{copiedId === 'stack' ? 'کپی شد!' : 'کپی استک‌تریس'}</span>
+                        </button>
+                      </div>
+                      <pre style={{
+                        padding: '12px',
+                        background: '#0f172a',
+                        color: '#f8fafc',
+                        borderRadius: '10px',
+                        fontFamily: 'monospace',
+                        fontSize: '11px',
+                        overflowX: 'auto',
+                        maxHeight: '180px',
+                        lineHeight: 1.5,
+                        direction: 'ltr',
+                        textAlign: 'left',
+                        margin: 0
+                      }}>
+                        {selectedLog.stack}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Extra Context */}
+                  {selectedLog.context && Object.keys(selectedLog.context).length > 0 && (
+                    <div>
+                      <span style={{ fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>کانتکست تکمیلی (Context):</span>
+                      <pre style={{
+                        padding: '10px',
+                        background: '#f1f5f9',
+                        color: '#1e293b',
+                        borderRadius: '10px',
+                        fontFamily: 'monospace',
+                        fontSize: '11.5px',
+                        overflowX: 'auto',
+                        maxHeight: '140px',
+                        direction: 'ltr',
+                        textAlign: 'left',
+                        margin: 0,
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {JSON.stringify(selectedLog.context, null, 2)}
+                      </pre>
+                    </div>
                   )}
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-slate-400 block text-[10px] mb-1">اطلاعات کلاینت / کاربر:</span>
-                  <div className="text-slate-800 text-[11px]">
-                    <div>کاربر: {selectedLog.user_mobile || selectedLog.user_id || 'ناشناس'}</div>
-                    <div className="font-mono text-slate-500 text-[10px] mt-0.5">IP: {selectedLog.ip_address}</div>
-                    <div className="text-[10px] text-slate-400 truncate mt-0.5" title={selectedLog.user_agent}>
-                      UA: {selectedLog.user_agent}
-                    </div>
-                  </div>
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '14px 20px',
+                  borderTop: '1px solid #f1f5f9',
+                  background: '#f8fafc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleResolve(selectedLog)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: selectedLog.resolved ? '#f1f5f9' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: selectedLog.resolved ? '#475569' : '#ffffff',
+                      boxShadow: selectedLog.resolved ? 'none' : '0 2px 8px rgba(16, 185, 129, 0.25)'
+                    }}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>{selectedLog.resolved ? 'تغییر به حل‌نشده' : 'تأیید و نشانه‌گذاری به عنوان حل‌شده'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLog(null)}
+                    style={{
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      color: '#475569',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    بستن
+                  </button>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Stack Trace */}
-              {selectedLog.stack && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-slate-700">ردپای پشته (Stack Trace):</span>
-                    <button
-                      onClick={() => copyToClipboard(selectedLog.stack, 'stack')}
-                      className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:text-blue-800"
-                    >
-                      {copiedId === 'stack' ? <Check size={12} className="text-emerald-600" /> : <Copy size={12} />}
-                      {copiedId === 'stack' ? 'کپی شد' : 'کپی استک'}
-                    </button>
-                  </div>
-                  <pre className="p-3 bg-slate-900 text-slate-100 rounded-xl font-mono text-[10.5px] overflow-x-auto max-h-48 leading-relaxed whitespace-pre-wrap dir-ltr text-left">
-                    {selectedLog.stack}
-                  </pre>
+          {/* Confirm Clear Modal */}
+          {confirmClearOpen && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px',
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(4px)'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+                border: '1px solid #e2e8f0',
+                maxWidth: '400px',
+                width: '100%',
+                padding: '24px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  borderRadius: '50%',
+                  background: '#ffe4e6',
+                  color: '#e11d48',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px'
+                }}>
+                  <Trash2 size={24} />
                 </div>
-              )}
-
-              {/* Extra Context */}
-              {selectedLog.context && Object.keys(selectedLog.context).length > 0 && (
-                <div>
-                  <span className="font-bold text-slate-700 block mb-1">اطلاعات تکمیلی کانتکست (Context):</span>
-                  <pre className="p-3 bg-slate-100 text-slate-800 rounded-xl font-mono text-[11px] overflow-x-auto max-h-36 leading-relaxed dir-ltr text-left border border-slate-200">
-                    {JSON.stringify(selectedLog.context, null, 2)}
-                  </pre>
+                <h3 style={{ margin: '0 0 6px', fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                  پاکسازی کلیه لاگ‌های خطای محلی
+                </h3>
+                <p style={{ margin: '0 0 20px', fontSize: '12.5px', color: '#64748b', lineHeight: 1.6 }}>
+                  آیا از پاکسازی تمام رکوردهای ثبت‌شده در فایل <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>data/error_logs.json</code> اطمینان دارید؟ این عملیات غیرقابل بازگشت است.
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={handleClearLogs}
+                    disabled={actionLoading}
+                    style={{
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: actionLoading ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {actionLoading ? 'در حال پاکسازی...' : 'بله، لاگ‌ها پاک شوند'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearOpen(false)}
+                    disabled={actionLoading}
+                    style={{
+                      padding: '9px 18px',
+                      borderRadius: '8px',
+                      background: '#f1f5f9',
+                      border: '1px solid #e2e8f0',
+                      color: '#475569',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    انصراف
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-              <button
-                onClick={() => handleToggleResolve(selectedLog)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg transition ${
-                  selectedLog.resolved
-                    ? 'text-slate-700 bg-slate-200 hover:bg-slate-300'
-                    : 'text-white bg-emerald-600 hover:bg-emerald-700'
-                }`}
-              >
-                <CheckCircle2 size={14} />
-                {selectedLog.resolved ? 'تغییر به حل‌نشده' : 'تأیید و نشانه‌گذاری به عنوان حل‌شده'}
-              </button>
-
-              <button
-                onClick={() => setSelectedLog(null)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition"
-              >
-                بستن
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirm Clear Modal */}
-      {confirmClearOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full p-5 text-center">
-            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-3">
-              <Trash2 size={24} />
-            </div>
-            <h3 className="font-bold text-base text-slate-900 mb-1">پاکسازی کلیه لاگ‌های خطای محلی</h3>
-            <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-              آیا از پاکسازی تمام رکوردهای ثبت‌شده در فایل <code className="bg-slate-100 px-1 py-0.5 rounded text-[11px]">data/error_logs.json</code> اطمینان دارید؟ این عملیات غیرقابل بازگشت است.
-            </p>
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={handleClearLogs}
-                disabled={actionLoading}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition disabled:opacity-50"
-              >
-                {actionLoading ? 'در حال پاکسازی...' : 'بله، لاگ‌ها پاک شوند'}
-              </button>
-              <button
-                onClick={() => setConfirmClearOpen(false)}
-                disabled={actionLoading}
-                className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
-              >
-                انصراف
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </>
+          )}
+        </>
       )}
     </div>
   );

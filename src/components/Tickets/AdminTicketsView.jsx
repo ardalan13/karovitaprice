@@ -9,9 +9,7 @@ import {
   Calendar, 
   Filter, 
   RotateCw, 
-  Building2,
-  Trash2,
-  AlertTriangle
+  Building2
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { TicketTabs } from './TicketTabs';
@@ -33,8 +31,6 @@ export function AdminTicketsView() {
   const [successMsg, setSuccessMsg] = useState('');
 
   const [selectedTicketId, setSelectedTicketId] = useState(null);
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [clearing, setClearing] = useState(false);
 
   function loadTickets(currentTab = tab, currentSearch = search) {
     setLoading(true);
@@ -72,20 +68,6 @@ export function AdminTicketsView() {
     loadTickets(tab, search);
   }
 
-  function handleClearAllTickets() {
-    setClearing(true);
-    setError('');
-    api('/admin/tickets/clear-all', { method: 'DELETE' })
-      .then(res => {
-        setSuccessMsg(res.message || 'تمام تیکت‌های تستی با موفقیت حذف شدند.');
-        setShowClearConfirm(false);
-        loadTickets(tab, '');
-        setSearch('');
-      })
-      .catch(err => setError(err.message || 'خطا در حذف تیکت‌های تستی.'))
-      .finally(() => setClearing(false));
-  }
-
   return (
     <div>
       <div className="page-head" style={{ marginBottom: 16 }}>
@@ -94,16 +76,6 @@ export function AdminTicketsView() {
           <p>مشاهده، بررسی، پاسخگویی و تخصیص تیکت‌های کاربران به کارشناسان دپارتمان‌ها</p>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button 
-            type="button" 
-            className="btn-danger-outline" 
-            onClick={() => setShowClearConfirm(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, height: 44, padding: '0 16px', borderRadius: 10, fontSize: 13, fontWeight: 700 }}
-            title="حذف و پاک‌سازی تمام تیکت‌های تستی ثبت‌شده"
-          >
-            <Trash2 size={16} />
-            <span>پاک‌سازی تیکت‌های تستی</span>
-          </button>
           <button 
             type="button" 
             className="btn-secondary outline" 
@@ -187,44 +159,6 @@ export function AdminTicketsView() {
           <button type="button" className="link" onClick={() => { setSearch(''); loadTickets(tab, ''); }} style={{ fontSize: '12px' }}>
             نمایش همه
           </button>
-        </div>
-      )}
-
-      {/* Confirm Modal for Clearing Test Tickets */}
-      {showClearConfirm && (
-        <div className="modal-backdrop" onClick={() => !clearing && setShowClearConfirm(false)}>
-          <div className="modal-card" onClick={e => e.stopPropagation()}>
-            <div className="modal-head">
-              <h3 style={{ color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <AlertTriangle size={20} />
-                تأیید پاک‌سازی تمام تیکت‌های تستی
-              </h3>
-            </div>
-            <div className="modal-body">
-              <p>
-                آیا از حذف کامل تمام تیکت‌ها، پیام‌ها، فایل‌های پیوست و تاریخچه تغییرات تیکت‌ها اطمینان دارید؟
-                این عمل غیرقابل بازگشت است و دیتابیس تیکت‌ها خالی می‌گردد.
-              </p>
-              <div className="modal-foot">
-                <button 
-                  type="button" 
-                  className="btn-danger" 
-                  disabled={clearing}
-                  onClick={handleClearAllTickets}
-                >
-                  {clearing ? 'در حال پاک‌سازی…' : 'بله، همه تیکت‌ها پاک شوند'}
-                </button>
-                <button 
-                  type="button" 
-                  className="btn-secondary outline" 
-                  disabled={clearing}
-                  onClick={() => setShowClearConfirm(false)}
-                >
-                  انصراف
-                </button>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

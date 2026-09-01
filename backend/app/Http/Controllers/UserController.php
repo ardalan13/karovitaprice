@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\User\UpdateProfileRequest;
+use App\Http\Requests\User\SaveCompanyRequest;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\Subscription;
@@ -15,13 +17,19 @@ class UserController extends Controller {
         return response()->json(['user' => $user]);
     }
 
-    public function updateProfile(Request $request) {
+    public function updateProfile(UpdateProfileRequest $request) {
         $user = $request->user();
-        $name = trim($request->input('name', ''));
-        if ($name) {
-            $user->name = $name;
-            $user->save();
+        $validated = $request->validated();
+        
+        $user->name = $validated['name'];
+        if (isset($validated['email'])) {
+            $user->email = $validated['email'];
         }
+        if (isset($validated['avatar'])) {
+            $user->avatar = $validated['avatar'];
+        }
+        $user->save();
+
         return response()->json(['user' => $user, 'message' => 'پروفایل به‌روزرسانی شد']);
     }
 
@@ -31,21 +39,18 @@ class UserController extends Controller {
         return response()->json(['data' => $company]);
     }
 
-    public function saveCompany(Request $request) {
+    public function saveCompany(SaveCompanyRequest $request) {
         $user = $request->user();
-        $name = trim($request->input('name', ''));
-        if (!$name) {
-            return response()->json(['error' => 'نام شرکت یا مجموعه الزامی است'], 400);
-        }
+        $validated = $request->validated();
 
         $company = Company::updateOrCreate(
             ['user_id' => $user->id],
             [
-                'name' => $name,
-                'national_id' => $request->input('national_id'),
-                'registration_number' => $request->input('registration_number'),
-                'phone' => $request->input('phone'),
-                'address' => $request->input('address'),
+                'name' => $validated['name'],
+                'national_id' => $validated['national_id'] ?? null,
+                'registration_number' => $validated['registration_number'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
             ]
         );
 

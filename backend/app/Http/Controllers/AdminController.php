@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Http\Requests\Admin\UpdateUserRoleRequest;
+use App\Http\Requests\Admin\UpdateUserStatusRequest;
 use App\Models\User;
 use App\Models\Company;
 use App\Models\Order;
@@ -10,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\Subscription;
 use App\Models\Ticket;
 use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use Carbon\Carbon;
 
 class AdminController extends Controller {
@@ -62,24 +65,32 @@ class AdminController extends Controller {
         return response()->json(['data' => $users]);
     }
 
-    public function updateUserRole(Request $request, $id) {
+    public function updateUserRole(UpdateUserRoleRequest $request, $id) {
         $user = User::findOrFail($id);
-        $role = $request->input('role');
-        if (in_array($role, ['admin', 'user', 'support'])) {
-            $user->role = $role;
-            $user->save();
-        }
-        return response()->json(['message' => 'نقش کاربر تغییر یافت', 'data' => $user]);
+        $validated = $request->validated();
+        $oldRole = $user->role;
+        $newRole = $validated['role'];
+        
+        $user->role = $newRole;
+        $user->save();
+
+        AuditLogger::logUserRoleChange($user, $oldRole, $newRole, $request->user());
+
+        return response()->json(['message' => 'نقش کاربر با موفقیت تغییر یافت', 'data' => $user]);
     }
 
-    public function updateUserStatus(Request $request, $id) {
+    public function updateUserStatus(UpdateUserStatusRequest $request, $id) {
         $user = User::findOrFail($id);
-        $status = $request->input('status');
-        if (in_array($status, ['active', 'suspended'])) {
-            $user->status = $status;
-            $user->save();
-        }
-        return response()->json(['message' => 'وضعیت کاربر تغییر یافت', 'data' => $user]);
+        $validated = $request->validated();
+        $oldStatus = $user->status;
+        $newStatus = $validated['status'];
+
+        $user->status = $newStatus;
+        $user->save();
+
+        AuditLogger::logUserStatusChange($user, $oldStatus, $newStatus, $request->user());
+
+        return response()->json(['message' => 'وضعیت کاربر با موفقیت تغییر یافت', 'data' => $user]);
     }
 
     public function tickets() {

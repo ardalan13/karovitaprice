@@ -100,7 +100,6 @@ export function SubscriptionDetailsModal({ subscription, user, onClose }) {
               >
                 <LogIn size={18} />
                 <span>ورود به پنل شخصی ERP</span>
-                <ArrowLeft size={16} />
               </button>
             </div>
           </div>
@@ -205,8 +204,6 @@ export function SubscriptionDetailsModal({ subscription, user, onClose }) {
                         <CheckCircle2 size={16} color="#2563eb" />
                       </div>
                       <span className="erp-sub-mod-name">{m.title}</span>
-                    </div>
-                    <div className="erp-sub-mod-meta">
                       <span className="erp-sub-mod-active-tag">فعال در پنل</span>
                     </div>
                   </div>
@@ -221,8 +218,6 @@ export function SubscriptionDetailsModal({ subscription, user, onClose }) {
                         <CheckCircle2 size={16} color="#2563eb" />
                       </div>
                       <span className="erp-sub-mod-name">{name}</span>
-                    </div>
-                    <div className="erp-sub-mod-meta">
                       <span className="erp-sub-mod-active-tag">فعال در پنل</span>
                     </div>
                   </div>
