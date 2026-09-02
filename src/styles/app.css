@@ -1,4 +1,5 @@
-@import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
+/* Local Vazirmatn Font - Zero External CDN Dependencies */
+@import '/fonts/vazirmatn/vazirmatn.css';
 
 :root, [data-theme="light"] {
   font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

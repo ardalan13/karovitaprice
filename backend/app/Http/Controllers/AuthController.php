@@ -110,13 +110,17 @@ class AuthController extends Controller {
 
         return response()->json([
             'token' => $tokenString,
+            'access_token' => $tokenString,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
+                'first_name' => $user->first_name ?? null,
+                'last_name' => $user->last_name ?? null,
                 'mobile' => $user->mobile,
                 'role' => $user->role,
                 'status' => $user->status,
-                'avatar' => $user->avatar,
+                'avatar' => $user->avatar ?? null,
+                'onboarding_step' => $user->onboarding_step ?? 4,
             ]
         ]);
     }

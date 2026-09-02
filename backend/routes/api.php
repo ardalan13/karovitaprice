@@ -17,10 +17,26 @@ use App\Http\Controllers\HealthController;
 Route::get('/health', [HealthController::class, 'check']);
 Route::get('/ping', [HealthController::class, 'ping']);
 
+// Authentication & OTP Endpoints (Supports both /auth/otp/request and /auth/send-otp)
 Route::post('/auth/send-otp', [AuthController::class, 'sendOtp']);
+Route::post('/auth/otp/request', [AuthController::class, 'sendOtp']);
+Route::post('/profile/otp/request', [AuthController::class, 'sendOtp']);
+
 Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
+Route::post('/auth/otp/verify', [AuthController::class, 'verifyOtp']);
+Route::post('/profile/otp/verify', [AuthController::class, 'verifyOtp']);
+
 Route::get('/pricing/modules', [PricingController::class, 'getModules']);
+Route::get('/pricing', [PricingController::class, 'getModules']);
 Route::get('/departments', [TicketController::class, 'getDepartments']);
+
+// Public Logging & Vitals Receivers
+Route::post('/logs/vitals', function () {
+    return response()->json(['status' => 'ok', 'id' => uniqid('vit_')], 201);
+});
+Route::post('/logs/client-error', function () {
+    return response()->json(['status' => 'ok', 'id' => uniqid('err_')], 201);
+});
 
 /*
 |--------------------------------------------------------------------------

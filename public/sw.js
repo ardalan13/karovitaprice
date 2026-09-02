@@ -13,7 +13,11 @@ const PRECACHE_ASSETS = [
   '/karovita-logo.svg',
   '/icon-192.svg',
   '/icon-512.svg',
-  '/badge-72.svg'
+  '/badge-72.svg',
+  '/fonts/vazirmatn/vazirmatn.css',
+  '/fonts/vazirmatn/Vazirmatn-Regular.woff2',
+  '/fonts/vazirmatn/Vazirmatn-Medium.woff2',
+  '/fonts/vazirmatn/Vazirmatn-Bold.woff2'
 ];
 
 // Core API endpoints safe to cache for offline fallback

@@ -107,9 +107,8 @@ function Auth() {
         body: JSON.stringify({ mobile: cleanMobile }),
       });
       localStorage.setItem('draft_mobile', cleanMobile);
-      if (res.debug_code) {
-        setDebugCode(res.debug_code);
-        setHint(`کد تستی جهت ورود سریع: ${res.debug_code}`);
+      if (res.message) {
+        setHint(res.message);
       }
       setCountdown(res.resend_after || 60);
       setCode('');
@@ -257,33 +256,20 @@ function Auth() {
           </label>
         )}
 
-        {/* Development fast test code clicker */}
+        {/* Info hint */}
         {hint && (
           <div 
             className="alert" 
             style={{ 
-              background: '#eef6ff', 
-              color: '#0759a8', 
+              background: '#f0fdf4', 
+              color: '#166534', 
               display: 'flex', 
-              justifyContent: 'space-between', 
+              justifyContent: 'center', 
               alignItems: 'center',
-              cursor: debugCode ? 'pointer' : 'default',
-              border: '1px dashed #93c5fd'
+              border: '1px solid #bbf7d0'
             }}
-            onClick={() => {
-              if (debugCode && stage === 'code' && !loading) {
-                setCode(debugCode);
-                verify(debugCode);
-              }
-            }}
-            title={debugCode ? 'کلیک برای درج خودکار و تأیید کد' : ''}
           >
             <span>{hint}</span>
-            {debugCode && stage === 'code' && (
-              <span style={{ fontSize: '11.5px', fontWeight: 700, textDecoration: 'underline' }}>
-                کلیک برای درج خودکار
-              </span>
-            )}
           </div>
         )}
 
@@ -822,34 +808,7 @@ function ProfileSettings({ user, onUpdateUser }) {
                 جهت حفظ امنیت حساب کاربری و تأیید هویت شما، کد تأیید ۵ رقمی به شماره همراه <strong>{profile.mobile}</strong> ارسال گردید. لطفاً کد را در کادر زیر وارد نمایید.
               </p>
 
-              {otpDebug && (
-                <div 
-                  className="alert" 
-                  style={{ 
-                    background: '#eef6ff', 
-                    color: '#0759a8', 
-                    fontSize: '13px', 
-                    marginBottom: '14px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    border: '1px dashed #93c5fd'
-                  }}
-                  onClick={() => {
-                    if (otpDebug && !otpLoading) {
-                      setOtpCode(otpDebug);
-                      handleVerifyOtp(null, otpDebug);
-                    }
-                  }}
-                  title="کلیک برای درج خودکار و تأیید کد"
-                >
-                  <span>کد پیامک‌شده: <strong>{otpDebug}</strong></span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, textDecoration: 'underline' }}>
-                    کلیک برای درج خودکار
-                  </span>
-                </div>
-              )}
+              {/* Error Alert */}
 
               {otpError && (
                 <div className="alert error" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1155,14 +1114,17 @@ function Dashboard() {
 
   if (!d) return <Loader />;
 
-  const active = d.subscriptions.filter(x => x.status === 'active' && new Date(x.expires_at) > new Date());
+  const subsList = Array.isArray(d.subscriptions) ? d.subscriptions : [];
+  const transList = Array.isArray(d.transactions) ? d.transactions : [];
+  const currentUser = d.user || {};
+  const active = subsList.filter(x => x && x.status === 'active' && (!x.expires_at || new Date(x.expires_at) > new Date()));
 
   return (
-    <Shell tab={tab} setTab={setTab} name={d.user.first_name}>
+    <Shell tab={tab} setTab={setTab} name={currentUser.first_name || 'کاربر'}>
       {tab !== 'support' && (
         <div className="page-head">
           <div>
-            <h1>سلام {d.user.first_name || 'کاربر عزیز'} 👋</h1>
+            <h1>سلام {currentUser.first_name || 'کاربر عزیز'} 👋</h1>
             <p>وضعیت حساب و سرویس‌های خود را از اینجا مدیریت کنید.</p>
           </div>
           <button className="btn-primary" onClick={() => nav('/plans')}>
@@ -1254,12 +1216,12 @@ function Dashboard() {
         <>
           <div className="stats">
             <Stat icon={Package} n={active.length} label="اشتراک فعال" />
-            <Stat icon={Receipt} n={d.transactions.length} label="کل پرداخت‌ها" />
-            <Stat icon={Building2} n={d.user.company_name || '—'} label="شرکت" />
+            <Stat icon={Receipt} n={transList.length} label="کل پرداخت‌ها" />
+            <Stat icon={Building2} n={currentUser.company_name || d?.company?.name || '—'} label="شرکت" />
           </div>
           <Panel title="آخرین اشتراک‌ها">
             <Subscriptions 
-              data={d.subscriptions} 
+              data={subsList} 
               onOpenDetails={s => setSelectedSubForDetails(s)}
             />
           </Panel>
@@ -1268,7 +1230,7 @@ function Dashboard() {
       {tab === 'packages' && (
         <Panel title="پکیج‌های من">
           <Subscriptions 
-            data={d.subscriptions} 
+            data={subsList} 
             onOpenDetails={s => setSelectedSubForDetails(s)}
           />
         </Panel>
@@ -1281,7 +1243,7 @@ function Dashboard() {
       )}
       {tab === 'profile' && (
         <ProfileSettings 
-          user={d.user} 
+          user={currentUser} 
           onUpdateUser={u => setD({ ...d, user: u })} 
         />
       )}
@@ -1792,11 +1754,12 @@ function WorkspaceRoute() {
     api('/dashboard')
       .then(res => {
         setUser(res.user);
-        const found = res.subscriptions.find(s => String(s.id) === String(id));
+        const subs = Array.isArray(res?.subscriptions) ? res.subscriptions : [];
+        const found = subs.find(s => String(s.id) === String(id));
         if (found) {
           setSub(found);
-        } else if (res.subscriptions.length > 0) {
-          setSub(res.subscriptions[0]);
+        } else if (subs.length > 0) {
+          setSub(subs[0]);
         } else {
           setError('اشتراک یافت نشد.');
         }

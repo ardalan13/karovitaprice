@@ -236,8 +236,7 @@ router.post('/auth/otp/verify', otpVerifyLimiter, (req: Request, res: Response) 
     return res.status(429).json({ message: 'تعداد دفعات اشتباه بیش از حد مجاز (۵ بار) بود. لطفاً کد جدید دریافت کنید.' });
   }
 
-  const isDev = process.env.NODE_ENV !== 'production';
-  const isMatch = otp.code === code || (isDev && code === '12345');
+  const isMatch = otp.code === code;
 
   if (!isMatch) {
     otp.attempts++;
@@ -425,7 +424,7 @@ router.post('/profile/otp/verify', authMiddleware, otpVerifyLimiter, (req: Reque
     return res.status(429).json({ message: 'تعداد تلاش مجاز تمام شده است.' });
   }
 
-  if (otp.code !== code && code !== '12345') {
+  if (otp.code !== code) {
     otp.attempts++;
     return res.status(422).json({ message: 'کد وارد شده صحیح نیست.' });
   }
