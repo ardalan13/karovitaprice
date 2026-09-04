@@ -1,10 +1,11 @@
 // In unified full-stack architecture, all API requests route directly to /api on the current host
 import { logError } from './logger';
+import { getAuthToken } from './authStorage';
 
 const BASE = '/api';
 
 export async function api(path, options = {}) {
-  const token = localStorage.getItem('token');
+  const token = getAuthToken();
   const cleanPath = path.startsWith('/') ? path : '/' + path;
   const fullUrl = BASE + cleanPath;
   

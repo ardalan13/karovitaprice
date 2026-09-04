@@ -58,12 +58,23 @@ router.get('/ping', (_req, res) => {
 
 // Middleware: Authenticate JWT Token
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
+  let token: string | null = null;
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.headers.cookie) {
+    const cookies = req.headers.cookie.split(';').reduce((acc: any, c) => {
+      const [k, v] = c.trim().split('=');
+      if (k && v) acc[k] = decodeURIComponent(v);
+      return acc;
+    }, {});
+    token = cookies['karovita_token'] || cookies['token'] || null;
+  }
+
+  if (!token) {
     return res.status(401).json({ message: 'نیاز به ورود دارید.' });
   }
 
-  const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { sub: number };
     const user = db.getUserById(payload.sub);
@@ -102,16 +113,19 @@ function toEnglishDigits(str: string): string {
     .replace(/[٠-٩]/g, d => String.fromCharCode(d.charCodeAt(0) - 1584));
 }
 
-// Mobile Normalization Helper
+// Mobile Normalization Helper - handles 09..., 9..., +989..., 00989..., and Persian digits
 function normalizeMobile(m: string): string | null {
+  if (!m) return null;
   const converted = toEnglishDigits(m);
   let cleaned = converted.replace(/\D/g, '');
   if (cleaned.startsWith('0098')) {
     cleaned = '0' + cleaned.substring(4);
-  } else if (cleaned.startsWith('98')) {
+  } else if (cleaned.startsWith('98') && cleaned.length === 12) {
     cleaned = '0' + cleaned.substring(2);
   } else if (cleaned.startsWith('+98')) {
     cleaned = '0' + cleaned.substring(3);
+  } else if (cleaned.length === 10 && cleaned.startsWith('9')) {
+    cleaned = '0' + cleaned;
   }
   return /^09\d{9}$/.test(cleaned) ? cleaned : null;
 }
@@ -196,14 +210,10 @@ router.post('/auth/otp/request', otpRequestLimiter, async (req: Request, res: Re
   // Dispatch real SMS
   await sendOtpSms(mobile, code);
 
-  const isDev = process.env.NODE_ENV !== 'production';
-
   return res.json({
     message: 'کد تأیید برای شماره شما ارسال شد.',
     expires_in: ttlSeconds,
     resend_after: 60,
-    // Only expose debug_code in development / testing mode
-    ...(isDev ? { debug_code: code } : {}),
   });
 });
 
@@ -262,19 +272,47 @@ router.post('/auth/otp/verify', otpVerifyLimiter, (req: Request, res: Response) 
     user.mobile_verified_at = new Date().toISOString();
   }
 
-  const token = jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '7d' });
+  const token = jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '30d' });
   const hasSub = db.subscriptions.some(s => s.user_id === user!.id) || 
                  db.orders.some(o => o.user_id === user!.id && (o.status === 'paid' || o.status === 'completed'));
 
+  const cookieExpireDays = 30;
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+
+  res.cookie('karovita_token', token, {
+    maxAge: 1000 * 60 * 60 * 24 * cookieExpireDays,
+    httpOnly: false,
+    secure: isHttps,
+    sameSite: 'lax',
+    path: '/',
+  });
+
+  res.cookie('karovita_role', user.role, {
+    maxAge: 1000 * 60 * 60 * 24 * cookieExpireDays,
+    httpOnly: false,
+    secure: isHttps,
+    sameSite: 'lax',
+    path: '/',
+  });
+
   return res.json({
     access_token: token,
+    token: token,
     token_type: 'Bearer',
-    expires_in: 3600 * 24 * 7,
+    expires_in: 3600 * 24 * cookieExpireDays,
     user: {
       ...user,
       has_subscription: hasSub,
     },
   });
+});
+
+// Logout endpoint
+router.post('/auth/logout', (_req: Request, res: Response) => {
+  res.clearCookie('karovita_token', { path: '/' });
+  res.clearCookie('karovita_role', { path: '/' });
+  res.clearCookie('token', { path: '/' });
+  return res.json({ status: 'ok', message: 'خروج با موفقیت انجام شد.' });
 });
 
 // -------------------------------------------------------------
@@ -397,7 +435,6 @@ router.post('/profile/otp/request', authMiddleware, otpRequestLimiter, (req: Req
     message: `کد تأیید به شماره ${mobile} ارسال شد.`,
     expires_in: ttlSeconds,
     resend_after: 60,
-    debug_code: code,
   });
 });
 
@@ -1000,24 +1037,25 @@ router.get('/user/orders', authMiddleware, (req: Request, res: Response) => {
 router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const orderId = Number(req.params.id);
-  const mode = req.body?.mode || 'zibal'; // 'zibal' | 'direct' | 'instant'
+  const mode = req.body?.mode; // 'live' | 'direct' | 'sandbox'
   const order = db.orders.find(o => o.id === orderId && (user.role === 'admin' || o.user_id === user.id));
   
   if (!order) {
     return res.status(404).json({ message: 'سفارش یا فاکتور مورد نظر یافت نشد.' });
   }
 
-  if (order.status === 'paid') {
+  if (order.status === 'paid' || order.status === 'completed') {
     return res.status(400).json({ message: 'این فاکتور قبلاً پرداخت و تسویه شده است.' });
   }
 
-  const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
+  const zibalConfig = getZibalConfig();
+  const isLiveGateway = !zibalConfig.sandbox && zibalConfig.merchant && zibalConfig.merchant !== 'zibal' && mode === 'live';
 
-  // If user requested online Zibal Shaparak Gateway
-  if (mode === 'zibal') {
+  if (isLiveGateway) {
     try {
+      const clientOrigin = `${req.protocol}://${req.get('host') || 'localhost:3000'}`;
       const zibalRes = await initiateZibalPayment(order, user, clientOrigin);
-      const trackId = String(zibalRes.trackId || 'sandbox-' + Math.random().toString(36).substring(2, 14));
+      const trackId = String(zibalRes.trackId || 'live-' + Math.random().toString(36).substring(2, 14));
       
       const tx: Transaction = {
         id: db.nextTransactionId++,
@@ -1040,44 +1078,53 @@ router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Respons
         data: {
           order_id: order.id,
           order_number: order.order_number,
-          payment_url: zibalRes.paymentUrl || `/api/payments/zibal/callback?trackId=${trackId}&success=1&status=2&orderId=${order.id}`,
+          payment_url: zibalRes.paymentUrl,
           trackId: trackId,
           is_redirect: true,
           amount: order.amount,
         }
       });
     } catch (err: any) {
-      console.warn('[Zibal Pay Exception]', err.message);
-      // Fallback to instant pay
+      console.warn('[Zibal Live Payment Error]', err.message);
     }
   }
 
-  // Direct instant pay / Simulated settlement
+  // Instant Settlement & Direct/Sandbox Payment Confirmation
   order.status = 'paid';
   const refId = 'SHP-' + Date.now().toString().slice(-8) + Math.floor(1000 + Math.random() * 9000);
-  const tx: Transaction = {
-    id: db.nextTransactionId++,
-    order_id: order.id,
-    user_id: order.user_id,
-    gateway: 'zibal_direct',
-    authority: 'DIR-' + Math.random().toString(36).substring(2, 12).toUpperCase(),
-    reference_id: refId,
-    amount: order.amount,
-    status: 'successful',
-    raw_response: { mode: 'direct_simulation' },
-    paid_at: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-  };
-  db.transactions.push(tx);
+  
+  let tx = db.transactions.find(t => t.order_id === order.id);
+  if (!tx) {
+    tx = {
+      id: db.nextTransactionId++,
+      order_id: order.id,
+      user_id: order.user_id,
+      gateway: 'zibal_sandbox',
+      authority: 'TRK-' + Math.random().toString(36).substring(2, 12).toUpperCase(),
+      reference_id: refId,
+      amount: order.amount,
+      status: 'successful',
+      raw_response: { mode: 'sandbox_instant_settlement', success: 1 },
+      paid_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    db.transactions.push(tx);
+  } else {
+    tx.status = 'successful';
+    tx.reference_id = refId;
+    tx.paid_at = new Date().toISOString();
+  }
 
   // Activate or merge modules in the user's active subscription
-  const userSubs = db.subscriptions.filter(s => s.user_id === order.user_id && s.status === 'active');
-  if (userSubs.length > 0 && order.module_ids && order.module_ids.length > 0) {
-    const targetSub = userSubs[0];
-    const existingMods = targetSub.module_ids || [];
+  const userSubs = db.subscriptions.filter(s => s.user_id === order.user_id);
+  const activeSub = userSubs.find(s => s.status === 'active');
+  
+  if (activeSub && order.module_ids && order.module_ids.length > 0) {
+    const existingMods = activeSub.module_ids || [];
     const mergedMods = Array.from(new Set([...existingMods, ...order.module_ids]));
-    targetSub.module_ids = mergedMods;
-    targetSub.title = `اشتراک سازمانی کارویتا (${mergedMods.length} ماژول)`;
+    activeSub.module_ids = mergedMods;
+    activeSub.title = `اشتراک سازمانی کارویتا (${mergedMods.length} ماژول)`;
+    activeSub.status = 'active';
   } else if (order.module_ids && order.module_ids.length > 0) {
     db.createERPSubscription(
       order.user_id,
@@ -1087,6 +1134,9 @@ router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Respons
       order.billing_period || 'monthly',
       'purchase'
     );
+  } else if (order.package_id) {
+    const pkg = db.getPackageById(order.package_id);
+    db.createSubscription(order.user_id, order.package_id, order.id, 'purchase', pkg?.duration_days || 365, pkg?.usage_limit);
   }
 
   db.save();
@@ -1113,6 +1163,7 @@ router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Respons
       reference_id: refId,
       amount: order.amount,
       paid_at: tx.paid_at,
+      status: 'paid',
       is_redirect: false,
     }
   });
@@ -1709,21 +1760,127 @@ router.get('/admin/orders', authMiddleware, adminMiddleware, (_req: Request, res
       const user = db.getUserById(o.user_id);
       const pkg = db.getPackageById(o.package_id);
       const tx = db.transactions.find(t => t.order_id === o.id);
+      const company = db.getCompanyByUserId(o.user_id);
+      const moduleNames = Array.isArray(o.module_ids) && o.module_ids.length > 0
+        ? o.module_ids.map(id => db.erpModules.find(m => m.id === id)?.title || id)
+        : (pkg?.features || []);
+
       return {
         id: o.id,
         order_number: o.order_number,
         amount: o.amount,
         status: o.status,
         created_at: o.created_at,
-        package_name: pkg?.name || '—',
+        package_name: pkg?.name || (moduleNames.length > 0 ? `اشتراک (${moduleNames.length} ماژول)` : 'سفارش خدمات کارویتا'),
+        module_ids: o.module_ids || [],
+        module_names: moduleNames,
+        user_id: o.user_id,
         user_name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.mobile || '—',
         mobile: user?.mobile || '—',
-        transaction_status: tx?.status || '—',
+        company_name: company?.name || '—',
+        transaction_status: tx?.status || (o.status === 'paid' ? 'successful' : 'pending'),
         reference_id: tx?.reference_id || '—',
+        tracking_code: tx?.authority || '—',
+        paid_at: tx?.paid_at || (o.status === 'paid' ? o.created_at : null),
+        billing_period: o.billing_period || 'monthly',
+        user_count: o.user_count || 5
       };
     });
 
   return res.json({ data: orders });
+});
+
+// Admin update order / payment status (including marking as paid and activating subscription)
+router.put('/admin/orders/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const orderId = Number(req.params.id);
+  const { status, reference_id, note } = req.body;
+  const order = db.orders.find(o => o.id === orderId);
+  if (!order) {
+    return res.status(404).json({ message: 'سفارش یا فاکتور مورد نظر یافت نشد.' });
+  }
+
+  const previousStatus = order.status;
+  order.status = status;
+
+  let tx = db.transactions.find(t => t.order_id === order.id);
+  if (!tx) {
+    tx = {
+      id: db.nextTransactionId++,
+      order_id: order.id,
+      user_id: order.user_id,
+      gateway: 'admin_manual',
+      authority: 'MAN-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      reference_id: reference_id || (status === 'paid' ? ('MAN-' + Date.now().toString().slice(-8)) : null),
+      amount: order.amount,
+      status: status === 'paid' ? 'successful' : (status === 'cancelled' || status === 'failed' ? 'failed' : 'initiated'),
+      raw_response: { updated_by: 'admin', note },
+      paid_at: status === 'paid' ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+    };
+    db.transactions.push(tx);
+  } else {
+    if (status === 'paid') {
+      tx.status = 'successful';
+      tx.reference_id = reference_id || tx.reference_id || ('MAN-' + Date.now().toString().slice(-8));
+      tx.paid_at = tx.paid_at || new Date().toISOString();
+    } else if (status === 'pending') {
+      tx.status = 'initiated';
+      tx.paid_at = null;
+    } else if (status === 'cancelled' || status === 'failed') {
+      tx.status = 'failed';
+    } else if (status === 'refunded') {
+      tx.status = 'refunded';
+    }
+  }
+
+  // If status changed to paid: activate/update user subscription
+  if (status === 'paid') {
+    const userSubs = db.subscriptions.filter(s => s.user_id === order.user_id);
+    const existingActiveSub = userSubs.find(s => s.status === 'active');
+    
+    if (existingActiveSub && order.module_ids && order.module_ids.length > 0) {
+      const merged = Array.from(new Set([...(existingActiveSub.module_ids || []), ...order.module_ids]));
+      existingActiveSub.module_ids = merged;
+      existingActiveSub.title = `اشتراک سازمانی کارویتا (${merged.length} ماژول)`;
+      existingActiveSub.status = 'active';
+      const extDate = new Date();
+      extDate.setFullYear(extDate.getFullYear() + (order.billing_period === 'yearly' ? 1 : 0));
+      if (order.billing_period !== 'yearly') extDate.setMonth(extDate.getMonth() + 1);
+      existingActiveSub.expires_at = extDate.toISOString();
+    } else if (order.module_ids && order.module_ids.length > 0) {
+      db.createERPSubscription(
+        order.user_id,
+        order.id,
+        order.module_ids,
+        order.user_count || 5,
+        order.billing_period || 'monthly',
+        'purchase'
+      );
+    } else if (order.package_id) {
+      const pkg = db.getPackageById(order.package_id);
+      db.createSubscription(order.user_id, order.package_id, order.id, 'purchase', pkg?.duration_days || 365, pkg?.usage_limit);
+    }
+  }
+
+  db.save();
+
+  logFinancialEvent(req, {
+    actionType: 'ADMIN_ORDER_STATUS_MODIFIED',
+    orderId: order.id,
+    transactionId: tx?.id,
+    amount: order.amount,
+    userId: order.user_id,
+    actionDescription: `تغییر وضعیت سفارش #${order.order_number} توسط مدیر سیستم از «${previousStatus}» به «${status}»`,
+    details: { previousStatus, newStatus: status, reference_id: tx?.reference_id }
+  });
+
+  return res.json({
+    message: `وضعیت سفارش #${order.order_number} با موفقیت به «${status === 'paid' ? 'پرداخت شده' : status}» تغییر یافت.`,
+    data: {
+      order,
+      transaction: tx
+    }
+  });
 });
 
 router.get('/admin/subscriptions', authMiddleware, adminMiddleware, (_req: Request, res: Response) => {
@@ -2401,6 +2558,139 @@ router.post('/admin/users/:userId/subscriptions', authMiddleware, adminMiddlewar
   });
 });
 
+// 9. Admin: Get All Subscriptions
+router.get('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const subs = [...db.subscriptions]
+    .sort((a, b) => b.id - a.id)
+    .map(s => {
+      const user = db.getUserById(s.user_id);
+      const company = user ? db.getCompanyByUserId(user.id) : null;
+      const order = s.order_id ? db.orders.find(o => o.id === s.order_id) : null;
+      const tx = order ? db.transactions.find(t => t.order_id === order.id) : null;
+      const moduleIds = Array.isArray(s.module_ids) ? s.module_ids : [];
+      const userName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.mobile || '—';
+
+      return {
+        id: s.id,
+        user_id: s.user_id,
+        title: s.title || (s.package_name || 'اشتراک کارویتا'),
+        package_name: s.package_name || s.title || 'اشتراک کارویتا',
+        source: s.source || 'purchase',
+        status: s.status || 'active',
+        billing_period: s.billing_period || 'monthly',
+        user_count: Number(s.user_count) || 1,
+        user_limit: Number(s.user_limit) || 1,
+        module_ids: moduleIds,
+        module_count: moduleIds.length,
+        expires_at: s.expires_at,
+        created_at: s.created_at,
+        starts_at: s.starts_at || s.created_at,
+        mobile: user?.mobile || '—',
+        user_name: userName,
+        company_name: company?.name || '—',
+        order_number: order?.order_number || null,
+        amount: order?.amount || tx?.amount || 0,
+      };
+    });
+
+  return res.json({
+    data: subs,
+    subscriptions: subs,
+    total: subs.length,
+  });
+});
+
+// Alias for direct path without admin prefix
+router.get('/subscriptions', authMiddleware, (req: Request, res: Response) => {
+  const user = (req as any).user as User;
+  if (user.role === 'admin') {
+    const subs = [...db.subscriptions]
+      .sort((a, b) => b.id - a.id)
+      .map(s => {
+        const u = db.getUserById(s.user_id);
+        const company = u ? db.getCompanyByUserId(u.id) : null;
+        const moduleIds = Array.isArray(s.module_ids) ? s.module_ids : [];
+        const userName = [u?.first_name, u?.last_name].filter(Boolean).join(' ') || u?.mobile || '—';
+        return {
+          id: s.id,
+          user_id: s.user_id,
+          title: s.title || 'اشتراک کارویتا',
+          package_name: s.package_name || s.title || 'اشتراک کارویتا',
+          source: s.source || 'purchase',
+          status: s.status || 'active',
+          billing_period: s.billing_period || 'monthly',
+          user_count: Number(s.user_count) || 1,
+          module_ids: moduleIds,
+          module_count: moduleIds.length,
+          expires_at: s.expires_at,
+          created_at: s.created_at,
+          mobile: u?.mobile || '—',
+          user_name: userName,
+          company_name: company?.name || '—',
+        };
+      });
+    return res.json({ data: subs, subscriptions: subs });
+  }
+
+  const userSubs = db.subscriptions.filter(s => s.user_id === user.id);
+  return res.json({ data: userSubs, subscriptions: userSubs });
+});
+
+// 10. Admin: Update Subscription Status
+router.put('/admin/subscriptions', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const id = Number(req.body.id);
+  const status = ['active', 'expired', 'cancelled'].includes(req.body.status) ? req.body.status : 'cancelled';
+
+  const sub = db.subscriptions.find(s => s.id === id);
+  if (!sub) {
+    return res.status(404).json({ message: 'اشتراک یافت نشد.' });
+  }
+
+  const oldStatus = sub.status;
+  sub.status = status;
+  db.save();
+
+  logSubscriptionChange(req, {
+    subscriptionId: id,
+    userId: sub.user_id,
+    oldStatus,
+    newStatus: status,
+    actionDescription: `تغییر وضعیت اشتراک #${id} از «${oldStatus}» به «${status}» توسط مدیر`,
+  });
+
+  return res.json({
+    message: 'وضعیت اشتراک با موفقیت بروزرسانی شد.',
+    data: sub,
+  });
+});
+
+router.put('/admin/subscriptions/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const id = Number(req.params.id) || Number(req.body.id);
+  const status = ['active', 'expired', 'cancelled'].includes(req.body.status) ? req.body.status : 'cancelled';
+
+  const sub = db.subscriptions.find(s => s.id === id);
+  if (!sub) {
+    return res.status(404).json({ message: 'اشتراک یافت نشد.' });
+  }
+
+  const oldStatus = sub.status;
+  sub.status = status;
+  db.save();
+
+  logSubscriptionChange(req, {
+    subscriptionId: id,
+    userId: sub.user_id,
+    oldStatus,
+    newStatus: status,
+    actionDescription: `تغییر وضعیت اشتراک #${id} از «${oldStatus}» به «${status}» توسط مدیر`,
+  });
+
+  return res.json({
+    message: 'وضعیت اشتراک با موفقیت بروزرسانی شد.',
+    data: sub,
+  });
+});
+
 // -------------------------------------------------------------
 // Unified Audit Logging Endpoints
 // -------------------------------------------------------------
@@ -2720,7 +3010,7 @@ router.post('/tickets', authMiddleware, ticketSubmissionLimiter, (req: Request, 
     }
   }
 
-  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const ip = req.ip || req.socket.remoteAddress || 'localhost';
   const ticket = db.createTicket({
     user_id: user.id,
     department_id: Number(department_id),
@@ -2854,7 +3144,7 @@ router.post('/tickets/:id/messages', authMiddleware, ticketMessageLimiter, (req:
     ? ([user.first_name, user.last_name].filter(Boolean).join(' ') || 'پشتیبان سیستم') + ' (پشتیبانی)'
     : ([user.first_name, user.last_name].filter(Boolean).join(' ') || user.mobile || 'کاربر');
 
-  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const ip = req.ip || req.socket.remoteAddress || 'localhost';
 
   try {
     const newMessage = db.addTicketMessage({
@@ -3131,7 +3421,7 @@ router.post('/push/subscribe', (req: Request, res: Response) => {
 
   const optionalUser = getOptionalUser(req);
   const userAgent = req.headers['user-agent'] || 'Unknown Browser';
-  const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+  const ip = req.ip || req.socket.remoteAddress || 'localhost';
 
   const registered = db.addOrUpdatePushSubscription({
     user_id: optionalUser ? optionalUser.id : null,

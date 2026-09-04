@@ -119,12 +119,12 @@
   
   location /api/auth/ {
       limit_req zone=auth_limit burst=3 nodelay;
-      proxy_pass http://127.0.0.1:3000;
+      proxy_pass http://localhost:3000;
   }
   
   location /api/ {
       limit_req zone=api_limit burst=20 nodelay;
-      proxy_pass http://127.0.0.1:3000;
+      proxy_pass http://localhost:3000;
   }
   ```
 

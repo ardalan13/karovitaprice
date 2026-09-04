@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. Forward all /api requests directly to api/index.php
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+    RewriteRule ^api$ api/index.php [QSA,L]
+
+    # 2. Existing files and directories serve directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 3. SPA Fallback to index.html for client-side routing
+    RewriteRule ^ index.html [L]
+</IfModule>
+
+# Security & UTF-8
+AddDefaultCharset UTF-8
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>

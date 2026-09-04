@@ -66,9 +66,9 @@ class LocalErrorLogger {
       });
 
       this.isInitialized = true;
-      console.log(`[Local Error Logger] Initialized successfully. Loaded ${this.logs.length} logs from data/error_logs.json`);
+      console.log(`[Diagnostics Service] Initialized successfully. Processed ${this.logs.length} records.`);
     } catch (err) {
-      console.error('[Local Error Logger] Initialization error:', err);
+      console.error('[Diagnostics Service] Initialization issue:', err);
     }
   }
 
@@ -142,7 +142,7 @@ class LocalErrorLogger {
       user_id: user?.id ?? null,
       user_mobile: user?.mobile ?? null,
       user_role: user?.role ?? null,
-      ip_address: req ? getClientIp(req) : '127.0.0.1',
+      ip_address: req ? getClientIp(req) : 'localhost',
       user_agent: req ? getUserAgent(req) : 'Server-Internal',
       context: this.sanitizeContext(context),
       resolved: false,
@@ -191,7 +191,7 @@ class LocalErrorLogger {
       user_id: user?.id ?? null,
       user_mobile: user?.mobile ?? null,
       user_role: user?.role ?? null,
-      ip_address: req ? getClientIp(req) : '127.0.0.1',
+      ip_address: req ? getClientIp(req) : 'localhost',
       user_agent: req ? getUserAgent(req) : 'Browser Client',
       context: this.sanitizeContext(payload.context),
       resolved: false,

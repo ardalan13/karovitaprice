@@ -12,7 +12,7 @@ export function getClientIp(req: Request): string {
   if (Array.isArray(forwarded) && forwarded.length > 0) {
     return forwarded[0].trim();
   }
-  return req.ip || req.socket.remoteAddress || '127.0.0.1';
+  return req.ip || req.socket.remoteAddress || 'localhost';
 }
 
 /**
@@ -52,7 +52,7 @@ export function logAudit(options: LogAuditOptions): AuditLog {
   const userMobile = options.userMobile !== undefined ? options.userMobile : (user?.mobile ?? null);
   const userRole = options.userRole || (user?.role === 'admin' ? 'admin' : user ? 'user' : 'system');
 
-  const ipAddress = options.ipAddress || (req ? getClientIp(req) : '127.0.0.1');
+  const ipAddress = options.ipAddress || (req ? getClientIp(req) : 'localhost');
   const userAgent = options.userAgent || (req ? getUserAgent(req) : 'Karovita-Audit/1.0');
 
   const auditEntry = db.addAuditLog({

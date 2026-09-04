@@ -153,7 +153,7 @@ class PerformanceLogger {
       memory: payload.memory,
       user_id: user?.id ?? null,
       user_mobile: user?.mobile ?? null,
-      ip_address: req ? getClientIp(req) : '127.0.0.1',
+      ip_address: req ? getClientIp(req) : 'localhost',
       user_agent: req ? getUserAgent(req) : 'Browser Client',
     };
 

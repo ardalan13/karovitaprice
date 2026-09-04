@@ -3726,6 +3726,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .erp-modal-box {
@@ -3740,6 +3741,17 @@ button:disabled {
   overflow: hidden;
   direction: rtl;
   animation: scaleUp 0.25s ease;
+  margin: auto;
+}
+
+.erp-modal-box form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  height: 100%;
 }
 
 .erp-modal-box.large {
@@ -3753,6 +3765,7 @@ button:disabled {
   padding: 18px 24px;
   border-bottom: 1px solid #e2e8f0;
   background: #f8fafc;
+  flex-shrink: 0;
 }
 
 .erp-modal-head .head-title {
@@ -3789,9 +3802,27 @@ button:disabled {
 .erp-modal-body {
   padding: 24px;
   overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(90vh - 140px);
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.erp-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.erp-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.erp-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.erp-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .form-row-2 {
@@ -3934,6 +3965,7 @@ button:disabled {
   padding: 16px 24px;
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
+  flex-shrink: 0;
 }
 
 .btn-cancel {
@@ -4422,10 +4454,130 @@ body {
   color: var(--text-body);
 }
 
-input, select, textarea {
-  background: var(--bg-input);
-  border-color: var(--line);
-  color: var(--text-main);
+/* ========================================================= */
+/* UNIFIED GLOBAL INPUT & FORM CONTROL DESIGN SYSTEM          */
+/* ========================================================= */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]),
+select,
+textarea,
+.form-input,
+.form-control,
+.erp-input,
+.custom-input,
+.admin-input {
+  width: 100%;
+  height: 46px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-main, #0f172a);
+  background-color: var(--bg-input, #ffffff);
+  background-clip: padding-box;
+  border: 1.5px solid var(--border-color, #dce2ea);
+  border-radius: 10px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+textarea,
+textarea.form-input,
+textarea.form-control {
+  min-height: 96px;
+  height: auto;
+  padding: 12px 14px;
+  resize: vertical;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):hover:not(:disabled):not(:focus),
+select:hover:not(:disabled):not(:focus),
+textarea:hover:not(:disabled):not(:focus),
+.form-input:hover:not(:disabled):not(:focus),
+.form-control:hover:not(:disabled):not(:focus) {
+  border-color: #94a3b8;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):focus,
+select:focus,
+textarea:focus,
+.form-input:focus,
+.form-control:focus,
+.erp-input:focus,
+.custom-input:focus,
+.admin-input:focus {
+  border-color: var(--blue-600, #0870d1) !important;
+  box-shadow: 0 0 0 3.5px rgba(8, 112, 209, 0.15) !important;
+  outline: none !important;
+  background-color: var(--bg-input, #ffffff);
+}
+
+input::placeholder,
+textarea::placeholder,
+.form-input::placeholder,
+.form-control::placeholder {
+  color: #94a3b8;
+  font-size: 13.5px;
+  font-weight: 400;
+  opacity: 1;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled,
+.form-input:disabled,
+.form-control:disabled {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  opacity: 0.75;
+  box-shadow: none !important;
+}
+
+select {
+  cursor: pointer;
+  padding-left: 32px;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: left 0.65rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em 1.25em;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+[dir="ltr"] select {
+  padding-right: 32px;
+  padding-left: 14px;
+  background-position: right 0.65rem center;
+}
+
+/* Dark mode overrides for inputs */
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]),
+[data-theme="dark"] select,
+[data-theme="dark"] textarea,
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-control {
+  background-color: var(--bg-surface, #1e293b);
+  border-color: var(--border-color, #334155);
+  color: var(--text-main, #f8fafc);
+}
+
+[data-theme="dark"] input:disabled,
+[data-theme="dark"] select:disabled,
+[data-theme="dark"] textarea:disabled {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+  color: #64748b !important;
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #64748b;
 }
 
 /* Dark mode specific fine-tunings */

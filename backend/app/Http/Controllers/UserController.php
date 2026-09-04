@@ -102,4 +102,79 @@ class UserController extends Controller {
         $subs = Subscription::where('user_id', $user->id)->orderBy('id', 'desc')->get();
         return response()->json(['data' => $subs]);
     }
+
+    public function getDashboard(Request $request) {
+        $user = $request->user();
+        $company = Company::where('user_id', $user->id)->first();
+
+        // Split name into first and last name for greetings in UI
+        $nameParts = explode(' ', trim($user->name ?? ''), 2);
+        $firstName = $nameParts[0] ?? '';
+        $lastName = $nameParts[1] ?? '';
+
+        $userPayload = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'first_name' => $firstName ?: $user->name,
+            'last_name' => $lastName,
+            'mobile' => $user->mobile,
+            'role' => $user->role,
+            'email' => $user->email,
+            'avatar' => $user->avatar,
+            'company_name' => $company?->name,
+        ];
+
+        $subs = Subscription::where('user_id', $user->id)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $userSubs = $subs->map(function ($s) use ($user, $company) {
+            $isSubActive = ($s->status === 'active' && $s->expires_at && $s->expires_at > Carbon::now());
+            $safeCompanySlug = $company?->name ? preg_replace('/[^a-z0-9]/i', '', strtolower($company->name)) : 'workspace';
+
+            return [
+                'id' => $s->id,
+                'user_id' => $s->user_id,
+                'title' => $s->title,
+                'package_name' => $s->title ?: 'اشتراک سازمانی کارویتا',
+                'status' => $s->status,
+                'is_active' => $isSubActive,
+                'source' => $s->source,
+                'module_ids' => $s->module_ids ?? [],
+                'module_names' => $s->module_ids ? array_values($s->module_ids) : [],
+                'user_count' => $s->user_count ?? 5,
+                'billing_period' => $s->billing_period ?? 'monthly',
+                'created_at' => $s->created_at?->toISOString(),
+                'expires_at' => $s->expires_at?->toISOString(),
+                'order_number' => $s->source === 'trial' ? "TRIAL-KARVITA-{$s->id}" : "ORD-{$s->id}",
+                'order_amount' => 0,
+                'server_instance' => [
+                    'subdomain' => "{$safeCompanySlug}-{$user->id}.karvita.ir",
+                    'portal_url' => "/workspace/{$s->id}",
+                    'status' => $isSubActive ? 'online' : 'paused',
+                    'ssl' => true,
+                    'database' => 'PostgreSQL 16 Enterprise (اختصاصی)',
+                    'backup_status' => 'روزانه خودکار (ساعت ۰۲:۰۰ بامداد)',
+                    'datacenter' => 'دیتاسنتر ابری تهران - برج میلاد',
+                    'dedicated_ip' => '185.143.232.' . (($user->id % 200) + 10),
+                ],
+            ];
+        });
+
+        $transactions = \App\Models\Transaction::where('user_id', $user->id)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $unreadTickets = \App\Models\Ticket::where('user_id', $user->id)
+            ->whereIn('status', ['answered', 'open'])
+            ->count();
+
+        return response()->json([
+            'user' => $userPayload,
+            'company' => $company,
+            'subscriptions' => $userSubs,
+            'transactions' => $transactions,
+            'unread_tickets_count' => $unreadTickets,
+        ]);
+    }
 }

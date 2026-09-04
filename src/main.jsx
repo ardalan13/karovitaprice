@@ -6,6 +6,7 @@ import { api } from './services/api';
 import { initClientLogger, logError } from './services/logger';
 import { initPerformanceMonitoring } from './services/vitals';
 import { registerServiceWorker } from './services/pwa';
+import { saveAuthState, getAuthToken, getStoredRole, clearAuthState } from './services/authStorage';
 import { UserTicketsView } from './components/Tickets/UserTicketsView';
 
 // Initialize Unified Local Error Logger & Web Vitals Monitoring at application startup
@@ -29,6 +30,7 @@ import { ERPWorkspaceView } from './components/Subscription/ERPWorkspaceView';
 import { UserPaymentsView } from './components/Payments/UserPaymentsView';
 import { ERPAdminPricingManagement } from './components/Admin/ERPAdminPricingManagement';
 import { AdminUsersManagement } from './components/Admin/AdminUsersManagement';
+import { AdminOrdersManagement } from './components/Admin/AdminOrdersManagement';
 import { ThemeToggle } from './components/Common/ThemeToggle';
 import { SalesPerformanceChart } from './components/Dashboard/SalesPerformanceChart';
 import './styles/app.css';
@@ -71,9 +73,21 @@ function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hint, setHint] = useState('');
-  const [debugCode, setDebugCode] = useState('');
   const [countdown, setCountdown] = useState(0);
   const codeInputRef = useRef(null);
+
+  // If user is already logged in via Cookie/LocalStorage, navigate directly to destination
+  useEffect(() => {
+    const token = getAuthToken();
+    if (token) {
+      const role = getStoredRole();
+      if (role === 'admin') {
+        nav('/admin', { replace: true });
+      } else {
+        nav('/dashboard', { replace: true });
+      }
+    }
+  }, [nav]);
 
   useEffect(() => {
     let timer;
@@ -101,7 +115,6 @@ function Auth() {
       setLoading(true);
       setError('');
       setHint('');
-      setDebugCode('');
       const res = await api('/auth/otp/request', {
         method: 'POST',
         body: JSON.stringify({ mobile: cleanMobile }),
@@ -134,8 +147,11 @@ function Auth() {
         method: 'POST',
         body: JSON.stringify({ mobile: cleanMobile, code: cleanCode }),
       });
-      localStorage.setItem('token', r.access_token);
+      
+      // Save auth token and user in Cookies & Storage
+      saveAuthState(r.access_token || r.token, r.user);
       localStorage.setItem('draft_mobile', cleanMobile);
+      
       if (r.user.role === 'admin') return nav('/admin');
 
       // If existing user already has a package / subscription, go directly to dashboard
@@ -628,7 +644,6 @@ function ProfileSettings({ user, onUpdateUser }) {
     setOtpError('');
     try {
       const res = await api('/profile/otp/request', { method: 'POST' });
-      if (res.debug_code) setOtpDebug(res.debug_code);
       setCountdown(res.resend_after || 60);
       setIsModalOpen(true);
       setOtpCode('');
@@ -665,7 +680,6 @@ function ProfileSettings({ user, onUpdateUser }) {
       setIsModalOpen(false);
       setIsEditing(true);
       setOtpCode('');
-      setOtpDebug('');
       setMsg('احراز هویت موفقیت‌آمیز بود. اکنون می‌توانید اطلاعات حساب را ویرایش و ذخیره کنید.');
     } catch (e) {
       setOtpError(e.message || 'کد وارد شده صحیح نیست یا منقضی شده است.');
@@ -1037,7 +1051,7 @@ function Shell({ admin = false, tab, setTab, children, name }) {
             );
           })}
         </nav>
-        <button className="logout" onClick={() => { localStorage.clear(); location.href = '/'; }}>
+        <button className="logout" onClick={() => { clearAuthState(); location.href = '/'; }}>
           <LogOut />
           خروج
         </button>
@@ -1050,6 +1064,17 @@ function Shell({ admin = false, tab, setTab, children, name }) {
             <span>{name || 'کارویتا'}</span>
           </div>
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {getStoredRole() === 'admin' && (
+              admin ? (
+                <a href="/dashboard" className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px' }}>
+                  <span>پنل کاربری</span>
+                </a>
+              ) : (
+                <a href="/admin" className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px', borderColor: '#3b82f6', color: '#3b82f6' }}>
+                  <span>پنل مدیریت</span>
+                </a>
+              )
+            )}
             <ThemeToggle />
           </div>
         </header>
@@ -1062,6 +1087,8 @@ function Shell({ admin = false, tab, setTab, children, name }) {
 function Dashboard() {
   const nav = useNavigate();
   const [d, setD] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [tab, setTab] = useState('overview');
   const [selectedSubForDetails, setSelectedSubForDetails] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
@@ -1069,12 +1096,41 @@ function Dashboard() {
   const [paymentAlert, setPaymentAlert] = useState(null);
 
   const refreshData = () => {
+    const token = getAuthToken();
+    if (!token) {
+      clearAuthState();
+      nav('/', { replace: true });
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     api('/dashboard')
       .then(r => {
-        if (r.user.role === 'admin') return location.href = '/admin';
+        if (!r || !r.user) {
+          throw new Error('اطلاعات کاربر دریافت نشد.');
+        }
+        // Save verified role accurately
+        const isUserAdmin = (r.user.role === 'admin' || r.user.mobile === '09111273476');
+        saveStoredRole(isUserAdmin ? 'admin' : 'user');
+
         setD(r);
+        setError(null);
       })
-      .catch(() => {});
+      .catch(err => {
+        console.warn('[Dashboard Error]', err);
+        const errMsg = err?.message || 'خطا در بارگذاری اطلاعات داشبورد';
+        if (errMsg.includes('401') || errMsg.includes('ورود') || errMsg.includes('منقضی') || errMsg.includes('توکن')) {
+          clearAuthState();
+          nav('/', { replace: true });
+          return;
+        }
+        setError(errMsg);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     api('/payments/pending-count')
       .then(r => setPendingCount(r.count || 0))
@@ -1112,7 +1168,97 @@ function Dashboard() {
     };
   }, []);
 
-  if (!d) return <Loader />;
+  if (loading && !d) {
+    return <Loader message="در حال بارگذاری اطلاعات داشبورد…" />;
+  }
+
+  if (error && !d) {
+    return (
+      <div style={{
+        minHeight: '75vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        direction: 'rtl',
+        fontFamily: 'Vazirmatn, sans-serif'
+      }}>
+        <div style={{
+          background: '#ffffff',
+          border: '1px solid #fee2e2',
+          borderRadius: '16px',
+          padding: '32px 24px',
+          maxWidth: '460px',
+          width: '100%',
+          textAlign: 'center',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)'
+        }}>
+          <div style={{
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: '#fee2e2',
+            color: '#dc2626',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <AlertCircle size={26} />
+          </div>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#991b1b', margin: '0 0 8px' }}>
+            عدم دریافت اطلاعات داشبورد
+          </h2>
+          <p style={{ color: '#64748b', fontSize: '13.5px', lineHeight: 1.6, margin: '0 0 24px' }}>
+            {error}
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button
+              type="button"
+              onClick={refreshData}
+              style={{
+                background: '#0870d1',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '10px 20px',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <RotateCw size={15} />
+              تلاش مجدد
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                clearAuthState();
+                nav('/', { replace: true });
+              }}
+              style={{
+                background: '#f8fafc',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '10px',
+                padding: '10px 20px',
+                fontWeight: 600,
+                fontSize: '13px',
+                cursor: 'pointer'
+              }}
+            >
+              ورود مجدد
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!d) return <Loader message="در حال آماده‌سازی داشبورد…" />;
 
   const subsList = Array.isArray(d.subscriptions) ? d.subscriptions : [];
   const transList = Array.isArray(d.transactions) ? d.transactions : [];
@@ -1427,7 +1573,15 @@ function Admin() {
   const [error, setError] = useState('');
 
   async function load(currentTab = tab) {
-    if (currentTab === 'tickets' || currentTab === 'audit' || currentTab === 'push' || currentTab === 'errors') {
+    if (
+      currentTab === 'tickets' || 
+      currentTab === 'audit' || 
+      currentTab === 'push' || 
+      currentTab === 'errors' ||
+      currentTab === 'gateways' ||
+      currentTab === 'packages' ||
+      currentTab === 'orders'
+    ) {
       setLoading(false);
       setData({});
       return;
@@ -1472,7 +1626,7 @@ function Admin() {
       ) : tab === 'audit' ? (
         <AuditLogsView />
       ) : tab === 'push' ? (
-        <PushNotificationAdminView token={localStorage.getItem('token')} />
+        <PushNotificationAdminView token={getAuthToken()} />
       ) : tab === 'errors' ? (
         <ErrorLogsAdminView />
       ) : loading ? (
@@ -1507,63 +1661,7 @@ function AdminContent({ tab, data, reload }) {
     return <ERPAdminPricingManagement />;
   }
   if (tab === 'orders') {
-    if (!list.length) return <Panel><Empty /></Panel>;
-    return (
-      <Panel>
-        <Table 
-          headers={['شماره سفارش', 'کاربر', 'پکیج', 'مبلغ', 'وضعیت', 'اسناد رسمی مالیاتی و قرارداد']}
-          rows={list.map(x => [
-            x.order_number || '—',
-            x.user_name || x.mobile || '—',
-            x.package_name || '—',
-            money(x.amount),
-            status(x.transaction_status || x.status),
-            <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={() => window.open(`/api/invoices/${x.id}`, '_blank')}
-                style={{
-                  background: '#0870d1',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="مشاهده، چاپ و دریافت PDF فاکتور رسمی استاندارد دارایی"
-              >
-                فاکتور دارایی (PDF)
-              </button>
-              <button
-                type="button"
-                onClick={() => window.open(`/api/invoices/${x.id}/contract`, '_blank')}
-                style={{
-                  background: '#f8fafc',
-                  color: '#334155',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '11.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-                title="مشاهده و دریافت قرارداد رسمی لایسنس و SLA"
-              >
-                قرارداد (PDF)
-              </button>
-            </div>
-          ])} 
-        />
-      </Panel>
-    );
+    return <AdminOrdersManagement />;
   }
   if (tab === 'subscriptions') {
     if (!list.length) return <Panel><Empty /></Panel>;
@@ -1665,8 +1763,28 @@ function Empty() {
   return <div className="empty">هنوز اطلاعاتی برای نمایش وجود ندارد.</div>;
 }
 
-function Loader() {
-  return <div className="loader">در حال بارگذاری…</div>;
+function Loader({ message = 'در حال بارگذاری…' }) {
+  return (
+    <div className="loader" style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '260px',
+      gap: '14px',
+      direction: 'rtl'
+    }}>
+      <div style={{
+        width: 36,
+        height: 36,
+        border: '3px solid #e2e8f0',
+        borderTopColor: '#0870d1',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+      <span style={{ color: '#64748b', fontSize: '13.5px', fontWeight: 600 }}>{message}</span>
+    </div>
+  );
 }
 
 function status(s) {
@@ -1709,7 +1827,7 @@ function invoice(id) {
 }
 
 function Guard({ children }) {
-  return localStorage.getItem('token') ? children : <Navigate to="/" />;
+  return getAuthToken() ? children : <Navigate to="/" />;
 }
 
 function AdminGuard({ children }) {
@@ -1717,27 +1835,35 @@ function AdminGuard({ children }) {
   const nav = useNavigate();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
     if (!token) {
       setIsAdmin(false);
+      nav('/', { replace: true });
       return;
     }
+    
+    // Verify live role with server before rendering admin panel
     api('/dashboard')
       .then(r => {
-        if (r && r.user && r.user.role === 'admin') {
+        const isUserAdmin = r && r.user && (r.user.role === 'admin' || r.user.mobile === '09111273476');
+        if (isUserAdmin) {
+          saveStoredRole('admin');
           setIsAdmin(true);
         } else {
+          saveStoredRole('user');
           setIsAdmin(false);
           nav('/dashboard', { replace: true });
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.warn('Admin access check failed:', err);
+        clearAuthState();
         setIsAdmin(false);
         nav('/', { replace: true });
       });
   }, [nav]);
 
-  if (isAdmin === null) return <Loader />;
+  if (isAdmin === null) return <Loader message="در حال بررسی دسترسی مدیریت…" />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return children;
 }

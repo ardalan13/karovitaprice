@@ -42,7 +42,7 @@ class DatabaseBackupCommand extends Command {
 
         $driver = $dbConfig['driver'] ?? 'mysql';
         $database = $dbConfig['database'] ?? env('DB_DATABASE', 'karovita_db');
-        $host = $dbConfig['host'] ?? env('DB_HOST', '127.0.0.1');
+        $host = $dbConfig['host'] ?? env('DB_HOST', 'localhost');
         $port = $dbConfig['port'] ?? env('DB_PORT', '3306');
         $username = $dbConfig['username'] ?? env('DB_USERNAME', 'root');
         $password = $dbConfig['password'] ?? env('DB_PASSWORD', '');

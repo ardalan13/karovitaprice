@@ -35,6 +35,18 @@ class TicketController extends Controller {
         return response()->json(['data' => $tickets]);
     }
 
+    public function getBadge(Request $request) {
+        $user = $request->user();
+        if ($user->role === 'admin') {
+            $count = Ticket::whereIn('status', ['pending', 'open'])->count();
+        } else {
+            $count = Ticket::where('user_id', $user->id)
+                ->whereIn('status', ['answered', 'open'])
+                ->count();
+        }
+        return response()->json(['count' => $count]);
+    }
+
     public function store(StoreTicketRequest $request) {
         $user = $request->user();
         $validated = $request->validated();

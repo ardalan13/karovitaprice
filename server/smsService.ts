@@ -50,7 +50,7 @@ export function getSmsConfig() {
         required_params: ['CODE'],
       },
       invoice_issued: {
-        id: Number(process.env.SMS_IR_TEMPLATE_INVOICE) || 418156,
+        id: Number(process.env.SMS_IR_TEMPLATE_INVOICE) || 418155,
         enabled: true,
         title: 'صدور پیش‌فاکتور جدید و سفارش خرید',
         description: 'اطلاع‌رسانی صدور پیش‌فاکتور جدید و لینک تسویه حساب به کاربر',
@@ -82,7 +82,7 @@ export function getSmsConfig() {
         required_params: ['CUSTOMER', 'TICKET', 'SUBJECT'],
       },
       payment_success: {
-        id: Number(process.env.SMS_IR_TEMPLATE_PAYMENT) || 418160,
+        id: Number(process.env.SMS_IR_TEMPLATE_PAYMENT) || 418155,
         enabled: true,
         title: 'تسویه موفق فاکتور و تایید تراکنش شاپرک',
         description: 'ارسال شناسه پیگیری بانکی شاپرک و تایید فعال‌سازی سرویس پس از پرداخت آنلاین',

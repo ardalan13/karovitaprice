@@ -161,7 +161,7 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -174,7 +174,7 @@ server {
 
     # عدم کش شدن فایل سرویس ورکر PWA
     location = /sw.js {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://localhost:3000;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
         add_header Service-Worker-Allowed "/";
     }

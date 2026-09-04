@@ -1185,17 +1185,39 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
                                   <strong style={{ fontSize: '14px', color: '#0f172a', fontFamily: 'monospace', direction: 'ltr' }}>
                                     {order.order_number || `ORD-${order.id}`}
                                   </strong>
-                                  <span style={{
-                                    background: isPaid ? '#ecfdf5' : '#fff7ed',
-                                    color: isPaid ? '#059669' : '#c2410c',
-                                    border: `1px solid ${isPaid ? '#a7f3d0' : '#fed7aa'}`,
-                                    padding: '2px 8px',
-                                    borderRadius: '5px',
-                                    fontSize: '11px',
-                                    fontWeight: 700
-                                  }}>
-                                    {isPaid ? 'پرداخت موفق' : order.status}
-                                  </span>
+                                  <select
+                                    value={order.status === 'completed' || order.status === 'paid' ? 'paid' : order.status}
+                                    onChange={async (e) => {
+                                      const targetStatus = e.target.value;
+                                      const ref = targetStatus === 'paid' ? `MAN-${Date.now().toString().slice(-8)}` : null;
+                                      try {
+                                        await api(`/admin/orders/${order.id}`, {
+                                          method: 'PUT',
+                                          body: JSON.stringify({ status: targetStatus, reference_id: ref })
+                                        });
+                                        fetchUserDetails();
+                                      } catch (err) {
+                                        alert(err.message || 'خطا در تغییر وضعیت سفارش');
+                                      }
+                                    }}
+                                    style={{
+                                      background: isPaid ? '#ecfdf5' : '#fff7ed',
+                                      color: isPaid ? '#059669' : '#c2410c',
+                                      border: `1.5px solid ${isPaid ? '#a7f3d0' : '#fed7aa'}`,
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '11.5px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                    title="تغییر وضعیت پرداخت فاکتور"
+                                  >
+                                    <option value="paid">پرداخت شده و فعال</option>
+                                    <option value="pending">در انتظار پرداخت</option>
+                                    <option value="cancelled">لغو شده</option>
+                                    <option value="failed">ناموفق</option>
+                                    <option value="refunded">مسترد شده</option>
+                                  </select>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', fontSize: '12px', color: '#64748b' }}>
                                   <span>سرویس: <strong>{order.package_name}</strong></span>

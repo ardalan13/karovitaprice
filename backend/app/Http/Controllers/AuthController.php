@@ -29,30 +29,12 @@ class AuthController extends Controller {
             'expires_at' => Carbon::now()->addMinutes(2),
         ]);
 
-        // Send via SMS.ir API if configured
-        $apiKey = env('SMS_IR_API_KEY');
-        $templateId = (int) env('SMS_IR_TEMPLATE_ID', 418155);
-        $paramName = env('SMS_IR_PARAM_NAME', 'CODE');
-
-        if ($apiKey && env('SMS_DRIVER') === 'sms_ir') {
-            try {
-                Http::withHeaders([
-                    'x-api-key' => $apiKey,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                ])->post('https://api.sms.ir/v1/send/verify', [
-                    'mobile' => $mobile,
-                    'templateId' => $templateId,
-                    'parameters' => [
-                        [
-                            'name' => $paramName,
-                            'value' => $code,
-                        ]
-                    ]
-                ]);
-            } catch (\Exception $e) {
-                // Log and continue gracefully
-            }
+        // Send via SMS.ir API
+        try {
+            $smsService = new \App\Services\SmsService();
+            $smsService->sendOtp($mobile, $code);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("[SMS Dispatch Warning] " . $e->getMessage());
         }
 
         return response()->json([

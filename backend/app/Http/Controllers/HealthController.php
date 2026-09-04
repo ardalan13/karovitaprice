@@ -52,9 +52,12 @@ class HealthController extends Controller {
             'timestamp' => Carbon::now('Asia/Tehran')->toIso8601String(),
             'timestamp_utc' => Carbon::now('UTC')->toIso8601String(),
             'response_time_ms' => $totalDurationMs,
+            'database' => $databaseCheck,
+            'sms_driver' => $smsCheck,
             'services' => [
                 'database' => $databaseCheck,
                 'sms_provider' => $smsCheck,
+                'sms_driver' => $smsCheck,
                 'cache' => $cacheCheck,
             ],
             'system' => $systemMetrics,

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getAuthToken, getStoredRole } from '../../services/authStorage';
+import { api } from '../../services/api';
 import {
   ShieldCheck,
   Headphones,
@@ -24,10 +26,66 @@ import {
 
 export function Welcome() {
   const nav = useNavigate();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      setCheckingAuth(false);
+      return;
+    }
+
+    // Check existing valid session and route automatically
+    api('/dashboard')
+      .then(res => {
+        if (res?.user?.role === 'admin') {
+          nav('/admin', { replace: true });
+        } else {
+          nav('/dashboard', { replace: true });
+        }
+      })
+      .catch(() => {
+        setCheckingAuth(false);
+      });
+  }, [nav]);
 
   function go(intent) {
+    const token = getAuthToken();
+    if (token) {
+      const role = getStoredRole();
+      if (role === 'admin') {
+        return nav('/admin');
+      }
+      return nav('/dashboard');
+    }
     localStorage.setItem('intent', intent);
     nav('/auth');
+  }
+
+  if (checkingAuth && getAuthToken()) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#f8fafc',
+        fontFamily: 'Vazirmatn, sans-serif',
+        direction: 'rtl'
+      }}>
+        <div style={{
+          width: 48,
+          height: 48,
+          border: '4px solid #e2e8f0',
+          borderTopColor: '#0870d1',
+          borderRadius: '50%',
+          animation: 'spin 0.8s linear infinite',
+          marginBottom: 16
+        }} />
+        <span style={{ color: '#64748b', fontSize: 14 }}>در حال احراز هویت و ورود به پنل کارویتا...</span>
+      </div>
+    );
   }
 
   return (

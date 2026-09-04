@@ -10,11 +10,17 @@ class User extends Model {
 
     protected $fillable = [
         'name',
+        'first_name',
+        'last_name',
         'mobile',
         'role',
         'status',
+        'job_title',
         'avatar',
         'email',
+        'onboarding_step',
+        'onboarding_completed_at',
+        'last_login_at',
     ];
 
     public function company() {

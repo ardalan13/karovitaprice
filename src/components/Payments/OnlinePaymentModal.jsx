@@ -30,10 +30,14 @@ export function OnlinePaymentModal({ order, onClose, onSuccess }) {
       });
 
       if (res && res.data) {
+        if (res.data.is_redirect && res.data.payment_url && !res.data.payment_url.includes('callback')) {
+          window.location.href = res.data.payment_url;
+          return;
+        }
         setPaymentSuccessData(res.data);
         if (onSuccess) onSuccess(res.data);
-        window.dispatchEvent(new CustomEvent('payment-completed'));
-        window.dispatchEvent(new CustomEvent('order-updated'));
+        window.dispatchEvent(new CustomEvent('payment-completed', { detail: res.data }));
+        window.dispatchEvent(new CustomEvent('order-updated', { detail: res.data }));
       } else {
         throw new Error(res.message || 'خطا در انجام پرداخت');
       }

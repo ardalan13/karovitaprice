@@ -90,9 +90,12 @@ export async function getHealthStatus(req: Request, res: Response) {
     environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
     response_time_ms: totalDuration,
+    database: dbStatus,
+    sms_driver: smsStatus,
     services: {
       database: dbStatus,
       sms_provider: smsStatus,
+      sms_driver: smsStatus,
       cache: cacheStatus,
     },
     system: {

@@ -52,6 +52,14 @@ class OrderController extends Controller {
         return response()->json(['data' => $order]);
     }
 
+    public function pendingCount(Request $request) {
+        $user = $request->user();
+        $count = Order::where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->count();
+        return response()->json(['count' => $count]);
+    }
+
     public function verifyTransaction(VerifyTransactionRequest $request) {
         $user = $request->user();
         $validated = $request->validated();

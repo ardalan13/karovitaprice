@@ -4,34 +4,13 @@ import { toPersianDigits } from './configuratorData';
 
 export function ModuleGrid({
   stepNumber = 2,
-  modules,
-  selectedModuleIds,
+  modules = [],
+  selectedModuleIds = [],
   defaultModuleIds = [],
   lockedDependenciesMap = {},
   onToggleModule,
 }) {
-  // Group modules into the exact row order matching the screenshot
-  // Row order: [Col1_item, Col2_item, Col3_item]
-  const col1Ids = ['crm', 'restaurant', 'timesheet', 'calendar', 'documents', 'tax', 'inventory', 'hr', 'payroll'];
-  const col2Ids = ['sale', 'barcode', 'helpdesk', 'appointment', 'shift', 'accounting', 'purchase', 'attendance', 'recruitment'];
-  const col3Ids = ['pos', 'project', 'knowledge', 'survey', 'sms', 'expenses', 'mrp', 'leaves', 'im_livechat'];
-
-  const moduleMap = new Map(modules.map(m => [m.id, m]));
-
-  const orderedModules = [];
-  const maxRows = Math.max(col1Ids.length, col2Ids.length, col3Ids.length);
-  for (let r = 0; r < maxRows; r++) {
-    if (col1Ids[r] && moduleMap.has(col1Ids[r])) orderedModules.push(moduleMap.get(col1Ids[r]));
-    if (col2Ids[r] && moduleMap.has(col2Ids[r])) orderedModules.push(moduleMap.get(col2Ids[r]));
-    if (col3Ids[r] && moduleMap.has(col3Ids[r])) orderedModules.push(moduleMap.get(col3Ids[r]));
-  }
-
-  // Any remaining modules not in fixed list
-  for (const m of modules) {
-    if (!orderedModules.some(om => om.id === m.id)) {
-      orderedModules.push(m);
-    }
-  }
+  const activeModulesList = Array.isArray(modules) ? modules.filter(m => m.is_active !== false) : [];
 
   return (
     <section className="erp-config-card erp-step-card" id="step-modules-grid">
@@ -44,7 +23,7 @@ export function ModuleGrid({
 
       <div className="erp-step-body">
         <div className="erp-modules-grid">
-          {orderedModules.map(mod => {
+          {activeModulesList.map(mod => {
             const isSelected = selectedModuleIds.includes(mod.id);
             const isDefaultPreset = defaultModuleIds.includes(mod.id);
             const lockedBy = lockedDependenciesMap[mod.id];
@@ -56,6 +35,8 @@ export function ModuleGrid({
               tooltipText = 'ماژول پایه و پیش‌فرض این صنعت (غیرقابل حذف)';
             } else if (isDepLocked) {
               tooltipText = `پیش‌نیاز اجباری برای: ${lockedBy.join('، ')}`;
+            } else if (mod.description) {
+              tooltipText = mod.description;
             }
 
             return (

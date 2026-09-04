@@ -107,7 +107,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
 
   useEffect(() => {
     loadData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, activeSubTab]);
 
   const showSuccess = (msg) => {
     setSuccessMsg(msg);
@@ -122,7 +122,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
     setTabForm({
       id: `tab_${Date.now()}`,
       title: '',
-      default_modules: ['crm', 'sale'],
+      default_modules: ['crm', 'sales'],
     });
     setTabModalOpen(true);
   };
@@ -581,6 +581,29 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
               <div className="module-stats-badge">
                 <span>تعداد کل ماژول‌ها: <strong>{data?.modules?.length || 0} ماژول</strong></span>
               </div>
+              <button 
+                type="button" 
+                className="btn-refresh-data" 
+                onClick={loadData} 
+                disabled={loading}
+                title="تازه‌سازی لیست ماژول‌ها"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '8px',
+                  color: '#475569',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  fontWeight: 500
+                }}
+              >
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+                <span>بروزرسانی داده‌ها</span>
+              </button>
               <button type="button" className="btn-add-module-inner" onClick={openNewModuleModal}>
                 <Plus size={15} />
                 <span>افزودن ماژول جدید</span>

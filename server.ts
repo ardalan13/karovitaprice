@@ -29,12 +29,18 @@ async function startServer() {
 
   // Health check route with full database, SMS, and cache status
   app.get('/api/health', getHealthStatus);
+  app.get('/health', getHealthStatus);
   app.get('/api/ping', (_req, res) => {
+    res.json({ status: 'ok', app: 'karovita_erp', timestamp: Date.now() });
+  });
+  app.get('/ping', (_req, res) => {
     res.json({ status: 'ok', app: 'karovita_erp', timestamp: Date.now() });
   });
 
   // API routes FIRST
   app.use('/api', apiRoutes);
+  // Direct admin API fallback for requests made without /api prefix
+  app.use('/admin', apiRoutes);
 
   // Global Error Handler for API
   app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {

@@ -9,12 +9,18 @@ return new class extends Migration {
         // 1. Users
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name')->nullable();
+            $table->string('first_name')->nullable()->default('');
+            $table->string('last_name')->nullable()->default('');
             $table->string('mobile', 15)->unique();
             $table->string('role', 20)->default('user'); // admin | user
             $table->string('status', 20)->default('active'); // active | suspended
+            $table->string('job_title')->nullable()->default('');
             $table->string('avatar')->nullable();
             $table->string('email')->nullable();
+            $table->unsignedInteger('onboarding_step')->default(1);
+            $table->timestamp('onboarding_completed_at')->nullable();
+            $table->timestamp('last_login_at')->nullable();
             $table->timestamps();
         });
 
@@ -23,8 +29,16 @@ return new class extends Migration {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('name');
+            $table->string('company_name')->nullable();
+            $table->string('subdomain', 100)->nullable();
+            $table->string('economic_code', 50)->nullable();
             $table->string('national_id', 20)->nullable();
-            $table->string('registration_number', 30)->nullable();
+            $table->string('registration_num', 50)->nullable();
+            $table->string('registration_number', 50)->nullable();
+            $table->string('postal_code', 20)->nullable();
+            $table->string('province', 100)->nullable();
+            $table->string('city', 100)->nullable();
+            $table->string('industry', 100)->nullable();
             $table->string('phone', 20)->nullable();
             $table->text('address')->nullable();
             $table->timestamps();
@@ -57,7 +71,15 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->string('order_number', 50)->unique();
             $table->bigInteger('amount')->default(0);
+            $table->bigInteger('subtotal')->default(0);
+            $table->bigInteger('final_amount')->default(0);
             $table->string('status', 20)->default('pending'); // pending | successful | failed
+            $table->boolean('is_paid')->default(false);
+            $table->string('tracking_code', 100)->nullable();
+            $table->timestamp('paid_at')->nullable();
+            $table->string('coupon_code', 50)->nullable();
+            $table->bigInteger('discount_amount')->default(0);
+            $table->text('description')->nullable();
             $table->json('module_ids')->nullable();
             $table->unsignedInteger('user_count')->default(5);
             $table->string('billing_period', 20)->default('monthly');
@@ -81,10 +103,21 @@ return new class extends Migration {
         Schema::create('subscriptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->unsignedBigInteger('order_id')->nullable();
             $table->string('title')->nullable();
-            $table->string('source', 30)->default('purchase'); // trial | purchase
-            $table->string('status', 20)->default('active'); // active | expired
+            $table->string('package_name')->nullable();
+            $table->string('plan_name')->nullable();
+            $table->string('source', 30)->default('purchase'); // trial | purchase | admin
+            $table->string('status', 20)->default('active'); // active | expired | cancelled
+            $table->string('billing_period', 50)->default('monthly');
+            $table->unsignedInteger('user_count')->default(1);
+            $table->unsignedInteger('user_limit')->default(1);
+            $table->decimal('price', 15, 2)->default(0);
+            $table->decimal('total_price', 15, 2)->default(0);
+            $table->string('order_number', 100)->nullable();
+            $table->string('server_instance')->nullable();
             $table->json('module_ids')->nullable();
+            $table->timestamp('starts_at')->nullable();
             $table->timestamp('expires_at');
             $table->timestamps();
         });
@@ -143,9 +176,39 @@ return new class extends Migration {
             $table->json('details')->nullable();
             $table->timestamps();
         });
+
+        // 11. Gateway Settings
+        Schema::create('gateway_settings', function (Blueprint $table) {
+            $table->id();
+            $table->string('zibal_merchant')->default('zibal');
+            $table->boolean('zibal_sandbox')->default(false);
+            $table->boolean('zibal_enabled')->default(true);
+            $table->string('sms_provider')->default('sms_ir');
+            $table->string('sms_api_key')->default('ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z');
+            $table->string('sms_line_number')->default('30007732');
+            $table->string('sms_template_otp')->default('418155');
+            $table->string('sms_param_name')->default('CODE');
+            $table->json('sms_templates_json')->nullable();
+            $table->boolean('sms_sandbox')->default(false);
+            $table->boolean('sms_enabled')->default(true);
+            $table->timestamps();
+        });
+
+        // 12. SMS Logs
+        Schema::create('sms_logs', function (Blueprint $table) {
+            $table->id();
+            $table->string('mobile', 20);
+            $table->text('message');
+            $table->string('template_id')->nullable();
+            $table->string('status', 50)->default('sent');
+            $table->text('response_data')->nullable();
+            $table->timestamps();
+        });
     }
 
     public function down(): void {
+        Schema::dropIfExists('sms_logs');
+        Schema::dropIfExists('gateway_settings');
         Schema::dropIfExists('audit_logs');
         Schema::dropIfExists('pricing_modules');
         Schema::dropIfExists('ticket_messages');
