@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070f1e"/>
+      <stop offset="60%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="karoGrad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <linearGradient id="arrowGrad512" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#67e8f9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad512)"/>
+  <rect x="6" y="6" width="500" height="500" rx="106" stroke="rgba(255,255,255,0.18)" stroke-width="4"/>
+
+  <!-- Karovita K-Emblem with Upward Arrow -->
+  <g transform="translate(-40, 36) scale(1.78)">
+    <!-- Arrow Stem -->
+    <path d="M140 50 L168 50 L168 180 L140 180 Z" fill="url(#karoGrad512)"/>
+    <!-- Arrow Head Triangle -->
+    <path d="M154 22 L182 52 L126 52 Z" fill="url(#arrowGrad512)"/>
+    <!-- Upper Diagonal Leg -->
+    <path d="M164 110 L220 38 L256 38 L190 120 Z" fill="url(#karoGrad512)"/>
+    <!-- Lower Diagonal Leg -->
+    <path d="M182 118 L256 200 L220 200 L158 130 Z" fill="url(#karoGrad512)"/>
+  </g>
+</svg>

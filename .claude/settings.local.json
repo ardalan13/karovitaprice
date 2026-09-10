@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(chmod +x backend/deploy.sh)",
+      "Bash(chmod +x backend/backup-database.sh)"
+    ]
+  }
+}

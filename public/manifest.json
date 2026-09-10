@@ -1,0 +1,64 @@
+{
+  "name": "کارویتا | سامانه یکپارچه مدیریت کسب‌وکار",
+  "short_name": "کارویتا",
+  "description": "سامانه یکپارچه ابری ERP کارویتا، اتوماسیون مالی، فروش، CRM، پشتیبانی تیکت و محاسبه هوشمند تعرفه‌ها",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/karovita-pwa",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0870d1",
+  "lang": "fa",
+  "dir": "rtl",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/karovita-logo.svg",
+      "sizes": "540x180",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "پنل مدیریت",
+      "short_name": "مدیریت",
+      "description": "داشبورد مدیریت و نظارت کارویتا",
+      "url": "/admin",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "محاسبه‌گر تعرفه ERP",
+      "short_name": "تعرفه‌ها",
+      "description": "کانفیگوراتور ماژول‌ها و محاسبه آنلاین هزینه",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "پشتیبانی و تیکت‌ها",
+      "short_name": "تیکت‌ها",
+      "description": "ثبت تیکت و گفت‌وگو با کارشناسان",
+      "url": "/support",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    }
+  ]
+}
