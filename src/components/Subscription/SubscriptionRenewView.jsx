@@ -23,7 +23,10 @@ import {
   Check,
   Lock,
   ShoppingCart,
-  X
+  Zap,
+  X,
+  Search,
+  Package
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { DEFAULT_MODULES } from '../PricingConfigurator/configuratorData';
@@ -118,7 +121,7 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
   const [renewPeriod, setRenewPeriod] = useState(() => originalPeriod || 'yearly');
 
   // Base user seats
-  const initialUserCount = Math.max(Number(subscription.user_count) || 5, 5);
+  const initialUserCount = Math.max(Number(subscription.user_count) || 1, 1);
   const [userCount, setUserCount] = useState(initialUserCount);
 
   // Active modules from current subscription
@@ -157,6 +160,8 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
 
   const isExpired = new Date(subscription.expires_at) < new Date();
   const remainingDays = getRemainingDays(subscription.expires_at);
+  const canRenewEarly = Boolean(user?.can_renew_early || subscription?.can_renew_early);
+  const isRenewalSectionActive = isExpired || remainingDays <= 30 || isTrial || canRenewEarly;
 
   // Fetch updated catalog and pricing settings
   useEffect(() => {
@@ -168,8 +173,8 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
           }
           if (res.settings) {
             setConfigSettings({
-              base_user_limit: Number(res.settings.base_user_limit) || 5,
-              extra_user_price: Number(res.settings.extra_user_price) || 200000
+              base_user_limit: Number(res.settings.base_user_limit) || 1,
+              extra_user_price: Number(res.settings.extra_user_price) || 800000
             });
           }
         }
@@ -223,9 +228,8 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
     }, 0);
   }, [sameSpecModulesObjects]);
 
-  // CRITICAL: Extra user fee applies ONLY if CRM is in active modules!
-  const sameSpecHasCrm = activeModules.some(m => m.id === 'crm');
-  const sameSpecExtraUsers = sameSpecHasCrm ? Math.max(initialUserCount - baseUserLimit, 0) : 0;
+  // Extra user fee applies universally across all modules beyond baseUserLimit
+  const sameSpecExtraUsers = Math.max(initialUserCount - baseUserLimit, 0);
   const sameSpecExtraCost = sameSpecExtraUsers * extraUserPrice;
   const sameSpecMonthlyTotal = sameSpecModulesSum + sameSpecExtraCost;
   const sameSpecYearlyTotal = Math.round(sameSpecMonthlyTotal * (PERIOD_CONFIG['yearly']?.multiplier || 10));
@@ -248,9 +252,8 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
     }, 0);
   }, [editedModulesObjects]);
 
-  // CRITICAL: Extra user fee applies ONLY if CRM is in selected modules!
-  const editedHasCrm = selectedModuleIds.includes('crm');
-  const editedExtraUsers = editedHasCrm ? Math.max(userCount - baseUserLimit, 0) : 0;
+  // Extra user fee applies universally across all modules beyond baseUserLimit
+  const editedExtraUsers = Math.max(userCount - baseUserLimit, 0);
   const editedExtraCost = editedExtraUsers * extraUserPrice;
   const editedMonthlyTotal = editedModulesSum + editedExtraCost;
   const editedFinalAmount = Math.round(editedMonthlyTotal * billingMultiplier);
@@ -304,6 +307,120 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
     } catch (err) {
       setErrorBanner(err.message || 'خطا در برقراری ارتباط با سرور.');
       setIsCreatingOrder(false);
+    }
+  };
+
+  // --- Addon Single/Multi Module Purchase Logic ---
+  const [selectedAddonModuleIds, setSelectedAddonModuleIds] = useState([]);
+  const [addonSearchQuery, setAddonSearchQuery] = useState('');
+  const [addonSelectedCategory, setAddonSelectedCategory] = useState('all');
+  const [isCreatingAddonOrder, setIsCreatingAddonOrder] = useState(false);
+  const [addonError, setAddonError] = useState(null);
+
+  // Active module IDs list
+  const activeModuleIds = useMemo(() => {
+    return activeModules.map(m => m.id);
+  }, [activeModules]);
+
+  // Available addon modules (all system modules minus those already in activeModules)
+  const availableAddonModules = useMemo(() => {
+    return allModules.filter(m => !activeModuleIds.includes(m.id) && m.is_active !== false);
+  }, [allModules, activeModuleIds]);
+
+  // Unique categories of available addon modules
+  const addonCategories = useMemo(() => {
+    const cats = new Set();
+    availableAddonModules.forEach(m => {
+      if (m.category) cats.add(m.category);
+    });
+    return Array.from(cats);
+  }, [availableAddonModules]);
+
+  // Filtered available addon modules based on search and category
+  const filteredAddonModules = useMemo(() => {
+    return availableAddonModules.filter(m => {
+      const pTitle = getModulePersianTitle(m.id, m.title || '');
+      const matchSearch = !addonSearchQuery.trim() || 
+        pTitle.toLowerCase().includes(addonSearchQuery.toLowerCase().trim()) ||
+        (m.description && m.description.toLowerCase().includes(addonSearchQuery.toLowerCase().trim())) ||
+        (m.category && m.category.toLowerCase().includes(addonSearchQuery.toLowerCase().trim()));
+      
+      const matchCategory = addonSelectedCategory === 'all' || m.category === addonSelectedCategory;
+      return matchSearch && matchCategory;
+    });
+  }, [availableAddonModules, addonSearchQuery, addonSelectedCategory]);
+
+  // Selected addon module objects
+  const selectedAddonObjects = useMemo(() => {
+    return selectedAddonModuleIds.map(id => {
+      const found = allModules.find(m => m.id === id) || DEFAULT_MODULES.find(m => m.id === id);
+      return found ? { ...found, title: getModulePersianTitle(found.id, found.title) } : { id, title: id, price: 250000 };
+    });
+  }, [selectedAddonModuleIds, allModules]);
+
+  // Addon period and pricing calculation
+  const addonBillingPeriod = subscription?.billing_period || 'yearly';
+  const addonPeriodMultiplier = (PERIOD_CONFIG[addonBillingPeriod] || PERIOD_CONFIG['yearly']).multiplier;
+  const addonMonthlyBase = useMemo(() => {
+    return selectedAddonObjects.reduce((acc, m) => acc + (Number(m.price) || 0), 0);
+  }, [selectedAddonObjects]);
+  const finalAddonAmount = Math.round(addonMonthlyBase * addonPeriodMultiplier);
+
+  // Toggle selection of addon module (with automatic dependency addition)
+  const handleToggleAddonModule = (moduleId) => {
+    setSelectedAddonModuleIds(prev => {
+      if (prev.includes(moduleId)) {
+        return prev.filter(id => id !== moduleId);
+      } else {
+        const toAdd = [moduleId];
+        const target = allModules.find(m => m.id === moduleId) || DEFAULT_MODULES.find(m => m.id === moduleId);
+        if (target && Array.isArray(target.dependencies)) {
+          target.dependencies.forEach(depId => {
+            if (!activeModuleIds.includes(depId) && !prev.includes(depId) && !toAdd.includes(depId)) {
+              toAdd.push(depId);
+            }
+          });
+        }
+        return [...prev, ...toAdd];
+      }
+    });
+  };
+
+  const handleRemoveAddonModule = (moduleId) => {
+    setSelectedAddonModuleIds(prev => prev.filter(id => id !== moduleId));
+  };
+
+  // Payment for Addon Modules
+  const handleProceedToAddonPayment = async () => {
+    if (selectedAddonModuleIds.length === 0) return;
+    setIsCreatingAddonOrder(true);
+    setAddonError(null);
+    try {
+      const res = await api('/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          selected_module_ids: selectedAddonModuleIds,
+          user_count: initialUserCount,
+          billing_period: addonBillingPeriod,
+          amount: finalAddonAmount,
+          final_amount: finalAddonAmount,
+          subtotal: addonMonthlyBase,
+          order_type: 'resource_upgrade',
+          is_resource_addon: true,
+          subscription_id: subscription.id
+        })
+      });
+
+      if (res && res.payment_url) {
+        window.location.href = res.payment_url;
+      } else if (res && (res.order_id || res.id)) {
+        window.location.href = `/api/payments/zibal/callback?orderId=${res.order_id || res.id}&success=1&status=2`;
+      } else {
+        throw new Error(res.message || 'خطا در صدور سفارش ماژول‌ها.');
+      }
+    } catch (err) {
+      setAddonError(err.message || 'خطا در برقراری ارتباط با درگاه پرداخت.');
+      setIsCreatingAddonOrder(false);
     }
   };
 
@@ -465,18 +582,483 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
         </div>
       </div>
 
-      {/* 3. Renewal Section: نحوه تمدید اشتراک */}
-      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-        
-        {/* 1. عنوان بخش: نحوه تمدید اشتراک */}
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-            <RotateCw size={20} color="#2563eb" />
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-              نحوه تمدید اشتراک
-            </h3>
+      {/* 2.5 Addon Modules Section: افزودن ماژول‌های جدید به اشتراک فعلی (خرید تک یا چند ماژول) */}
+      <div 
+        id="addon-modules-section"
+        style={{ 
+          background: '#ffffff', 
+          border: '1px solid #e2e8f0', 
+          borderRadius: '16px', 
+          padding: '24px', 
+          boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+          marginBottom: '24px'
+        }}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                color: '#2563eb',
+                borderRadius: '10px',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <Package size={20} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>
+                افزودن ماژول‌های جدید به اشتراک فعال (خرید تک یا چند ماژول)
+              </h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+              ماژول‌های مورد نیاز خود را به صورت تکی یا گروهی انتخاب کنید تا بلافاصله به اشتراک فعلی شما افزوده شوند. تاریخ انقضای اشتراک جاری شما تغییری نخواهد کرد.
+            </p>
           </div>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ 
+              background: availableAddonModules.length > 0 ? '#eff6ff' : '#f0fdf4', 
+              color: availableAddonModules.length > 0 ? '#1d4ed8' : '#166534', 
+              fontSize: '12px', 
+              fontWeight: 700, 
+              padding: '6px 14px', 
+              borderRadius: '20px',
+              border: `1px solid ${availableAddonModules.length > 0 ? '#bfdbfe' : '#bbf7d0'}`
+            }}>
+              {availableAddonModules.length > 0 
+                ? `${availableAddonModules.length.toLocaleString('fa-IR')} ماژول جدید قابل افزودن`
+                : 'تمام ماژول‌ها فعال هستند'}
+            </span>
+          </div>
+        </div>
+
+        {addonError && (
+          <div className="erp-sub-alert-banner error" style={{ marginBottom: '16px' }}>
+            <AlertCircle size={16} />
+            <span>{addonError}</span>
+            <button type="button" onClick={() => setAddonError(null)} style={{ marginRight: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {availableAddonModules.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px 20px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+            <Sparkles size={32} color="#10b981" style={{ marginBottom: '10px' }} />
+            <h4 style={{ margin: '0 0 6px 0', fontSize: '15px', color: '#0f172a', fontWeight: 800 }}>
+              تمامی ماژول‌های سامانه در اشتراک شما فعال هستند
+            </h4>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
+              شما هم‌اکنون به تمامی ماژول‌ها و ابزارهای سیستم جامع ERP کارویتا دسترسی کامل دارید.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Search & Category Filter Bar */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              marginBottom: '18px', 
+              flexWrap: 'wrap',
+              background: '#f8fafc',
+              padding: '12px 16px',
+              borderRadius: '12px',
+              border: '1px solid #f1f5f9'
+            }}>
+              <div style={{ position: 'relative', flex: '1 1 240px' }}>
+                <Search size={16} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input 
+                  type="text"
+                  placeholder="جستجوی سریع در ماژول‌ها (نام ماژول، توضیح، کارکرد)..."
+                  value={addonSearchQuery}
+                  onChange={(e) => setAddonSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 36px 8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    outline: 'none',
+                    background: '#ffffff',
+                    fontFamily: 'inherit'
+                  }}
+                />
+                {addonSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setAddonSearchQuery('')}
+                    style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Category Filter Pills */}
+              {addonCategories.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAddonSelectedCategory('all')}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      fontSize: '11.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: addonSelectedCategory === 'all' ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                      background: addonSelectedCategory === 'all' ? '#eff6ff' : '#ffffff',
+                      color: addonSelectedCategory === 'all' ? '#1d4ed8' : '#64748b'
+                    }}
+                  >
+                    همه دسته‌ها ({availableAddonModules.length})
+                  </button>
+                  {addonCategories.map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setAddonSelectedCategory(cat)}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '11.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        border: addonSelectedCategory === cat ? '1px solid #2563eb' : '1px solid #e2e8f0',
+                        background: addonSelectedCategory === cat ? '#eff6ff' : '#ffffff',
+                        color: addonSelectedCategory === cat ? '#1d4ed8' : '#64748b'
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Grid of Available Addon Modules */}
+            {filteredAddonModules.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8', fontSize: '13px' }}>
+                هیچ ماژولی با عبارت جستجو شده یافت نشد.
+              </div>
+            ) : (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: '12px',
+                marginBottom: '20px'
+              }}>
+                {filteredAddonModules.map(m => {
+                  const isSelected = selectedAddonModuleIds.includes(m.id);
+                  const pTitle = getModulePersianTitle(m.id, m.title);
+                  const price = Number(m.price) || 250000;
+                  const hasDeps = Array.isArray(m.dependencies) && m.dependencies.length > 0;
+                  const unownedDeps = hasDeps ? m.dependencies.filter(depId => !activeModuleIds.includes(depId)) : [];
+
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => handleToggleAddonModule(m.id)}
+                      style={{
+                        background: isSelected ? '#f0fdf4' : '#ffffff',
+                        border: isSelected ? '1.5px solid #10b981' : '1px solid #e2e8f0',
+                        borderRadius: '12px',
+                        padding: '14px',
+                        cursor: 'pointer',
+                        transition: 'all 0.18s ease-in-out',
+                        boxShadow: isSelected ? '0 4px 12px rgba(16, 185, 129, 0.12)' : 'none',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        gap: '10px'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginBottom: '8px' }}>
+                          <span style={{ 
+                            fontSize: '11px', 
+                            fontWeight: 700, 
+                            color: isSelected ? '#047857' : '#64748b',
+                            background: isSelected ? '#d1fae5' : '#f1f5f9',
+                            padding: '2px 8px',
+                            borderRadius: '6px'
+                          }}>
+                            {m.category || 'ماژول تخصصی'}
+                          </span>
+                          <span style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            border: isSelected ? 'none' : '1.5px solid #cbd5e1',
+                            background: isSelected ? '#10b981' : 'transparent',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            flexShrink: 0
+                          }}>
+                            {isSelected ? <Check size={13} strokeWidth={3} /> : null}
+                          </span>
+                        </div>
+
+                        <h4 style={{ margin: '0 0 6px 0', fontSize: '14px', fontWeight: 800, color: '#0f172a', lineHeight: 1.4 }}>
+                          {pTitle}
+                        </h4>
+
+                        {m.description && (
+                          <p style={{ margin: 0, fontSize: '11.5px', color: '#64748b', lineHeight: 1.45, minHeight: '34px' }}>
+                            {m.description}
+                          </p>
+                        )}
+
+                        {unownedDeps.length > 0 && (
+                          <div style={{ marginTop: '8px', fontSize: '10.5px', color: '#d97706', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <AlertCircle size={12} />
+                            <span>نیازمند: {unownedDeps.map(d => getModulePersianTitle(d, d)).join('، ')}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingTop: '8px',
+                        borderTop: '1px dashed #e2e8f0',
+                        marginTop: '4px'
+                      }}>
+                        <div>
+                          <span style={{ fontSize: '13px', fontWeight: 800, color: isSelected ? '#047857' : '#0f172a' }}>
+                            {price.toLocaleString('fa-IR')}
+                          </span>
+                          <span style={{ fontSize: '10.5px', color: '#64748b', marginRight: '3px' }}>
+                            تومان/ماه
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleAddonModule(m.id);
+                          }}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '7px',
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            border: isSelected ? '1px solid #10b981' : '1px solid #cbd5e1',
+                            background: isSelected ? '#10b981' : '#ffffff',
+                            color: isSelected ? '#ffffff' : '#334155',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          {isSelected ? (
+                            <>
+                              <Check size={12} />
+                              <span>انتخاب شد</span>
+                            </>
+                          ) : (
+                            <>
+                              <Plus size={12} />
+                              <span>انتخاب ماژول</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Bottom Checkout Action Bar (when 1 or more modules are selected) */}
+            {selectedAddonModuleIds.length > 0 && (
+              <div style={{
+                background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)',
+                border: '1.5px solid #bfdbfe',
+                borderRadius: '14px',
+                padding: '16px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '16px',
+                boxShadow: '0 6px 20px rgba(37, 99, 235, 0.08)',
+                animation: 'fadeIn 0.2s ease-out'
+              }}>
+                <div style={{ flex: '1 1 300px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <span style={{ background: '#2563eb', color: '#ffffff', fontSize: '11.5px', fontWeight: 800, padding: '3px 10px', borderRadius: '12px' }}>
+                      {selectedAddonModuleIds.length.toLocaleString('fa-IR')} ماژول انتخاب شده
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#475569' }}>
+                      دوره محاسبه: {currentPeriodConfig.label} ({addonPeriodMultiplier.toLocaleString('fa-IR')} ماه)
+                    </span>
+                  </div>
+
+                  {/* Selected Module Chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {selectedAddonObjects.map(mod => (
+                      <span
+                        key={mod.id}
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11.5px',
+                          color: '#1e293b',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontWeight: 600
+                        }}
+                      >
+                        {mod.title}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAddonModule(mod.id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            color: '#ef4444',
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="حذف"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Amount and Pay Button */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <div style={{ fontSize: '11px', color: '#64748b' }}>
+                      مبلغ نهایی قابل پرداخت:
+                    </div>
+                    <div style={{ fontSize: '18px', fontWeight: 900, color: '#16a34a' }}>
+                      {finalAddonAmount.toLocaleString('fa-IR')}{' '}
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: '#475569' }}>تومان</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isCreatingAddonOrder}
+                    onClick={handleProceedToAddonPayment}
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '10px 20px',
+                      fontSize: '13.5px',
+                      fontWeight: 800,
+                      cursor: isCreatingAddonOrder ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+                      opacity: isCreatingAddonOrder ? 0.7 : 1
+                    }}
+                  >
+                    {isCreatingAddonOrder ? (
+                      <>
+                        <Loader2 size={16} className="erp-spin" />
+                        <span>در حال صدور سفارش...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap size={16} />
+                        <span>پرداخت و افزودن آنی به اشتراک</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAddonModuleIds([])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748b',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    لغو انتخاب
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* 3. Renewal Section: نحوه تمدید اشتراک (یا باکس پایداری اشتراک در صورت بیش از ۳۰ روز) */}
+      {isRenewalSectionActive ? (
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+          
+          {/* بنر تمدید زودهنگام در صورت داشتن مجوز از مدیریت */}
+          {canRenewEarly && remainingDays > 30 && !isExpired && !isTrial && (
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1px solid #86efac',
+              borderRadius: '12px',
+              padding: '12px 18px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ background: '#16a34a', color: '#ffffff', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Zap size={16} />
+                </div>
+                <div>
+                  <strong style={{ fontSize: '13.5px', color: '#166534', display: 'block' }}>
+                    مجوز تمدید زودهنگام توسط مدیریت برای شما فعال گردیده است
+                  </strong>
+                  <span style={{ fontSize: '12px', color: '#15803d' }}>
+                    با وجود اینکه {remainingDays.toLocaleString('fa-IR')} روز تا پایان دوره اشتراک باقی است، شما می‌توانید هم‌اکنون نسبت به تمدید یا ارتقا اقدام فرمایید. مدت اعتبار جدید به انتهای اشتراک فعلی شما افزوده خواهد شد.
+                  </span>
+                </div>
+              </div>
+              <span style={{ background: '#15803d', color: '#ffffff', fontSize: '11px', fontWeight: 800, padding: '4px 12px', borderRadius: '20px' }}>
+                ⚡ تمدید زودهنگام مجاز
+              </span>
+            </div>
+          )}
+
+          {/* 1. عنوان بخش: نحوه تمدید اشتراک */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <RotateCw size={20} color="#2563eb" />
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+                نحوه تمدید اشتراک
+              </h3>
+            </div>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>
             {isTrial 
               ? 'دوره ۵ روزه آزمایشی رایگان قابل تمدید مستقیم نیست. جهت خرید اشتراک تجاری، روی کارت «تمدید +تغییر نوع اشتراک» کلیک فرمایید.'
               : 'روش مورد نظر خود را جهت تمدید یا ارتقای سرویس انتخاب فرمایید:'}
@@ -762,9 +1344,130 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
         )}
 
       </div>
+      ) : (
+        /* کارت وضعیت پایداری اشتراک برای مواردی که بیش از ۳۰ روز مانده و تمدید زودهنگام فعال نیست */
+        <div style={{
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          border: '1.5px solid #cbd5e1',
+          borderRadius: '16px',
+          padding: '32px 24px',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '58px',
+            height: '58px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            color: '#0284c7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px',
+            boxShadow: '0 4px 14px rgba(2, 132, 199, 0.15)'
+          }}>
+            <ShieldCheck size={32} />
+          </div>
+
+          <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
+            اشتراک ابری شما فعال و کاملاً پایدار است
+          </h3>
+
+          <p style={{ margin: '0 auto 20px', maxWidth: '580px', fontSize: '13.5px', color: '#64748b', lineHeight: 1.65 }}>
+            از دوره اشتراک جاری شما <strong style={{ color: '#0284c7', fontSize: '15px' }}>{remainingDays.toLocaleString('fa-IR')} روز</strong> باقی مانده است.
+            باکس نحوه تمدید اشتراک و روش‌های پرداخت به صورت خودکار از <strong style={{ color: '#0f172a' }}>۳۰ روز مانده به پایان اعتبار</strong> برای شما فعال خواهد شد.
+          </p>
+
+          {/* Timeline details pill */}
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '16px',
+            background: '#f1f5f9',
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            padding: '12px 20px',
+            fontSize: '12.5px',
+            marginBottom: '24px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Calendar size={15} color="#64748b" />
+              <span style={{ color: '#64748b' }}>تاریخ پایان اعتبار:</span>
+              <strong style={{ color: '#1e293b' }}>{formatDate(subscription.expires_at)}</strong>
+            </div>
+            <span style={{ color: '#cbd5e1' }}>•</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Clock size={15} color="#0284c7" />
+              <span style={{ color: '#64748b' }}>زمان باقی‌مانده:</span>
+              <strong style={{ color: '#0284c7' }}>{remainingDays.toLocaleString('fa-IR')} روز</strong>
+            </div>
+            <span style={{ color: '#cbd5e1' }}>•</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircle2 size={15} color="#10b981" />
+              <span style={{ color: '#10b981', fontWeight: 700 }}>وضعیت سرویس: فعال و آنلاین</span>
+            </div>
+          </div>
+
+          {/* Support hint & actions */}
+          <div style={{
+            borderTop: '1px solid #f1f5f9',
+            paddingTop: '20px',
+            maxWidth: '540px',
+            margin: '0 auto',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+            alignItems: 'center'
+          }}>
+            <p style={{ margin: 0, fontSize: '12.5px', color: '#64748b', lineHeight: 1.6 }}>
+              در صورتی که قصد دارید زودتر از موعد ۳۰ روزه اشتراک خود را تمدید فرمایید، می‌توانید درخواست خود را با پشتیبانی در میان بگذارید تا مجوز تمدید زودهنگام توسط مدیریت برای حساب کاربری شما فعال گردد.
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onBack}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 18px',
+                  fontSize: '12.5px',
+                  borderRadius: '8px'
+                }}
+              >
+                <ArrowRight size={15} />
+                <span>بازگشت به داشبورد</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => nav('/plans')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 18px',
+                  fontSize: '12.5px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  borderColor: '#0284c7'
+                }}
+              >
+                <Users size={15} />
+                <span>ارتقا و افزایش منابع</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pop-up Modal for Card B: تمدید +تغییر نوع اشتراک */}
-      {showCustomModal && (
+      {showCustomModal && isRenewalSectionActive && (
         <div
           style={{
             position: 'fixed',
@@ -935,11 +1638,7 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
                 <div>
                   <strong style={{ fontSize: '14px', color: '#0f172a' }}>تعداد کاربران همزمان:</strong>
                   <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
-                    {editedHasCrm ? (
-                      `۱ کاربر پایه در CRM لحاظ شده است (کاربران مازاد CRM: ${extraUserPrice.toLocaleString('fa-IR')} تومان در ماه)`
-                    ) : (
-                      'کاربران نامحدود و رایگان (ماژول‌های انتخابی بدون محدودیت کاربر هستند)'
-                    )}
+                    تا {baseUserLimit.toLocaleString('fa-IR')} کاربر در اشتراک پایه رایگان لحاظ شده است (کاربران مازاد: {extraUserPrice.toLocaleString('fa-IR')} تومان در ماه)
                   </p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

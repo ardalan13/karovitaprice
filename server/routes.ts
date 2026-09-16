@@ -419,6 +419,7 @@ router.get('/auth/me', authMiddleware, (req: Request, res: Response) => {
       last_name: user.last_name,
       email: user.email,
       job_title: user.job_title,
+      national_code: user.national_code || null,
       company_name: user.company_name,
       onboarding_step: user.onboarding_step,
       created_at: user.created_at,
@@ -436,11 +437,12 @@ router.get('/profile', authMiddleware, (req: Request, res: Response) => {
       last_name: user.last_name,
       email: user.email,
       job_title: user.job_title,
+      national_code: user.national_code || null,
     },
   });
 });
 
-router.post('/profile/otp/request', authMiddleware, otpRequestLimiter, (req: Request, res: Response) => {
+router.post('/profile/otp/request', authMiddleware, otpRequestLimiter, async (req: Request, res: Response) => {
   const user = (req as any).user as User;
   const mobile = user.mobile;
 
@@ -459,6 +461,9 @@ router.post('/profile/otp/request', authMiddleware, otpRequestLimiter, (req: Req
   db.addOtp(mobile, code, ttlSeconds);
 
   console.log(`[PROFILE OTP SERVICE] Mobile: ${mobile} => OTP Code: ${code}`);
+
+  // Dispatch real SMS (same as auth OTP flow)
+  await sendOtpSms(mobile, code);
 
   return res.json({
     message: `کد تأیید به شماره ${mobile} ارسال شد.`,
@@ -509,6 +514,11 @@ router.put('/profile', authMiddleware, (req: Request, res: Response) => {
   user.last_name = String(req.body.last_name || '').trim();
   user.email = String(req.body.email || '').trim() || null;
   user.job_title = String(req.body.job_title || '').trim();
+  const cleanNationalCode = toEnglishDigits(String(req.body.national_code || '')).replace(/\D/g, '').trim();
+  if (cleanNationalCode && cleanNationalCode.length !== 10 && cleanNationalCode.length !== 11) {
+    return res.status(422).json({ message: 'کد ملی باید ۱۰ رقم و شناسه ملی شرکت باید ۱۱ رقم باشد.' });
+  }
+  user.national_code = cleanNationalCode || null;
   user.updated_at = new Date().toISOString();
   db.save();
 
@@ -521,6 +531,7 @@ router.put('/profile', authMiddleware, (req: Request, res: Response) => {
       last_name: user.last_name,
       email: user.email,
       job_title: user.job_title,
+      national_code: user.national_code,
     }
   });
 });
@@ -533,7 +544,8 @@ router.get('/configurator/data', (_req: Request, res: Response) => {
   const activeIds = new Set(activeModules.map(m => m.id));
   const sanitizedPresets = db.industryPresets.map(p => ({
     ...p,
-    default_modules: (p.default_modules || []).filter(id => activeIds.has(id))
+    default_modules: (p.default_modules || []).filter(id => activeIds.has(id)),
+    mandatory_modules: (p.mandatory_modules || []).filter(id => activeIds.has(id)),
   }));
 
   return res.json({
@@ -544,10 +556,12 @@ router.get('/configurator/data', (_req: Request, res: Response) => {
 });
 
 router.post('/configurator/calculate', (req: Request, res: Response) => {
-  const { selected_module_ids = [], user_count = 5, billing_period = '3_months', coupon_code = '' } = req.body;
+  const { selected_module_ids = [], user_count, billing_period = '3_months', coupon_code = '' } = req.body;
+  const baseLimit = db.configuratorSettings.base_user_limit || 1;
+  const finalUsers = typeof user_count === 'number' && user_count > 0 ? user_count : (Number(user_count) || baseLimit);
   const calc = db.calculateERPPrice(
     Array.isArray(selected_module_ids) ? selected_module_ids : [],
-    Number(user_count) || 5,
+    finalUsers,
     billing_period || '3_months',
     String(coupon_code || '')
   );
@@ -593,7 +607,8 @@ router.post('/trial', authMiddleware, (req: Request, res: Response) => {
   }
 
   const selectedModuleIds = Array.isArray(req.body.selected_module_ids) ? req.body.selected_module_ids : [];
-  const userCount = Number(req.body.user_count) || 5;
+  const baseLimit = db.configuratorSettings.base_user_limit || 1;
+  const userCount = Number(req.body.user_count) || baseLimit;
 
   if (selectedModuleIds.length > 0) {
     db.createERPSubscription(user.id, null, selectedModuleIds, userCount, 'monthly', 'trial', 5);
@@ -617,24 +632,28 @@ router.post('/orders', authMiddleware, orderCreationLimiter, async (req: Request
     return res.status(422).json({ message: 'ابتدا اطلاعات کاربری و شرکت را تکمیل کنید.' });
   }
 
-  const { selected_module_ids, user_count = 5, billing_period = '3_months', coupon_code = '', package_id, subscription_id } = req.body;
+  const { selected_module_ids, user_count, billing_period = 'yearly', coupon_code = '', package_id, subscription_id } = req.body;
 
   let order: Order;
   let finalAmount = 0;
 
+  const baseUserLimit = db.configuratorSettings.base_user_limit || 1;
+  const resolvedUserCount = typeof user_count === 'number' && user_count > 0 ? user_count : (Number(user_count) || baseUserLimit);
   const hasModules = Array.isArray(selected_module_ids) && selected_module_ids.length > 0;
-  const hasExtraUsers = Number(user_count) > 5;
+  const hasExtraUsers = resolvedUserCount > baseUserLimit;
 
   if (hasModules || hasExtraUsers) {
     // ERP Configurator Order
     order = db.createERPOrder(
       user.id,
       selected_module_ids || [],
-      Number(user_count) || 5,
-      billing_period || '3_months',
+      resolvedUserCount,
+      billing_period || 'yearly',
       coupon_code,
       subscription_id ? Number(subscription_id) : undefined
     );
+    if (req.body.order_type) (order as any).order_type = req.body.order_type;
+    if (req.body.is_resource_addon) (order as any).is_resource_addon = req.body.is_resource_addon;
     finalAmount = order.amount;
   } else if (package_id) {
     // Legacy fallback
@@ -644,6 +663,8 @@ router.post('/orders', authMiddleware, orderCreationLimiter, async (req: Request
     }
     order = db.createOrder(user.id, pkg.id, pkg.price);
     if (subscription_id) order.subscription_id = Number(subscription_id);
+    if (req.body.order_type) (order as any).order_type = req.body.order_type;
+    if (req.body.is_resource_addon) (order as any).is_resource_addon = req.body.is_resource_addon;
     finalAmount = pkg.price;
   } else {
     return res.status(422).json({ message: 'حداقل یک ماژول یا ظرفیت کاربر برای خرید انتخاب کنید.' });
@@ -657,10 +678,11 @@ router.post('/orders', authMiddleware, orderCreationLimiter, async (req: Request
         user.id,
         order.id,
         order.module_ids || [],
-        order.user_count || 5,
+        order.user_count || db.configuratorSettings.base_user_limit || 1,
         order.billing_period || '3_months',
         'purchase',
-        order.subscription_id
+        order.subscription_id,
+        (order as any).order_type === 'resource_upgrade' || Boolean((order as any).is_resource_addon)
       );
     }
     if (!user.onboarding_completed_at) {
@@ -758,10 +780,11 @@ const handleCallback = async (req: Request, res: Response) => {
           tx.user_id,
           order.id,
           order.module_ids,
-          order.user_count || 5,
+          order.user_count || db.configuratorSettings.base_user_limit || 1,
           order.billing_period || 'monthly',
           'purchase',
-          order.subscription_id
+          order.subscription_id,
+          (order as any).order_type === 'resource_upgrade' || Boolean((order as any).is_resource_addon)
         );
       } else if (order.package_id) {
         const pkg = db.getPackageById(order.package_id);
@@ -870,9 +893,9 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
         package_name: s.title || (pkg?.name) || `اشتراک سازمانی کارویتا (${moduleNames.length} ماژول)`,
         module_names: moduleNames,
         modules_detail: moduleObjects,
-        user_count: s.user_count || order?.user_count || 5,
+        user_count: s.user_count || order?.user_count || db.configuratorSettings.base_user_limit || 1,
         billing_period: s.billing_period || order?.billing_period || 'monthly',
-        order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KARVITA-${s.id}` : '—'),
+        order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KAROVITA-${s.id}` : '—'),
         order_amount: order?.amount || pkg?.price || 0,
         discount_amount: order?.discount_amount || 0,
         coupon_code: order?.coupon_code || null,
@@ -881,7 +904,7 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
         price: pkg?.price || order?.amount || 0,
         usage_percent: s.usage_limit ? Math.round((s.usage_used / s.usage_limit) * 100) : 0,
         server_instance: {
-          subdomain: `${safeCompanySlug}-${user.id}.karvita.ir`,
+          subdomain: `${safeCompanySlug}-${user.id}.karovita.ir`,
           portal_url: `/workspace/${s.id}`,
           status: isSubActive ? 'online' : 'paused',
           ssl: true,
@@ -901,7 +924,7 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
       const pkg = ord?.package_id ? db.getPackageById(ord.package_id) : null;
       let title = pkg?.name || 'اشتراک کارویتا';
       if (ord?.module_ids && ord.module_ids.length > 0) {
-        title = `سفارش سازمانی (${ord.module_ids.length} ماژول - ${ord.user_count || 5} کاربر)`;
+        title = `سفارش سازمانی (${ord.module_ids.length} ماژول - ${ord.user_count || db.configuratorSettings.base_user_limit || 1} کاربر)`;
       }
       return {
         id: t.id,
@@ -922,7 +945,9 @@ router.get('/dashboard', authMiddleware, (req: Request, res: Response) => {
       last_name: user.last_name,
       email: user.email,
       job_title: user.job_title,
+      national_code: user.national_code || null,
       role: user.role,
+      can_renew_early: Boolean(user.can_renew_early),
       company_name: company?.name || null,
       industry: company?.industry || null,
       employee_count: company?.employee_count || null,
@@ -1008,9 +1033,9 @@ router.get('/subscriptions/:id', authMiddleware, (req: Request, res: Response) =
       package_name: s.title || (pkg?.name) || `اشتراک سازمانی کارویتا (${moduleNames.length} ماژول)`,
       module_names: moduleNames,
       modules_detail: moduleObjects,
-      user_count: s.user_count || order?.user_count || 5,
+      user_count: s.user_count || order?.user_count || db.configuratorSettings.base_user_limit || 1,
       billing_period: s.billing_period || order?.billing_period || 'monthly',
-      order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KARVITA-${s.id}` : '—'),
+      order_number: order?.order_number || (s.source === 'trial' ? `TRIAL-KAROVITA-${s.id}` : '—'),
       order_amount: order?.amount || pkg?.price || 0,
       discount_amount: order?.discount_amount || 0,
       coupon_code: order?.coupon_code || null,
@@ -1019,7 +1044,7 @@ router.get('/subscriptions/:id', authMiddleware, (req: Request, res: Response) =
       price: pkg?.price || order?.amount || 0,
       usage_percent: s.usage_limit ? Math.round((s.usage_used / s.usage_limit) * 100) : 0,
       server_instance: {
-        subdomain: `${safeCompanySlug}-${user.id}.karvita.ir`,
+        subdomain: `${safeCompanySlug}-${user.id}.karovita.ir`,
         portal_url: `/workspace/${s.id}`,
         status: isSubActive ? 'online' : 'paused',
         ssl: true,
@@ -1055,7 +1080,7 @@ router.get('/user/orders', authMiddleware, (req: Request, res: Response) => {
         status: o.status,
         module_ids: o.module_ids || [],
         module_names: moduleNames,
-        user_count: o.user_count || 5,
+        user_count: o.user_count || db.configuratorSettings.base_user_limit || 1,
         billing_period: o.billing_period || 'monthly',
         description: o.description || (moduleNames.length ? `افزودن ${moduleNames.length} ماژول جدید` : 'سفارش خدمات ابری کارویتا'),
         created_at: o.created_at,
@@ -1191,7 +1216,7 @@ router.post('/orders/:id/pay', authMiddleware, async (req: Request, res: Respons
       order.user_id,
       order.id,
       order.module_ids || [],
-      order.user_count || 5,
+      order.user_count || db.configuratorSettings.base_user_limit || 1,
       order.billing_period || '3_months',
       'purchase'
     );
@@ -1476,7 +1501,7 @@ router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, r
     return {
       ...t,
       package_name: pkgName,
-      user_count: ord?.user_count || 5,
+      user_count: ord?.user_count || db.configuratorSettings.base_user_limit || 1,
       billing_period: ord?.billing_period || 'monthly',
       order_number: ord?.order_number || '—',
     };
@@ -1509,6 +1534,7 @@ router.get('/admin/users', authMiddleware, adminMiddleware, (req: Request, res: 
         last_name: u.last_name,
         email: u.email,
         job_title: u.job_title,
+        national_code: u.national_code || null,
         role: u.role,
         is_owner: u.mobile === '09111273476',
         created_at: u.created_at,
@@ -1696,15 +1722,191 @@ router.delete('/admin/erp/modules/:id', authMiddleware, adminMiddleware, (req: R
   return res.json({ message: `ماژول «${removedModule.title}» با موفقیت حذف گردید.`, data: db.erpModules });
 });
 
+// Bulk actions on ERP modules (set price, toggle active, add/remove dependency, assign preset, bulk delete)
+router.post('/admin/erp/modules/bulk', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { action, module_ids, value } = req.body;
+  if (!action || !Array.isArray(module_ids) || module_ids.length === 0) {
+    return res.status(422).json({ message: 'عملیات نامعتبر است یا هیچ ماژولی انتخاب نشده است.' });
+  }
+
+  const idsSet = new Set(module_ids.map((id: any) => String(id).trim()));
+  const targetModules = db.erpModules.filter(m => idsSet.has(m.id));
+
+  if (targetModules.length === 0) {
+    return res.status(404).json({ message: 'ماژول‌های انتخاب‌شده در سیستم یافت نشدند.' });
+  }
+
+  let actionMessage = '';
+
+  switch (action) {
+    case 'set_price': {
+      const newPrice = Math.max(0, Number(value));
+      if (isNaN(newPrice)) {
+        return res.status(422).json({ message: 'مبلغ وارد شده معتبر نیست.' });
+      }
+      targetModules.forEach(m => {
+        m.price = newPrice;
+      });
+      actionMessage = `قیمت ${targetModules.length} ماژول انتخابی با موفقیت به ${newPrice.toLocaleString('fa-IR')} تومان تغییر یافت.`;
+      break;
+    }
+
+    case 'set_status': {
+      const isActive = Boolean(value);
+      targetModules.forEach(m => {
+        m.is_active = isActive;
+        if (!isActive) {
+          db.industryPresets.forEach(preset => {
+            preset.default_modules = (preset.default_modules || []).filter(mId => mId !== m.id);
+          });
+          m.industries = [];
+        }
+      });
+      actionMessage = `${targetModules.length} ماژول انتخابی با موفقیت ${isActive ? 'فعال' : 'غیرفعال'} شدند.`;
+      break;
+    }
+
+    case 'add_dependency': {
+      const depIds = (Array.isArray(value) ? value : [value]).map(v => String(v).trim()).filter(Boolean);
+      if (depIds.length === 0) {
+        return res.status(422).json({ message: 'هیچ پیش‌نیازی انتخاب نشده است.' });
+      }
+      targetModules.forEach(m => {
+        if (!Array.isArray(m.dependencies)) m.dependencies = [];
+        depIds.forEach(depId => {
+          if (m.id !== depId && !m.dependencies.includes(depId)) {
+            m.dependencies.push(depId);
+          }
+        });
+      });
+      actionMessage = `${depIds.length.toLocaleString('fa-IR')} پیش‌نیاز با موفقیت به ${targetModules.length.toLocaleString('fa-IR')} ماژول انتخابی افزوده شد.`;
+      break;
+    }
+
+    case 'remove_dependency': {
+      const depIds = (Array.isArray(value) ? value : [value]).map(v => String(v).trim()).filter(Boolean);
+      if (depIds.length === 0) {
+        return res.status(422).json({ message: 'هیچ پیش‌نیازی جهت حذف انتخاب نشده است.' });
+      }
+      const depSet = new Set(depIds);
+      targetModules.forEach(m => {
+        if (Array.isArray(m.dependencies)) {
+          m.dependencies = m.dependencies.filter(d => !depSet.has(d));
+        }
+      });
+      actionMessage = `${depIds.length.toLocaleString('fa-IR')} پیش‌نیاز از ${targetModules.length.toLocaleString('fa-IR')} ماژول انتخابی حذف گردید.`;
+      break;
+    }
+
+    case 'add_preset': {
+      const presetIds = (Array.isArray(value) ? value : [value]).map(v => String(v).trim()).filter(Boolean);
+      if (presetIds.length === 0) {
+        return res.status(422).json({ message: 'هیچ صنفی انتخاب نشده است.' });
+      }
+      presetIds.forEach(presetId => {
+        const targetPreset = db.industryPresets.find(p => p.id === presetId);
+        if (targetPreset) {
+          if (!Array.isArray(targetPreset.default_modules)) {
+            targetPreset.default_modules = [];
+          }
+          targetModules.forEach(m => {
+            if (m.is_active !== false) {
+              if (!targetPreset.default_modules.includes(m.id)) {
+                targetPreset.default_modules.push(m.id);
+              }
+              if (!Array.isArray(m.industries)) m.industries = [];
+              if (!m.industries.includes(presetId)) {
+                m.industries.push(presetId);
+              }
+            }
+          });
+        }
+      });
+      actionMessage = `${targetModules.length.toLocaleString('fa-IR')} ماژول به ${presetIds.length.toLocaleString('fa-IR')} صنف افزوده شدند.`;
+      break;
+    }
+
+    case 'remove_preset': {
+      const presetIds = (Array.isArray(value) ? value : [value]).map(v => String(v).trim()).filter(Boolean);
+      if (presetIds.length === 0) {
+        return res.status(422).json({ message: 'هیچ صنفی جهت خروج انتخاب نشده است.' });
+      }
+      const presetSet = new Set(presetIds);
+      presetIds.forEach(presetId => {
+        const targetPreset = db.industryPresets.find(p => p.id === presetId);
+        if (targetPreset && Array.isArray(targetPreset.default_modules)) {
+          targetPreset.default_modules = targetPreset.default_modules.filter(id => !idsSet.has(id));
+        }
+      });
+      targetModules.forEach(m => {
+        if (Array.isArray(m.industries)) {
+          m.industries = m.industries.filter(p => !presetSet.has(p));
+        }
+      });
+      actionMessage = `${targetModules.length.toLocaleString('fa-IR')} ماژول از ${presetIds.length.toLocaleString('fa-IR')} صنف حذف شدند.`;
+      break;
+    }
+
+    case 'delete': {
+      db.erpModules = db.erpModules.filter(m => !idsSet.has(m.id));
+      db.industryPresets.forEach(preset => {
+        if (Array.isArray(preset.default_modules)) {
+          preset.default_modules = preset.default_modules.filter(mId => !idsSet.has(mId));
+        }
+      });
+      db.erpModules.forEach(m => {
+        if (Array.isArray(m.dependencies)) {
+          m.dependencies = m.dependencies.filter(d => !idsSet.has(d));
+        }
+      });
+      actionMessage = `${targetModules.length} ماژول با موفقیت از سیستم حذف شدند.`;
+      break;
+    }
+
+    default:
+      return res.status(400).json({ message: 'نوع عملیات درخواستی معتبر نیست.' });
+  }
+
+  db.save();
+
+  logConfigChange(req, {
+    resourceType: 'ERP_MODULES_BULK',
+    resourceId: 'BULK_ACTION',
+    actionDescription: `عملیات گروهی «${action}» بر روی ${targetModules.length} ماژول`,
+    newValue: { action, module_ids, value },
+  });
+
+  const activeIds = new Set(db.erpModules.filter(m => m.is_active !== false).map(m => m.id));
+  const sanitizedPresets = db.industryPresets.map(p => ({
+    ...p,
+    default_modules: (p.default_modules || []).filter(mId => activeIds.has(mId))
+  }));
+
+  return res.json({
+    message: actionMessage,
+    data: db.erpModules,
+    modules: db.erpModules,
+    presets: sanitizedPresets
+  });
+});
+
 router.post('/admin/erp/settings', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
-  const { base_user_limit, extra_user_price, yearly_multiplier, step_users_enabled, step_modules_enabled } = req.body;
+  const { base_user_limit, extra_user_price, yearly_multiplier, semiannual_multiplier, quarterly_multiplier, step_users_enabled, step_modules_enabled } = req.body;
   const oldSettings = { ...db.configuratorSettings };
+
+  const parsedBaseLimit = Number(base_user_limit);
+  const parsedExtraPrice = Number(extra_user_price);
+  const parsedYearly = Number(yearly_multiplier);
+  const parsedSemiannual = Number(semiannual_multiplier);
+  const parsedQuarterly = Number(quarterly_multiplier);
 
   db.configuratorSettings = {
     ...db.configuratorSettings,
-    base_user_limit: typeof base_user_limit === 'number' ? base_user_limit : db.configuratorSettings.base_user_limit,
-    extra_user_price: typeof extra_user_price === 'number' ? extra_user_price : db.configuratorSettings.extra_user_price,
-    yearly_multiplier: typeof yearly_multiplier === 'number' ? yearly_multiplier : db.configuratorSettings.yearly_multiplier,
+    base_user_limit: !isNaN(parsedBaseLimit) && parsedBaseLimit >= 1 ? parsedBaseLimit : db.configuratorSettings.base_user_limit,
+    extra_user_price: !isNaN(parsedExtraPrice) && parsedExtraPrice >= 0 ? parsedExtraPrice : db.configuratorSettings.extra_user_price,
+    yearly_multiplier: !isNaN(parsedYearly) && parsedYearly > 0 ? parsedYearly : db.configuratorSettings.yearly_multiplier,
+    semiannual_multiplier: !isNaN(parsedSemiannual) && parsedSemiannual > 0 ? parsedSemiannual : (db.configuratorSettings.semiannual_multiplier || 6),
+    quarterly_multiplier: !isNaN(parsedQuarterly) && parsedQuarterly > 0 ? parsedQuarterly : (db.configuratorSettings.quarterly_multiplier || 3),
     step_users_enabled: typeof step_users_enabled === 'boolean' ? step_users_enabled : db.configuratorSettings.step_users_enabled,
     step_modules_enabled: typeof step_modules_enabled === 'boolean' ? step_modules_enabled : db.configuratorSettings.step_modules_enabled,
   };
@@ -1722,7 +1924,7 @@ router.post('/admin/erp/settings', authMiddleware, adminMiddleware, (req: Reques
 });
 
 router.post('/admin/erp/presets', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
-  const { id, title, default_modules = [] } = req.body;
+  const { id, title, default_modules = [], mandatory_modules = [] } = req.body;
   if (!title || !title.trim()) {
     return res.status(422).json({ message: 'عنوان تب الزامی است.' });
   }
@@ -1730,6 +1932,13 @@ router.post('/admin/erp/presets', authMiddleware, adminMiddleware, (req: Request
   const slug = id ? String(id).trim() : `preset_${Date.now()}`;
   const activeIds = new Set(db.erpModules.filter(m => m.is_active !== false).map(m => m.id));
   const cleanModules = (Array.isArray(default_modules) ? default_modules : []).filter(mId => activeIds.has(mId));
+  const cleanMandatory = (Array.isArray(mandatory_modules) ? mandatory_modules : []).filter(mId => activeIds.has(mId));
+
+  cleanMandatory.forEach(mId => {
+    if (!cleanModules.includes(mId)) {
+      cleanModules.push(mId);
+    }
+  });
 
   const existingIdx = db.industryPresets.findIndex(p => p.id === slug);
   if (existingIdx >= 0) {
@@ -1737,12 +1946,14 @@ router.post('/admin/erp/presets', authMiddleware, adminMiddleware, (req: Request
       ...db.industryPresets[existingIdx],
       title: String(title).trim(),
       default_modules: cleanModules,
+      mandatory_modules: cleanMandatory,
     };
   } else {
     db.industryPresets.push({
       id: slug,
       title: String(title).trim(),
       default_modules: cleanModules,
+      mandatory_modules: cleanMandatory,
     });
   }
 
@@ -1752,7 +1963,7 @@ router.post('/admin/erp/presets', authMiddleware, adminMiddleware, (req: Request
     resourceType: 'INDUSTRY_PRESET',
     resourceId: slug,
     actionDescription: `تنظیم و ذخیره بسته پیشنهادی صنف «${title}»`,
-    details: { slug, title, modules_count: cleanModules.length, default_modules: cleanModules },
+    details: { slug, title, modules_count: cleanModules.length, default_modules: cleanModules, mandatory_modules: cleanMandatory },
   });
 
   return res.json({ message: 'تب (صنف) با موفقیت ذخیره شد.', data: db.industryPresets });
@@ -1900,7 +2111,7 @@ router.get('/admin/orders', authMiddleware, adminMiddleware, (_req: Request, res
         tracking_code: tx?.authority || '—',
         paid_at: tx?.paid_at || (o.status === 'paid' ? o.created_at : null),
         billing_period: o.billing_period || 'monthly',
-        user_count: o.user_count || 5
+        user_count: o.user_count || db.configuratorSettings.base_user_limit || 1
       };
     });
 
@@ -1969,7 +2180,7 @@ router.put('/admin/orders/:id', authMiddleware, adminMiddleware, (req: Request, 
         order.user_id,
         order.id,
         order.module_ids,
-        order.user_count || 5,
+        order.user_count || db.configuratorSettings.base_user_limit || 1,
         order.billing_period || 'monthly',
         'purchase'
       );
@@ -2181,6 +2392,7 @@ router.get('/admin/users/lookup', authMiddleware, adminMiddleware, (req: Request
       full_name: [user.first_name, user.last_name].filter(Boolean).join(' ') || 'بی‌نام',
       email: user.email,
       job_title: user.job_title,
+      national_code: user.national_code || null,
       role: user.role,
       is_owner: user.mobile === '09111273476',
       created_at: user.created_at,
@@ -2417,6 +2629,122 @@ const handleRoleUpdate = (req: Request, res: Response) => {
 router.put('/admin/users/:id/role', authMiddleware, adminMiddleware, handleRoleUpdate);
 router.post('/admin/users/:id/role', authMiddleware, adminMiddleware, handleRoleUpdate);
 
+// Admin: Update User Identity, Company and Early Renewal Privilege
+const handleAdminUserUpdate = (req: Request, res: Response) => {
+  const targetUserId = Number(req.params.id);
+  const targetUser = db.getUserById(targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({ message: 'کاربر مورد نظر یافت نشد.' });
+  }
+
+  const {
+    first_name,
+    last_name,
+    email,
+    job_title,
+    role,
+    mobile,
+    can_renew_early,
+    company_name,
+    name,
+    industry,
+    employee_count,
+    national_id,
+    national_code,
+    economic_code,
+    registration_num,
+    registration_number,
+    postal_code,
+    address,
+  } = req.body;
+
+  if (first_name !== undefined) targetUser.first_name = String(first_name).trim();
+  if (last_name !== undefined) targetUser.last_name = String(last_name).trim();
+  if (email !== undefined) targetUser.email = String(email).trim() || null;
+  if (job_title !== undefined) targetUser.job_title = String(job_title).trim();
+  if (national_code !== undefined) {
+    targetUser.national_code = toEnglishDigits(String(national_code || '')).replace(/\D/g, '').trim() || null;
+  } else if (national_id !== undefined) {
+    const cleanNat = toEnglishDigits(String(national_id || '')).replace(/\D/g, '').trim();
+    if (cleanNat.length === 10) {
+      targetUser.national_code = cleanNat;
+    }
+  }
+
+  // Mobile normalization & uniqueness check
+  if (mobile !== undefined) {
+    const rawMobile = String(mobile).trim();
+    const normalized = normalizeMobile(rawMobile);
+    if (rawMobile && !normalized) {
+      return res.status(422).json({ message: 'شماره همراه معتبر نیست.' });
+    }
+    if (normalized && normalized !== targetUser.mobile) {
+      const existing = db.users.find(u => u.mobile === normalized && u.id !== targetUserId);
+      if (existing) {
+        return res.status(422).json({ message: 'این شماره همراه قبلاً برای کاربر دیگری ثبت شده است.' });
+      }
+      targetUser.mobile = normalized;
+    }
+  }
+
+  // Role update (protect super admin)
+  if (role !== undefined) {
+    if (targetUser.mobile === '09111273476' || targetUser.id === 1) {
+      targetUser.role = 'admin';
+    } else if (['user', 'admin', 'support'].includes(role)) {
+      targetUser.role = role;
+    }
+  }
+
+  // can_renew_early flag
+  if (can_renew_early !== undefined) {
+    targetUser.can_renew_early = Boolean(can_renew_early);
+  }
+
+  targetUser.updated_at = new Date().toISOString();
+
+  // Company details update
+  const resolvedCompName = String(company_name || name || '').trim();
+  const resolvedIndustry = String(industry || 'فناوری اطلاعات و خدمات ابری').trim();
+  const resolvedEmpCount = Number(employee_count) || 10;
+
+  let company = db.getCompanyByUserId(targetUserId);
+  if (resolvedCompName || company) {
+    company = db.upsertCompany(targetUserId, resolvedCompName || company?.name || 'شرکت کاربری', resolvedIndustry, resolvedEmpCount, {
+      economic_code: String(economic_code || national_id || '').trim(),
+      national_id: String(national_id || economic_code || '').trim(),
+      registration_number: String(registration_number || registration_num || '').trim(),
+      postal_code: String(postal_code || '').trim(),
+      address: String(address || '').trim(),
+    });
+  }
+
+  db.save();
+
+  logPrivilegeEscalation(req, {
+    targetUserId,
+    targetUserName: [targetUser.first_name, targetUser.last_name].filter(Boolean).join(' ') || targetUser.mobile,
+    oldRole: targetUser.role,
+    newRole: targetUser.role,
+    actionDescription: `ویرایش مشخصات و هویت کاربر ${targetUser.mobile} توسط مدیر (تمدید زودهنگام: ${targetUser.can_renew_early ? 'فعال' : 'غیرفعال'})`,
+  });
+
+  return res.json({
+    success: true,
+    message: 'مشخصات و هویت کاربر با موفقیت ذخیره شد.',
+    user: {
+      ...targetUser,
+      can_renew_early: Boolean(targetUser.can_renew_early),
+      company: company || null,
+      company_name: company?.name || `${targetUser.first_name || ''} ${targetUser.last_name || ''}`.trim() || targetUser.mobile,
+    }
+  });
+};
+
+router.put('/admin/users/:id', authMiddleware, adminMiddleware, handleAdminUserUpdate);
+router.post('/admin/users/:id/update', authMiddleware, adminMiddleware, handleAdminUserUpdate);
+router.post('/admin/users/:id', authMiddleware, adminMiddleware, handleAdminUserUpdate);
+
 // 5. Delete User by ID (with owner protection & complete data wipe)
 router.delete('/admin/users/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const targetUserId = Number(req.params.id);
@@ -2507,7 +2835,7 @@ router.get('/admin/users/:id/details', authMiddleware, adminMiddleware, (req: Re
         status: o.status,
         created_at: o.created_at,
         package_name: pkg?.name || sub?.title || 'اشتراک ماژولار ابری کارویتا',
-        user_count: o.user_count || sub?.user_count || 5,
+        user_count: o.user_count || sub?.user_count || db.configuratorSettings.base_user_limit || 1,
         billing_period: o.billing_period || sub?.billing_period || 'monthly',
         transaction: tx ? {
           id: tx.id,
@@ -2529,7 +2857,9 @@ router.get('/admin/users/:id/details', authMiddleware, adminMiddleware, (req: Re
         last_name: targetUser.last_name,
         email: targetUser.email,
         job_title: targetUser.job_title,
+        national_code: targetUser.national_code || null,
         role: targetUser.role,
+        can_renew_early: Boolean(targetUser.can_renew_early),
         is_owner: targetUser.mobile === '09111273476',
         created_at: targetUser.created_at,
         company: company ? {
@@ -2611,7 +2941,7 @@ router.put('/admin/users/:userId/subscriptions/:subId/modules', authMiddleware, 
       amount: finalAmount,
       status: 'pending',
       module_ids: addedModules.length > 0 ? addedModules : module_ids,
-      user_count: sub.user_count || 5,
+      user_count: sub.user_count || db.configuratorSettings.base_user_limit || 1,
       billing_period: sub.billing_period || 'monthly',
       coupon_code: '',
       discount_amount: 0,
@@ -2666,7 +2996,7 @@ router.put('/admin/users/:userId/subscriptions/:subId/modules', authMiddleware, 
 // 8. Admin: Create Direct Subscription for User
 router.post('/admin/users/:userId/subscriptions', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const userId = Number(req.params.userId);
-  const { module_ids = [], duration_days = 365, user_count = 5, billing_period = 'yearly' } = req.body;
+  const { module_ids = [], duration_days = 365, user_count = (db.configuratorSettings.base_user_limit || 1), billing_period = 'yearly' } = req.body;
 
   const targetUser = db.getUserById(userId);
   if (!targetUser) {
@@ -2677,7 +3007,7 @@ router.post('/admin/users/:userId/subscriptions', authMiddleware, adminMiddlewar
     userId,
     null,
     Array.isArray(module_ids) && module_ids.length > 0 ? module_ids : db.erpModules.slice(0, 4).map(m => m.id),
-    Number(user_count) || 5,
+    Number(user_count) || db.configuratorSettings.base_user_limit || 1,
     billing_period === 'monthly' ? 'monthly' : 'yearly',
     'admin',
     Number(duration_days) || 365
@@ -4005,11 +4335,23 @@ router.post('/admin/gateways/sms/test', authMiddleware, adminMiddleware, async (
 router.get('/admin/gateways/sms/logs', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
   const limit = Math.min(Number(req.query.limit) || 100, 300);
   const rawLogs = (db.smsLogs || []).slice(0, limit);
-  const logs = rawLogs.map(l => ({
-    ...l,
-    created_at: (l as any).created_at || l.timestamp,
-    timestamp: l.timestamp || (l as any).created_at,
-  }));
+  const logs = rawLogs.map(l => {
+    let code = (l as any).code;
+    const msg = (l as any).message || '';
+    if (!code && msg) {
+      const m = msg.match(/(?:CODE|Code|کد تایید|کد|رمز)\s*[:=]\s*(\d{4,8})/i);
+      if (m) code = m[1];
+    }
+    if (!code && l.parameters && typeof l.parameters === 'object') {
+      code = (l.parameters as any).CODE || (l.parameters as any).code || (l.parameters as any).otp;
+    }
+    return {
+      ...l,
+      code,
+      created_at: (l as any).created_at || l.timestamp,
+      timestamp: l.timestamp || (l as any).created_at,
+    };
+  });
   return res.json({
     data: logs,
     total: (db.smsLogs || []).length,

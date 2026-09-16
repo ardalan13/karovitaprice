@@ -85,10 +85,115 @@ try {
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `created_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP"); } catch (Exception $ex) {}
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"); } catch (Exception $ex) {}
 
+    // Direct unconditional self-healing for ticketing & departments (never blocked by sys_migrations)
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `departments` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `name` VARCHAR(255) NOT NULL,
+            `icon` VARCHAR(100) NULL DEFAULT 'Layers',
+            `description` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `deleted_at` TIMESTAMP NULL DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $ex) {}
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `ticket_departments` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `name` VARCHAR(255) NOT NULL,
+            `icon` VARCHAR(100) NULL DEFAULT 'Layers',
+            `description` TEXT NULL,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `deleted_at` TIMESTAMP NULL DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $ex) {}
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `tickets` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `ticket_number` VARCHAR(50) NOT NULL,
+            `user_id` BIGINT UNSIGNED NOT NULL,
+            `department_id` BIGINT UNSIGNED NULL,
+            `department` VARCHAR(100) NULL,
+            `service_name` VARCHAR(100) NULL,
+            `package_name` VARCHAR(191) NULL,
+            `assigned_to` BIGINT UNSIGNED NULL,
+            `assigned_name` VARCHAR(100) NULL,
+            `subject` VARCHAR(255) NOT NULL,
+            `title` VARCHAR(255) NULL,
+            `priority` VARCHAR(20) NOT NULL DEFAULT 'medium',
+            `status` VARCHAR(50) NOT NULL DEFAULT 'open',
+            `is_security_info` TINYINT(1) NOT NULL DEFAULT 0,
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+            KEY `idx_tickets_user_id` (`user_id`),
+            KEY `idx_tickets_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $ex) {}
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `ticket_messages` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+            `ticket_id` BIGINT UNSIGNED NOT NULL,
+            `user_id` BIGINT UNSIGNED NOT NULL,
+            `sender_type` VARCHAR(50) NOT NULL DEFAULT 'user',
+            `user_name` VARCHAR(100) NULL,
+            `message` TEXT NOT NULL,
+            `attachments` TEXT NULL,
+            `is_security_info` TINYINT(1) NOT NULL DEFAULT 0,
+            `is_admin` TINYINT(1) NOT NULL DEFAULT 0,
+            `status` VARCHAR(20) NOT NULL DEFAULT 'sent',
+            `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+            `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+            KEY `idx_ticket_messages_ticket_id` (`ticket_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    } catch (Exception $ex) {}
+
+    // Ensure columns unconditionally exist
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `deleted_at` TIMESTAMP NULL DEFAULT NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `assigned_to` BIGINT UNSIGNED NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `assigned_name` VARCHAR(100) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `department_id` BIGINT UNSIGNED NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `department` VARCHAR(100) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `service_name` VARCHAR(100) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `package_name` VARCHAR(191) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `title` VARCHAR(255) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `is_security_info` TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `tickets` ADD `is_active` TINYINT(1) NOT NULL DEFAULT 1"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `deleted_at` TIMESTAMP NULL DEFAULT NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `is_security_info` TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `is_admin` TINYINT(1) NOT NULL DEFAULT 0"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `sender_type` VARCHAR(50) NOT NULL DEFAULT 'user'"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `user_name` VARCHAR(100) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `ticket_messages` ADD `attachments` TEXT NULL"); } catch (Exception $ex) {}
+
+    // Seed default departments if empty
+    try {
+        $dCheck = (int)$pdo->query("SELECT COUNT(*) FROM departments")->fetchColumn();
+        if ($dCheck === 0) {
+            $insD = $pdo->prepare("INSERT INTO departments (id, name, icon, description, is_active) VALUES (?, ?, ?, ?, 1)");
+            $insD->execute([1, 'پشتیبانی فنی و استقرار', 'Wrench', 'پاسخگویی به مشکلات عملکردی و فنی نرم‌افزار']);
+            $insD->execute([2, 'امور مالی و صدور فاکتور', 'CreditCard', 'پیگیری تراکنش‌ها، صورت‌حساب‌ها و واریزها']);
+            $insD->execute([3, 'مشاوره فروش و ماژول‌ها', 'ShoppingBag', 'مشاوره خرید، ارتقا پلن‌ها و فاکتورها']);
+            $insD->execute([4, 'پیشنهادات و شکایات', 'HelpCircle', 'ارتباط مستقیم با مدیریت سامانه کارویتا']);
+        }
+        $tdCheck = (int)$pdo->query("SELECT COUNT(*) FROM ticket_departments")->fetchColumn();
+        if ($tdCheck === 0) {
+            $pdo->exec("INSERT IGNORE INTO ticket_departments SELECT * FROM departments");
+        }
+    } catch (Exception $ex) {}
+
     // High-performance migration guard stored directly in MySQL to prevent metadata locking and slow responses
     $isSchemaReady = false;
     try {
-        $checkMig = $pdo->query("SELECT 1 FROM sys_migrations WHERE migration = 'v9_enterprise_standards_complete' LIMIT 1");
+        $checkMig = $pdo->query("SELECT 1 FROM sys_migrations WHERE migration = 'v10_enterprise_ticketing_and_departments_v2' LIMIT 1");
         if ($checkMig && $checkMig->fetch()) {
             $isSchemaReady = true;
         }
@@ -148,6 +253,110 @@ try {
         } catch (Exception $ex) {}
 
         try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `departments` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `name` VARCHAR(255) NOT NULL,
+              `icon` VARCHAR(100) NULL DEFAULT 'Layers',
+              `description` TEXT NULL,
+              `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+              `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+              `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              KEY `idx_departments_status` (`status`),
+              KEY `idx_departments_is_active` (`is_active`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `ticket_departments` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `name` VARCHAR(255) NOT NULL,
+              `icon` VARCHAR(100) NULL DEFAULT 'Layers',
+              `description` TEXT NULL,
+              `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+              `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+              `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              KEY `idx_ticket_departments_status` (`status`),
+              KEY `idx_ticket_departments_is_active` (`is_active`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+            // Seed default departments if empty
+            $dCnt = (int)$pdo->query("SELECT COUNT(*) FROM departments")->fetchColumn();
+            if ($dCnt === 0) {
+                $insD = $pdo->prepare("INSERT INTO departments (id, name, icon, description, is_active) VALUES (?, ?, ?, ?, 1)");
+                $insD->execute([1, 'پشتیبانی فنی و استقرار', 'Wrench', 'پاسخگویی به مشکلات عملکردی و فنی نرم‌افزار']);
+                $insD->execute([2, 'امور مالی و صدور فاکتور', 'CreditCard', 'پیگیری تراکنش‌ها، صورت‌حساب‌ها و واریزها']);
+                $insD->execute([3, 'مشاوره فروش و ماژول‌ها', 'ShoppingBag', 'مشاوره خرید، ارتقا پلن‌ها و فاکتورها']);
+                $insD->execute([4, 'پیشنهادات و شکایات', 'HelpCircle', 'ارتباط مستقیم با مدیریت سامانه کارویتا']);
+            }
+            $tdCnt = (int)$pdo->query("SELECT COUNT(*) FROM ticket_departments")->fetchColumn();
+            if ($tdCnt === 0) {
+                $pdo->exec("INSERT IGNORE INTO ticket_departments SELECT * FROM departments");
+            }
+        } catch (Exception $ex) {}
+
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `tickets` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `ticket_number` VARCHAR(50) NOT NULL,
+              `user_id` BIGINT UNSIGNED NOT NULL,
+              `department_id` BIGINT UNSIGNED NULL,
+              `department` VARCHAR(100) NULL,
+              `service_name` VARCHAR(100) NULL,
+              `package_name` VARCHAR(191) NULL,
+              `assigned_to` BIGINT UNSIGNED NULL,
+              `assigned_name` VARCHAR(100) NULL,
+              `subject` VARCHAR(255) NOT NULL,
+              `title` VARCHAR(255) NULL,
+              `priority` VARCHAR(20) NOT NULL DEFAULT 'medium',
+              `status` VARCHAR(50) NOT NULL DEFAULT 'open',
+              `is_security_info` TINYINT(1) NOT NULL DEFAULT 0,
+              `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+              `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE KEY `tickets_number_unique` (`ticket_number`),
+              KEY `idx_tickets_user_id` (`user_id`),
+              KEY `idx_tickets_department_id` (`department_id`),
+              KEY `idx_tickets_assigned_to` (`assigned_to`),
+              KEY `idx_tickets_status` (`status`),
+              KEY `idx_tickets_is_active` (`is_active`),
+              KEY `idx_tickets_created_at` (`created_at`),
+              KEY `idx_tickets_deleted_at` (`deleted_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        } catch (Exception $ex) {}
+
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `ticket_messages` (
+              `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+              `ticket_id` BIGINT UNSIGNED NOT NULL,
+              `user_id` BIGINT UNSIGNED NOT NULL,
+              `sender_type` VARCHAR(50) NOT NULL DEFAULT 'user',
+              `user_name` VARCHAR(100) NULL,
+              `message` TEXT NOT NULL,
+              `attachments` TEXT NULL,
+              `is_security_info` TINYINT(1) NOT NULL DEFAULT 0,
+              `is_admin` TINYINT(1) NOT NULL DEFAULT 0,
+              `status` VARCHAR(20) NOT NULL DEFAULT 'sent',
+              `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+              `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+              `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+              PRIMARY KEY (`id`),
+              KEY `idx_ticket_messages_ticket_id` (`ticket_id`),
+              KEY `idx_ticket_messages_user_id` (`user_id`),
+              KEY `idx_ticket_messages_status` (`status`),
+              KEY `idx_ticket_messages_is_active` (`is_active`),
+              KEY `idx_ticket_messages_created_at` (`created_at`),
+              KEY `idx_ticket_messages_deleted_at` (`deleted_at`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        } catch (Exception $ex) {}
+
+        try {
             $pdo->exec("CREATE TABLE IF NOT EXISTS `ticket_attachments` (
               `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
               `ticket_id` BIGINT UNSIGNED NOT NULL,
@@ -195,6 +404,7 @@ try {
     $ensureColumnExists($pdo, 'users', 'onboarding_step', "INT DEFAULT 1");
     $ensureColumnExists($pdo, 'users', 'onboarding_completed_at', "TIMESTAMP NULL");
     $ensureColumnExists($pdo, 'users', 'last_login_at', "TIMESTAMP NULL");
+    $ensureColumnExists($pdo, 'users', 'can_renew_early', "TINYINT(1) DEFAULT 0");
     try {
         $pdo->exec("ALTER TABLE `users` MODIFY `name` VARCHAR(255) NULL");
     } catch (Exception $ex) {}
@@ -203,11 +413,14 @@ try {
     $ensureColumnExists($pdo, 'companies', 'company_name', "VARCHAR(255) NULL");
     $ensureColumnExists($pdo, 'companies', 'subdomain', "VARCHAR(100) NULL");
     $ensureColumnExists($pdo, 'companies', 'economic_code', "VARCHAR(50) NULL");
+    $ensureColumnExists($pdo, 'companies', 'national_id', "VARCHAR(50) NULL");
     $ensureColumnExists($pdo, 'companies', 'registration_num', "VARCHAR(50) NULL");
     $ensureColumnExists($pdo, 'companies', 'postal_code', "VARCHAR(20) NULL");
     $ensureColumnExists($pdo, 'companies', 'province', "VARCHAR(100) NULL");
     $ensureColumnExists($pdo, 'companies', 'city', "VARCHAR(100) NULL");
     $ensureColumnExists($pdo, 'companies', 'industry', "VARCHAR(100) NULL");
+    $ensureColumnExists($pdo, 'companies', 'employee_count', "VARCHAR(50) NULL");
+    $ensureColumnExists($pdo, 'companies', 'address', "TEXT NULL");
 
     // 3. Subscriptions table columns
     $ensureColumnExists($pdo, 'subscriptions', 'order_id', "BIGINT UNSIGNED NULL");
@@ -263,14 +476,21 @@ try {
 
     // 4.2 Tickets & Ticket Messages table columns
     $ensureColumnExists($pdo, 'tickets', 'department', "VARCHAR(100) NULL");
+    $ensureColumnExists($pdo, 'tickets', 'department_id', "BIGINT UNSIGNED NULL");
+    $ensureColumnExists($pdo, 'tickets', 'assigned_to', "BIGINT UNSIGNED NULL");
+    $ensureColumnExists($pdo, 'tickets', 'assigned_name', "VARCHAR(100) NULL");
     $ensureColumnExists($pdo, 'tickets', 'title', "VARCHAR(255) NULL");
     $ensureColumnExists($pdo, 'tickets', 'package_name', "VARCHAR(191) NULL");
     $ensureColumnExists($pdo, 'tickets', 'service_name', "VARCHAR(100) NULL");
     $ensureColumnExists($pdo, 'tickets', 'priority', "VARCHAR(20) DEFAULT 'medium'");
     $ensureColumnExists($pdo, 'tickets', 'status', "VARCHAR(20) DEFAULT 'open'");
+    $ensureColumnExists($pdo, 'tickets', 'is_security_info', "TINYINT(1) DEFAULT 0");
     $ensureColumnExists($pdo, 'tickets', 'updated_at', "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
     $ensureColumnExists($pdo, 'ticket_messages', 'attachments', "TEXT NULL");
     $ensureColumnExists($pdo, 'ticket_messages', 'sender_type', "VARCHAR(50) DEFAULT 'user'");
+    $ensureColumnExists($pdo, 'ticket_messages', 'user_name', "VARCHAR(100) NULL");
+    $ensureColumnExists($pdo, 'ticket_messages', 'is_security_info', "TINYINT(1) DEFAULT 0");
+    $ensureColumnExists($pdo, 'ticket_messages', 'is_admin', "TINYINT(1) DEFAULT 0");
 
     // Ensure gateway_settings & sms_logs tables exist
     $pdo->exec("CREATE TABLE IF NOT EXISTS gateway_settings (
@@ -380,6 +600,16 @@ try {
         }
     } catch (Exception $ex) {}
 
+    // Self-heal corrupted module dependencies in MySQL database (mail, contacts, calendar)
+    foreach (['pricing_modules', 'erp_modules'] as $modTable) {
+        try {
+            $pdo->query("SELECT 1 FROM {$modTable} LIMIT 1");
+            $pdo->exec("UPDATE {$modTable} SET dependencies = '[\"contacts\"]' WHERE id = 'mail' AND (dependencies LIKE '%crm%' OR dependencies LIKE '%sale%')");
+            $pdo->exec("UPDATE {$modTable} SET dependencies = '[]' WHERE id = 'contacts' AND (dependencies LIKE '%crm%' OR dependencies LIKE '%mail%')");
+            $pdo->exec("UPDATE {$modTable} SET dependencies = '[\"mail\",\"contacts\"]' WHERE id = 'calendar' AND (dependencies LIKE '%crm%' OR dependencies LIKE '%sale%')");
+        } catch (Exception $e) {}
+    }
+
     // Auto-seed modules and presets from db.json if tables exist but are empty
     try {
             $mCount = 0;
@@ -486,7 +716,7 @@ try {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         } catch (Exception $ex) {}
         try {
-            $pdo->exec("INSERT IGNORE INTO sys_migrations (migration) VALUES ('v9_enterprise_standards_complete')");
+            $pdo->exec("INSERT IGNORE INTO sys_migrations (migration) VALUES ('v10_enterprise_ticketing_and_departments_v2')");
         } catch (Exception $ex) {}
     }
 } catch (Exception $e) {
@@ -634,7 +864,7 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
     $userId = (int)$order['user_id'];
     $period = $order['billing_period'] ?? 'yearly';
     $days = ($period === 'yearly') ? 365 : (($period === 'quarterly' || $period === '3_months') ? 90 : (($period === 'semiannual' || $period === '6_months') ? 180 : 30));
-    $orderUserCount = (int)($order['user_count'] ?? 5);
+    $orderUserCount = (int)($order['user_count'] ?? 1);
     $orderAmount = (int)($order['amount'] ?? $order['final_amount'] ?? 0);
     $ordNum = $order['order_number'] ?? ('ORD-' . $order['id']);
 
@@ -699,7 +929,7 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
             $mergedModIdsStr = json_encode($mergedModIds, JSON_UNESCAPED_UNICODE);
 
             // 3. User count: for renewal use order count if set, otherwise max capacity
-            $existingUserCount = (int)($activeSub['user_count'] ?? $activeSub['user_limit'] ?? 5);
+            $existingUserCount = (int)($activeSub['user_count'] ?? $activeSub['user_limit'] ?? 1);
             $newUserCount = ($isRenewal && $orderUserCount > 0) ? $orderUserCount : max($existingUserCount, $orderUserCount);
 
             // 4. Financial tracking: accumulate total price
@@ -1427,7 +1657,7 @@ if ($path === '/onboarding' && $method === 'GET') {
                     'id' => (int)$trialSubRow['id'],
                     'package_name' => $trialSubRow['package_name'] ?: $trialSubRow['title'],
                     'module_ids' => $tModIds,
-                    'user_count' => (int)($trialSubRow['user_count'] ?? $trialSubRow['user_limit'] ?? 5),
+                    'user_count' => (int)($trialSubRow['user_count'] ?? $trialSubRow['user_limit'] ?? 1),
                     'status' => $trialSubRow['status'],
                     'expires_at' => $trialSubRow['expires_at']
                 ];
@@ -1500,6 +1730,16 @@ if ($path === '/onboarding/company' && $method === 'POST') {
     $industry = trim($body['industry'] ?? '');
     $jobTitle = trim($body['job_title'] ?? '');
 
+    if (empty($compName)) {
+        sendError('نام شرکت یا کسب‌وکار الزامی است.', 422);
+    }
+    if (empty($industry)) {
+        sendError('انتخاب حوزه فعالیت (صنف تخصصی) الزامی است.', 422);
+    }
+    if (empty($jobTitle)) {
+        sendError('انتخاب سمت شما در شرکت الزامی است.', 422);
+    }
+
     $comp = null;
     if ($pdo && isset($user['id'])) {
         try {
@@ -1555,6 +1795,24 @@ if ($path === '/user/company') {
         $city = trim($body['city'] ?? '');
         $address = trim($body['address'] ?? '');
         $phone = trim($body['phone'] ?? '');
+
+        $cleanNationalId = preg_replace('/\D/', '', toEnDigits($nationalId));
+        $cleanEconomicCode = preg_replace('/\D/', '', toEnDigits($economicCode));
+        $cleanPostalCode = preg_replace('/\D/', '', toEnDigits($postalCode));
+
+        if (!empty($cleanNationalId) && strlen($cleanNationalId) !== 10 && strlen($cleanNationalId) !== 11) {
+            sendError('کد ملی باید ۱۰ رقم و شناسه ملی شرکت باید ۱۱ رقم باشد.', 422);
+        }
+        if (!empty($cleanEconomicCode) && strlen($cleanEconomicCode) !== 11) {
+            sendError('شماره اقتصادی باید ۱۱ رقمی باشد.', 422);
+        }
+        if (!empty($cleanPostalCode) && strlen($cleanPostalCode) !== 10) {
+            sendError('کد پستی باید ۱۰ رقمی باشد.', 422);
+        }
+
+        $nationalId = $cleanNationalId ?: $nationalId;
+        $economicCode = $cleanEconomicCode ?: $economicCode;
+        $postalCode = $cleanPostalCode ?: $postalCode;
 
         if ($pdo && isset($user['id'])) {
             try {
@@ -1662,7 +1920,7 @@ if ($path === '/dashboard') {
                     'status' => $s['status'],
                     'source' => $s['source'],
                     'billing_period' => $s['billing_period'],
-                    'user_count' => (int)($s['user_count'] ?? $s['user_limit'] ?? 5),
+                    'user_count' => (int)($s['user_count'] ?? $s['user_limit'] ?? 1),
                     'price' => (int)($s['price'] ?? $s['total_price'] ?? 0),
                     'order_number' => $s['order_number'],
                     'module_ids' => $modIds,
@@ -1682,7 +1940,10 @@ if ($path === '/dashboard') {
             $trialStmt = $pdo->prepare("SELECT COUNT(*) FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%')");
             $trialStmt->execute([$user['id']]);
             $user['has_used_trial'] = (int)$trialStmt->fetchColumn() > 0;
+            $user['can_renew_early'] = !empty($user['can_renew_early']);
         } catch (Exception $e) {}
+    } else {
+        $user['can_renew_early'] = !empty($user['can_renew_early']);
     }
 
     sendJson([
@@ -1730,9 +1991,22 @@ if ($path === '/user/purchased-packages') {
     $pkgs = [];
     if ($pdo && isset($user['id'])) {
         try {
-            $stmt = $pdo->prepare("SELECT DISTINCT package_name, title, id FROM subscriptions WHERE user_id = ? AND status = 'active'");
+            $stmt = $pdo->prepare("SELECT id, package_name, title, status, expires_at, source FROM subscriptions WHERE user_id = ? AND status = 'active' ORDER BY id DESC");
             $stmt->execute([$user['id']]);
-            $pkgs = $stmt->fetchAll() ?: [];
+            $rawRows = $stmt->fetchAll() ?: [];
+            foreach ($rawRows as $row) {
+                $pkgName = $row['title'] ?: ($row['package_name'] ?: ('اشتراک فعال شماره ' . $row['id']));
+                $pkgs[] = [
+                    'id' => (int)$row['id'],
+                    'name' => $pkgName,
+                    'title' => $row['title'] ?: $pkgName,
+                    'package_name' => $row['package_name'] ?: $pkgName,
+                    'status' => $row['status'],
+                    'is_active' => true,
+                    'expires_at' => $row['expires_at'] ?? null,
+                    'source' => $row['source'] ?? null,
+                ];
+            }
         } catch (Exception $e) {}
     }
     sendJson(['data' => $pkgs, 'packages' => $pkgs]);
@@ -1758,16 +2032,22 @@ if ($path === '/departments' || $path === '/tickets/departments') {
     $depts = [];
     if ($pdo) {
         try {
-            $stmt = $pdo->query("SELECT * FROM ticket_departments WHERE is_active = 1 ORDER BY id ASC");
-            $depts = $stmt->fetchAll() ?: [];
+            // Check departments first, then ticket_departments
+            try {
+                $stmt = $pdo->query("SELECT * FROM departments WHERE is_active = 1 ORDER BY id ASC");
+                $depts = $stmt->fetchAll() ?: [];
+            } catch (Exception $e1) {
+                $stmt = $pdo->query("SELECT * FROM ticket_departments WHERE is_active = 1 ORDER BY id ASC");
+                $depts = $stmt->fetchAll() ?: [];
+            }
         } catch (Exception $e) {}
     }
     if (empty($depts)) {
         $depts = [
-            ['id' => 1, 'name' => 'پشتیبانی فنی و استقرار', 'slug' => 'technical', 'icon' => 'Cpu'],
-            ['id' => 2, 'name' => 'امور مالی و صدور فاکتور', 'slug' => 'finance', 'icon' => 'CreditCard'],
-            ['id' => 3, 'name' => 'مشاوره فروش و ماژول‌ها', 'slug' => 'sales', 'icon' => 'ShoppingBag'],
-            ['id' => 4, 'name' => 'پیشنهادات و شکایات', 'slug' => 'general', 'icon' => 'MessageSquare']
+            ['id' => 1, 'name' => 'پشتیبانی فنی و استقرار', 'slug' => 'technical', 'icon' => 'Wrench', 'description' => 'پاسخگویی به مشکلات عملکردی و فنی نرم‌افزار'],
+            ['id' => 2, 'name' => 'امور مالی و صدور فاکتور', 'slug' => 'finance', 'icon' => 'CreditCard', 'description' => 'پیگیری تراکنش‌ها، صورت‌حساب‌ها و واریزها'],
+            ['id' => 3, 'name' => 'مشاوره فروش و ماژول‌ها', 'slug' => 'sales', 'icon' => 'ShoppingBag', 'description' => 'مشاوره خرید، ارتقا پلن‌ها و فاکتورها'],
+            ['id' => 4, 'name' => 'پیشنهادات و شکایات', 'slug' => 'general', 'icon' => 'HelpCircle', 'description' => 'ارتباط مستقیم با مدیریت سامانه کارویتا']
         ];
     }
     sendJson(['departments' => $depts, 'data' => $depts]);
@@ -1778,7 +2058,19 @@ if ($path === '/admin/support-staff') {
     if ($pdo) {
         try {
             $stmt = $pdo->query("SELECT id, first_name, last_name, mobile, role, email FROM users WHERE role IN ('admin', 'support') AND status = 'active' ORDER BY id ASC");
-            $staff = $stmt->fetchAll() ?: [];
+            $rawStaff = $stmt->fetchAll() ?: [];
+            foreach ($rawStaff as $s) {
+                $fullName = trim(($s['first_name'] ?? '') . ' ' . ($s['last_name'] ?? ''));
+                $staff[] = [
+                    'id' => (int)$s['id'],
+                    'name' => $fullName ?: ($s['mobile'] ?? 'کارشناس'),
+                    'first_name' => $s['first_name'] ?? '',
+                    'last_name' => $s['last_name'] ?? '',
+                    'mobile' => $s['mobile'] ?? '',
+                    'role' => $s['role'] ?? 'support',
+                    'department' => ($s['role'] === 'admin' ? 'مدیریت ارشد' : 'پشتیبانی فنی')
+                ];
+            }
         } catch (Exception $e) {}
     }
     sendJson(['data' => $staff, 'staff' => $staff]);
@@ -1790,19 +2082,112 @@ if ($path === '/admin/support-staff') {
 if ($path === '/admin/tickets') {
     $user = getCurrentUser($pdo);
     $tickets = [];
+    $counts = [
+        'all' => 0,
+        'open' => 0,
+        'in_progress' => 0,
+        'waiting_user' => 0,
+        'closed' => 0
+    ];
+
     if ($pdo) {
         try {
-            $sql = "SELECT t.*, u.first_name, u.last_name, u.mobile, d.name AS department_name, s.first_name AS staff_first, s.last_name AS staff_last 
+            $deptTable = 'departments';
+            try { $pdo->query("SELECT 1 FROM departments LIMIT 1"); } catch (Exception $e) { $deptTable = 'ticket_departments'; }
+
+            $hasDelCol = false;
+            try { $pdo->query("SELECT deleted_at FROM tickets LIMIT 1"); $hasDelCol = true; } catch (Exception $e) {}
+
+            // 1. Calculate Tab Counts across all tickets
+            $delClause = $hasDelCol ? "WHERE deleted_at IS NULL" : "";
+            $cRows = $pdo->query("SELECT status, COUNT(*) as c FROM tickets {$delClause} GROUP BY status")->fetchAll() ?: [];
+            $totalCount = 0;
+            foreach ($cRows as $cr) {
+                $st = $cr['status'];
+                $cnt = (int)$cr['c'];
+                $totalCount += $cnt;
+                if (isset($counts[$st])) {
+                    $counts[$st] = $cnt;
+                }
+            }
+            $counts['all'] = $totalCount;
+
+            // 2. Build filtered query
+            $where = [];
+            if ($hasDelCol) {
+                $where[] = "t.deleted_at IS NULL";
+            }
+            $params = [];
+
+            $status = trim($_GET['status'] ?? 'all');
+            if (!empty($status) && $status !== 'all') {
+                $where[] = "t.status = ?";
+                $params[] = $status;
+            }
+
+            $deptId = trim($_GET['department_id'] ?? '');
+            if (!empty($deptId)) {
+                $where[] = "t.department_id = ?";
+                $params[] = (int)$deptId;
+            }
+
+            $staffId = trim($_GET['assigned_to'] ?? '');
+            if (!empty($staffId)) {
+                $where[] = "t.assigned_to = ?";
+                $params[] = (int)$staffId;
+            }
+
+            $search = trim($_GET['search'] ?? '');
+            if (!empty($search)) {
+                $where[] = "(t.ticket_number LIKE ? OR t.subject LIKE ? OR t.title LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.mobile LIKE ?)";
+                $term = "%{$search}%";
+                for ($i = 0; $i < 6; $i++) $params[] = $term;
+            }
+
+            $whereSql = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+
+            $sql = "SELECT t.*, 
+                           COALESCE(u.first_name, '') AS first_name, 
+                           COALESCE(u.last_name, '') AS last_name, 
+                           COALESCE(u.mobile, '') AS mobile, 
+                           COALESCE(d.name, 'عمومی') AS department_name
                     FROM tickets t 
-                    JOIN users u ON t.user_id = u.id 
-                    LEFT JOIN ticket_departments d ON t.department_id = d.id 
-                    LEFT JOIN users s ON t.assigned_to = s.id 
-                    ORDER BY t.updated_at DESC, t.id DESC";
-            $stmt = $pdo->query($sql);
+                    LEFT JOIN users u ON t.user_id = u.id 
+                    LEFT JOIN {$deptTable} d ON t.department_id = d.id 
+                    {$whereSql}
+                    ORDER BY t.id DESC";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             $tickets = $stmt->fetchAll() ?: [];
-        } catch (Exception $e) {}
+
+            foreach ($tickets as &$t) {
+                $t['id'] = (int)$t['id'];
+                $t['department_id'] = (int)($t['department_id'] ?? 1);
+                $userName = trim(($t['first_name'] ?? '') . ' ' . ($t['last_name'] ?? ''));
+                $t['user_name'] = $userName ?: ($t['mobile'] ?: 'کاربر سیستم');
+            }
+        } catch (Exception $e) {
+            // Fallback direct query
+            try {
+                $fStmt = $pdo->query("SELECT * FROM tickets ORDER BY id DESC LIMIT 100");
+                $tickets = $fStmt->fetchAll() ?: [];
+                foreach ($tickets as &$t) {
+                    $t['id'] = (int)$t['id'];
+                    $t['department_id'] = (int)($t['department_id'] ?? 1);
+                    $t['department_name'] = $t['department'] ?? 'عمومی';
+                    $t['user_name'] = 'کاربر سیستم';
+                }
+            } catch (Exception $fe) {}
+        }
     }
-    sendJson(['tickets' => $tickets, 'data' => $tickets]);
+
+    sendJson([
+        'tickets' => $tickets, 
+        'data' => $tickets, 
+        'counts' => $counts, 
+        'total' => count($tickets)
+    ]);
 }
 
 if ($path === '/tickets' || $path === '/user/tickets') {
@@ -1811,79 +2196,69 @@ if ($path === '/tickets' || $path === '/user/tickets') {
     if ($method === 'POST') {
         $subject = trim($body['subject'] ?? $body['title'] ?? '');
         $deptId = (int)($body['department_id'] ?? 1);
-        $deptSlug = trim($body['department'] ?? 'technical');
         $priority = trim($body['priority'] ?? 'medium');
-        $packageName = trim($body['package_name'] ?? $body['service_name'] ?? 'عمومی');
+        $serviceName = trim($body['service_name'] ?? $body['package_name'] ?? 'عمومی');
         $initialMessage = trim($body['message'] ?? $body['content'] ?? '');
-        $attachments = isset($body['attachments']) ? json_encode($body['attachments'], JSON_UNESCAPED_UNICODE) : null;
+        $isSecurityInfo = !empty($body['is_security_info']) ? 1 : 0;
+        $attachments = isset($body['attachments']) ? (is_string($body['attachments']) ? $body['attachments'] : json_encode($body['attachments'], JSON_UNESCAPED_UNICODE)) : null;
 
         if (empty($subject) || empty($initialMessage)) {
             sendError('موضوع تیکت و متن پیام الزامی است.', 422);
         }
 
+        $userId = (isset($user['id']) && (int)$user['id'] > 0) ? (int)$user['id'] : 1;
         $ticketNumber = 'TKT-' . date('Ymd') . '-' . rand(1000, 9999);
         $ticketId = null;
 
-        if ($pdo && isset($user['id'])) {
+        if ($pdo) {
             try {
-                // Ensure required columns exist dynamically in tickets table
-                $colsStmt = $pdo->query("SHOW COLUMNS FROM tickets");
-                $existingCols = array_map('strtolower', $colsStmt->fetchAll(PDO::FETCH_COLUMN));
+                $deptTable = 'departments';
+                try { $pdo->query("SELECT 1 FROM departments LIMIT 1"); } catch (Exception $e) { $deptTable = 'ticket_departments'; }
 
-                if (!in_array('department', $existingCols)) {
-                    try { $pdo->exec("ALTER TABLE tickets ADD COLUMN department VARCHAR(100) NULL AFTER department_id"); $existingCols[] = 'department'; } catch (Exception $ex) {}
-                }
-                if (!in_array('title', $existingCols)) {
-                    try { $pdo->exec("ALTER TABLE tickets ADD COLUMN title VARCHAR(255) NULL AFTER subject"); $existingCols[] = 'title'; } catch (Exception $ex) {}
-                }
-                if (!in_array('package_name', $existingCols)) {
-                    try { $pdo->exec("ALTER TABLE tickets ADD COLUMN package_name VARCHAR(191) NULL"); $existingCols[] = 'package_name'; } catch (Exception $ex) {}
-                }
-                if (!in_array('service_name', $existingCols)) {
-                    try { $pdo->exec("ALTER TABLE tickets ADD COLUMN service_name VARCHAR(100) NULL"); $existingCols[] = 'service_name'; } catch (Exception $ex) {}
-                }
+                $deptName = 'عمومی';
+                try {
+                    $dStmt = $pdo->prepare("SELECT name FROM {$deptTable} WHERE id = ? LIMIT 1");
+                    $dStmt->execute([$deptId]);
+                    $foundD = $dStmt->fetchColumn();
+                    if ($foundD) $deptName = $foundD;
+                } catch (Exception $e) {}
 
-                // Build dynamic insert array to guarantee query never fails on missing columns
-                $insertFields = ['ticket_number', 'user_id', 'department_id', 'subject', 'priority', 'status'];
-                $insertValues = [$ticketNumber, $user['id'], $deptId, $subject, $priority, 'open'];
-
-                if (in_array('department', $existingCols)) {
-                    $insertFields[] = 'department';
-                    $insertValues[] = $deptSlug;
-                }
-                if (in_array('title', $existingCols)) {
-                    $insertFields[] = 'title';
-                    $insertValues[] = $subject;
-                }
-                if (in_array('package_name', $existingCols)) {
-                    $insertFields[] = 'package_name';
-                    $insertValues[] = $packageName;
-                }
-                if (in_array('service_name', $existingCols)) {
-                    $insertFields[] = 'service_name';
-                    $insertValues[] = $packageName;
+                try {
+                    $stmt = $pdo->prepare("INSERT INTO tickets (ticket_number, user_id, department_id, department, service_name, package_name, subject, title, priority, status, is_security_info, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, 1, NOW(), NOW())");
+                    $stmt->execute([
+                        $ticketNumber,
+                        $userId,
+                        $deptId,
+                        $deptName,
+                        $serviceName,
+                        $serviceName,
+                        $subject,
+                        $subject,
+                        $priority,
+                        $isSecurityInfo
+                    ]);
+                    $ticketId = (int)$pdo->lastInsertId();
+                } catch (Exception $ie) {
+                    $stmt = $pdo->prepare("INSERT INTO tickets (ticket_number, user_id, department_id, subject, priority, status) VALUES (?, ?, ?, ?, ?, 'open')");
+                    $stmt->execute([$ticketNumber, $userId, $deptId, $subject, $priority]);
+                    $ticketId = (int)$pdo->lastInsertId();
                 }
 
-                $fieldNames = implode(', ', $insertFields);
-                $placeholders = implode(', ', array_fill(0, count($insertFields), '?'));
-
-                $stmt = $pdo->prepare("INSERT INTO tickets ({$fieldNames}) VALUES ({$placeholders})");
-                $stmt->execute($insertValues);
-                $ticketId = $pdo->lastInsertId();
-
-                // Dynamic verification for ticket_messages
-                $msgColsStmt = $pdo->query("SHOW COLUMNS FROM ticket_messages");
-                $existingMsgCols = array_map('strtolower', $msgColsStmt->fetchAll(PDO::FETCH_COLUMN));
-                if (!in_array('attachments', $existingMsgCols)) {
-                    try { $pdo->exec("ALTER TABLE ticket_messages ADD COLUMN attachments TEXT NULL"); $existingMsgCols[] = 'attachments'; } catch (Exception $ex) {}
-                }
-
-                if (in_array('attachments', $existingMsgCols)) {
-                    $stmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, message, attachments) VALUES (?, ?, 'user', ?, ?)");
-                    $stmt->execute([$ticketId, $user['id'], $initialMessage, $attachments]);
-                } else {
-                    $stmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, message) VALUES (?, ?, 'user', ?)");
-                    $stmt->execute([$ticketId, $user['id'], $initialMessage]);
+                // Insert initial message
+                $senderName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?: ($user['mobile'] ?? 'کاربر');
+                try {
+                    $msgStmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, user_name, message, attachments, is_security_info, is_active, created_at, updated_at) VALUES (?, ?, 'user', ?, ?, ?, ?, 1, NOW(), NOW())");
+                    $msgStmt->execute([
+                        $ticketId,
+                        $userId,
+                        $senderName,
+                        $initialMessage,
+                        $attachments,
+                        $isSecurityInfo
+                    ]);
+                } catch (Exception $me) {
+                    $msgStmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, message, attachments) VALUES (?, ?, ?, ?)");
+                    $msgStmt->execute([$ticketId, $userId, $initialMessage, $attachments]);
                 }
 
                 logAudit($pdo, 'TICKET_CREATED', 'TICKET_MANAGEMENT', "ثبت تیکت جدید #{$ticketNumber}: {$subject}");
@@ -1899,6 +2274,8 @@ if ($path === '/tickets' || $path === '/user/tickets') {
                 'ticket_number' => $ticketNumber,
                 'subject' => $subject,
                 'department_id' => $deptId,
+                'department_name' => $deptName ?? 'عمومی',
+                'service_name' => $serviceName,
                 'priority' => $priority,
                 'status' => 'open',
                 'created_at' => date('Y-m-d H:i:s')
@@ -1907,45 +2284,227 @@ if ($path === '/tickets' || $path === '/user/tickets') {
         ], 201);
     }
 
-    // GET: List tickets
+    // GET: List tickets for user
     $tickets = [];
+    $counts = [
+        'all' => 0,
+        'open' => 0,
+        'in_progress' => 0,
+        'waiting_user' => 0,
+        'closed' => 0
+    ];
+
     if ($pdo && isset($user['id'])) {
         try {
-            $sql = ($user['role'] === 'admin' || $user['role'] === 'support')
-                ? "SELECT t.*, u.first_name, u.last_name, u.mobile, d.name AS department_name FROM tickets t JOIN users u ON t.user_id = u.id LEFT JOIN ticket_departments d ON t.department_id = d.id ORDER BY t.updated_at DESC, t.id DESC"
-                : "SELECT t.*, d.name AS department_name FROM tickets t LEFT JOIN ticket_departments d ON t.department_id = d.id WHERE t.user_id = ? ORDER BY t.updated_at DESC, t.id DESC";
+            $isAdmin = ($user['role'] === 'admin' || $user['role'] === 'support');
+            $deptTable = 'departments';
+            try { $pdo->query("SELECT 1 FROM departments LIMIT 1"); } catch (Exception $e) { $deptTable = 'ticket_departments'; }
+
+            $hasDelCol = false;
+            try { $pdo->query("SELECT deleted_at FROM tickets LIMIT 1"); $hasDelCol = true; } catch (Exception $e) {}
+
+            // Counts for user tabs
+            $delClause = $hasDelCol ? "AND deleted_at IS NULL" : "";
+            $delWhere = $hasDelCol ? "WHERE deleted_at IS NULL" : "";
+            $cSql = $isAdmin 
+                ? "SELECT status, COUNT(*) as c FROM tickets {$delWhere} GROUP BY status" 
+                : "SELECT status, COUNT(*) as c FROM tickets WHERE user_id = ? {$delClause} GROUP BY status";
+            $cStmt = $pdo->prepare($cSql);
+            if ($isAdmin) { $cStmt->execute(); } else { $cStmt->execute([$user['id']]); }
+            $cRows = $cStmt->fetchAll() ?: [];
+            $totalCount = 0;
+            foreach ($cRows as $cr) {
+                $st = $cr['status'];
+                $cnt = (int)$cr['c'];
+                $totalCount += $cnt;
+                if (isset($counts[$st])) {
+                    $counts[$st] = $cnt;
+                }
+            }
+            $counts['all'] = $totalCount;
+
+            // List query
+            $where = [];
+            if ($hasDelCol) {
+                $where[] = "t.deleted_at IS NULL";
+            }
+            $params = [];
+            if (!$isAdmin) {
+                $where[] = "t.user_id = ?";
+                $params[] = $user['id'];
+            }
+            $status = trim($_GET['status'] ?? 'all');
+            if (!empty($status) && $status !== 'all') {
+                $where[] = "t.status = ?";
+                $params[] = $status;
+            }
+
+            $whereSql = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+            $sql = "SELECT t.*, 
+                           COALESCE(d.name, 'عمومی') AS department_name, 
+                           COALESCE(u.first_name, '') AS first_name, 
+                           COALESCE(u.last_name, '') AS last_name 
+                    FROM tickets t 
+                    LEFT JOIN {$deptTable} d ON t.department_id = d.id 
+                    LEFT JOIN users u ON t.user_id = u.id 
+                    {$whereSql} 
+                    ORDER BY t.id DESC";
 
             $stmt = $pdo->prepare($sql);
-            if ($user['role'] === 'admin' || $user['role'] === 'support') {
-                $stmt->execute();
-            } else {
-                $stmt->execute([$user['id']]);
-            }
+            $stmt->execute($params);
             $tickets = $stmt->fetchAll() ?: [];
-        } catch (Exception $e) {}
+
+            foreach ($tickets as &$t) {
+                $t['id'] = (int)$t['id'];
+                $t['department_id'] = (int)($t['department_id'] ?? 1);
+                $uName = trim(($t['first_name'] ?? '') . ' ' . ($t['last_name'] ?? ''));
+                $t['user_name'] = $uName ?: ($t['mobile'] ?? 'کاربر');
+            }
+        } catch (Exception $e) {
+            // Fallback user query
+            try {
+                $isAdmin = ($user['role'] === 'admin' || $user['role'] === 'support');
+                $fSql = $isAdmin ? "SELECT * FROM tickets ORDER BY id DESC LIMIT 100" : "SELECT * FROM tickets WHERE user_id = ? ORDER BY id DESC LIMIT 100";
+                $fStmt = $pdo->prepare($fSql);
+                if ($isAdmin) { $fStmt->execute(); } else { $fStmt->execute([$user['id']]); }
+                $tickets = $fStmt->fetchAll() ?: [];
+                foreach ($tickets as &$t) {
+                    $t['id'] = (int)$t['id'];
+                    $t['department_id'] = (int)($t['department_id'] ?? 1);
+                    $t['department_name'] = $t['department'] ?? 'عمومی';
+                    $t['user_name'] = 'کاربر';
+                }
+            } catch (Exception $fe) {}
+        }
     }
 
-    sendJson(['tickets' => $tickets, 'data' => $tickets]);
+    sendJson([
+        'tickets' => $tickets, 
+        'data' => $tickets, 
+        'counts' => $counts
+    ]);
 }
 
 // Single Ticket Details & Messages
 if (preg_match('#^/tickets/(\d+)$#', $path, $matches) && $method === 'GET') {
     $tid = (int)$matches[1];
+    $user = getCurrentUser($pdo);
     $ticket = null;
     $messages = [];
+    $history = [];
 
     if ($pdo) {
+        $deptTable = 'departments';
+        try { $pdo->query("SELECT 1 FROM departments LIMIT 1"); } catch (Exception $e) { $deptTable = 'ticket_departments'; }
+
+        // Attempt 1: Standard joined query
         try {
-            $stmt = $pdo->prepare("SELECT t.*, u.first_name, u.last_name, u.mobile, d.name AS department_name FROM tickets t JOIN users u ON t.user_id = u.id LEFT JOIN ticket_departments d ON t.department_id = d.id WHERE t.id = ? LIMIT 1");
+            $stmt = $pdo->prepare("SELECT t.*, 
+                                          COALESCE(u.first_name, '') AS first_name, 
+                                          COALESCE(u.last_name, '') AS last_name, 
+                                          COALESCE(u.mobile, '') AS mobile, 
+                                          COALESCE(d.name, 'عمومی') AS department_name
+                                   FROM tickets t 
+                                   LEFT JOIN users u ON t.user_id = u.id 
+                                   LEFT JOIN {$deptTable} d ON t.department_id = d.id 
+                                   WHERE t.id = ? 
+                                   LIMIT 1");
             $stmt->execute([$tid]);
             $ticket = $stmt->fetch();
+        } catch (Exception $e) {
+            $ticket = null;
+        }
 
-            if ($ticket) {
-                $stmt = $pdo->prepare("SELECT m.*, u.first_name, u.last_name, u.role FROM ticket_messages m JOIN users u ON m.user_id = u.id WHERE m.ticket_id = ? ORDER BY m.id ASC");
-                $stmt->execute([$tid]);
-                $messages = $stmt->fetchAll() ?: [];
+        // Attempt 2 (Fallback): Direct query on tickets table by id
+        if (!$ticket) {
+            try {
+                $fStmt = $pdo->prepare("SELECT * FROM tickets WHERE id = ? LIMIT 1");
+                $fStmt->execute([$tid]);
+                $ticket = $fStmt->fetch();
+            } catch (Exception $fe) {
+                $ticket = null;
             }
-        } catch (Exception $e) {}
+        }
+
+        if ($ticket) {
+            $ticket['id'] = (int)$ticket['id'];
+            $ticket['department_id'] = (int)($ticket['department_id'] ?? 1);
+            if (empty($ticket['department_name'])) {
+                $ticket['department_name'] = $ticket['department'] ?? 'پشتیبانی فنی';
+                if (!empty($ticket['department_id'])) {
+                    try {
+                        $dStmt = $pdo->prepare("SELECT name FROM {$deptTable} WHERE id = ? LIMIT 1");
+                        $dStmt->execute([$ticket['department_id']]);
+                        $foundDName = $dStmt->fetchColumn();
+                        if ($foundDName) $ticket['department_name'] = $foundDName;
+                    } catch (Exception $dex) {}
+                }
+            }
+
+            if (empty($ticket['first_name']) && empty($ticket['last_name']) && !empty($ticket['user_id'])) {
+                try {
+                    $uStmt = $pdo->prepare("SELECT first_name, last_name, mobile FROM users WHERE id = ? LIMIT 1");
+                    $uStmt->execute([$ticket['user_id']]);
+                    $uRow = $uStmt->fetch();
+                    if ($uRow) {
+                        $ticket['first_name'] = $uRow['first_name'] ?? '';
+                        $ticket['last_name'] = $uRow['last_name'] ?? '';
+                        $ticket['mobile'] = $uRow['mobile'] ?? '';
+                    }
+                } catch (Exception $uex) {}
+            }
+
+            $userName = trim(($ticket['first_name'] ?? '') . ' ' . ($ticket['last_name'] ?? ''));
+            $ticket['user_name'] = $userName ?: ($ticket['mobile'] ?: 'کاربر سیستم');
+
+            // Assigned staff name
+            if (!empty($ticket['assigned_to'])) {
+                try {
+                    $sStmt = $pdo->prepare("SELECT first_name, last_name FROM users WHERE id = ? LIMIT 1");
+                    $sStmt->execute([$ticket['assigned_to']]);
+                    $sRow = $sStmt->fetch();
+                    if ($sRow) {
+                        $ticket['assigned_name'] = trim(($sRow['first_name'] ?? '') . ' ' . ($sRow['last_name'] ?? ''));
+                    }
+                } catch (Exception $sex) {}
+            }
+
+            // Fetch messages with safe fallback
+            try {
+                $mStmt = $pdo->prepare("SELECT m.*, 
+                                               COALESCE(u.first_name, '') AS first_name, 
+                                               COALESCE(u.last_name, '') AS last_name, 
+                                               COALESCE(u.role, 'user') AS role 
+                                        FROM ticket_messages m 
+                                        LEFT JOIN users u ON m.user_id = u.id 
+                                        WHERE m.ticket_id = ? 
+                                        ORDER BY m.id ASC");
+                $mStmt->execute([$tid]);
+                $messages = $mStmt->fetchAll() ?: [];
+            } catch (Exception $me) {
+                try {
+                    $mStmt = $pdo->prepare("SELECT * FROM ticket_messages WHERE ticket_id = ? ORDER BY id ASC");
+                    $mStmt->execute([$tid]);
+                    $messages = $mStmt->fetchAll() ?: [];
+                } catch (Exception $me2) {
+                    $messages = [];
+                }
+            }
+
+            foreach ($messages as &$m) {
+                $m['id'] = (int)$m['id'];
+                $m['ticket_id'] = (int)$m['ticket_id'];
+                $uName = trim(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? ''));
+                $m['sender_name'] = $uName ?: ($m['user_name'] ?? ($m['sender_type'] === 'support' ? 'پشتیبان سیستم' : 'کاربر'));
+
+                if (!empty($m['attachments']) && is_string($m['attachments'])) {
+                    $dec = json_decode($m['attachments'], true);
+                    $m['attachments'] = is_array($dec) ? $dec : [];
+                } else if (!is_array($m['attachments'])) {
+                    $m['attachments'] = [];
+                }
+            }
+        }
     }
 
     if (!$ticket) {
@@ -1955,9 +2514,11 @@ if (preg_match('#^/tickets/(\d+)$#', $path, $matches) && $method === 'GET') {
     sendJson([
         'ticket' => $ticket,
         'messages' => $messages,
+        'history' => $history,
         'data' => [
             'ticket' => $ticket,
-            'messages' => $messages
+            'messages' => $messages,
+            'history' => $history
         ]
     ]);
 }
@@ -1966,17 +2527,20 @@ if (preg_match('#^/tickets/(\d+)/(messages|reply)$#', $path, $matches) && $metho
     $tid = (int)$matches[1];
     $user = getCurrentUser($pdo);
     $text = trim($body['message'] ?? $body['content'] ?? '');
-    $attachments = isset($body['attachments']) ? json_encode($body['attachments'], JSON_UNESCAPED_UNICODE) : null;
-    $senderType = ($user['role'] === 'admin' || $user['role'] === 'support') ? 'support' : 'user';
+    $isSecurityInfo = !empty($body['is_security_info']) ? 1 : 0;
+    $attachments = isset($body['attachments']) ? (is_string($body['attachments']) ? $body['attachments'] : json_encode($body['attachments'], JSON_UNESCAPED_UNICODE)) : null;
+    $senderType = ($user && ($user['role'] === 'admin' || $user['role'] === 'support')) ? 'support' : 'user';
+    $userId = (isset($user['id']) && (int)$user['id'] > 0) ? (int)$user['id'] : 1;
+    $senderName = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?: ($senderType === 'support' ? 'پشتیبان سیستم' : 'کاربر');
 
     if (empty($text)) {
         sendError('متن پیام نمی‌تواند خالی باشد.', 422);
     }
 
-    if ($pdo && isset($user['id'])) {
+    if ($pdo) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, message, attachments) VALUES (?, ?, ?, ?, ?)");
-            $stmt->execute([$tid, $user['id'], $senderType, $text, $attachments]);
+            $stmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, user_name, message, attachments, is_security_info, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
+            $stmt->execute([$tid, $userId, $senderType, $senderName, $text, $attachments, $isSecurityInfo]);
 
             $newStatus = ($senderType === 'support') ? 'answered' : 'customer_reply';
             $stmt = $pdo->prepare("UPDATE tickets SET status = ?, updated_at = NOW() WHERE id = ?");
@@ -2029,7 +2593,7 @@ if (preg_match('#^/admin/tickets/(\d+)$#', $path, $matches) && $method === 'DELE
 
 if (preg_match('#^/admin/tickets/(\d+)/assign$#', $path, $matches) && ($method === 'PUT' || $method === 'POST')) {
     $tid = (int)$matches[1];
-    $staffId = !empty($body['assigned_to']) ? (int)$body['assigned_to'] : null;
+    $staffId = !empty($body['staff_id']) ? (int)$body['staff_id'] : (!empty($body['assigned_to']) ? (int)$body['assigned_to'] : null);
     if ($pdo) {
         try {
             $stmt = $pdo->prepare("UPDATE tickets SET assigned_to = ?, updated_at = NOW() WHERE id = ?");
@@ -2082,7 +2646,17 @@ if (($path === '/trial' || $path === '/user/trial') && $method === 'POST') {
     }
 
     $modIds = $body['selected_module_ids'] ?? $body['module_ids'] ?? ['accounting', 'crm', 'sales', 'warehouse'];
-    $userCount = (int)($body['user_count'] ?? 5);
+    $baseLimit = 1;
+    if ($pdo) {
+        try {
+            $cSetStmt = $pdo->query("SELECT base_user_limit FROM configurator_settings WHERE id = 1 LIMIT 1");
+            if ($row = $cSetStmt->fetch()) {
+                $baseLimit = (int)($row['base_user_limit'] ?? 1);
+            }
+        } catch (Exception $eSet) {}
+    }
+    $userCount = (int)($body['user_count'] ?? $baseLimit);
+    if ($userCount <= 0) $userCount = $baseLimit;
     $trialDays = (int)($body['trial_days'] ?? 5);
     $ordNum = 'TRL-' . date('Ymd') . '-' . rand(1000, 9999);
     $pkgName = "دوره آزمایشی {$trialDays} روزه کارویتا (" . count($modIds) . " ماژول)";
@@ -2138,10 +2712,33 @@ if ($path === '/orders' && $method === 'POST') {
     if (is_string($modIds)) {
         $modIds = json_decode($modIds, true) ?: [$modIds];
     }
-    $userCount = (int)($body['user_count'] ?? 5);
+    $userCount = (int)($body['user_count'] ?? 0);
     $period = $body['billing_period'] ?? 'yearly';
     $amount = (int)($body['amount'] ?? $body['final_amount'] ?? 0);
     $couponCode = !empty($body['coupon_code']) ? trim($body['coupon_code']) : null;
+
+    // Configurator settings
+    $baseLimit = 1;
+    $extraPrice = 800000;
+    $yearlyMult = 10.00;
+    $semiMult = 6.00;
+    $quarterMult = 3.00;
+    if ($pdo) {
+        try {
+            $cSetStmt = $pdo->query("SELECT * FROM configurator_settings WHERE id = 1 LIMIT 1");
+            $cSet = $cSetStmt->fetch();
+            if ($cSet) {
+                $baseLimit = (int)($cSet['base_user_limit'] ?? 1);
+                $extraPrice = (int)($cSet['extra_user_price'] ?? 800000);
+                $yearlyMult = (float)($cSet['yearly_multiplier'] ?? 10.00);
+                $semiMult = (float)($cSet['semiannual_multiplier'] ?? 6.00);
+                $quarterMult = (float)($cSet['quarterly_multiplier'] ?? 3.00);
+            }
+        } catch (Exception $eSet) {}
+    }
+    if ($userCount <= 0) {
+        $userCount = $baseLimit;
+    }
     
     // Auto-calculate amount if not directly provided in payload or if <= 0
     if ($amount <= 0) {
@@ -2170,31 +2767,8 @@ if ($path === '/orders' && $method === 'POST') {
             $modulesTotal += ($modulesCatalog[$mId] ?? 250000);
         }
 
-        // Configurator settings
-        $baseLimit = 5;
-        $baseLimit = 1;
-        $extraPrice = 800000;
-        $yearlyMult = 10.00;
-        $semiMult = 6.00;
-        $quarterMult = 3.00;
-        if ($pdo) {
-            try {
-                $cSetStmt = $pdo->query("SELECT * FROM configurator_settings WHERE id = 1 LIMIT 1");
-                $cSet = $cSetStmt->fetch();
-                if ($cSet) {
-                    $baseLimit = (int)($cSet['base_user_limit'] ?? 1);
-                    $extraPrice = (int)($cSet['extra_user_price'] ?? 800000);
-                    $yearlyMult = (float)($cSet['yearly_multiplier'] ?? 10.00);
-                    $semiMult = (float)($cSet['semiannual_multiplier'] ?? 6.00);
-                    $quarterMult = (float)($cSet['quarterly_multiplier'] ?? 3.00);
-                }
-            } catch (Exception $eSet) {}
-        }
-
-        // CRITICAL RULE: Extra user seat costs apply ONLY AND EXCLUSIVELY to CRM module!
-        // All other modules have Unlimited Users without extra charges.
-        $hasCrm = in_array('crm', $modIds);
-        $extraUsers = $hasCrm ? max(0, $userCount - $baseLimit) : 0;
+        // Extra user seat cost applies universally across all modules beyond base_user_limit
+        $extraUsers = max(0, $userCount - $baseLimit);
         $extraUserCost = $extraUsers * $extraPrice;
         $baseMonthlyTotal = $modulesTotal + $extraUserCost;
 
@@ -2594,7 +3168,7 @@ if ($path === '/admin/orders' && $method === 'GET') {
                     'tracking_code' => $r['tracking_code'] ?? '—',
                     'paid_at' => $r['paid_at'] ?? null,
                     'billing_period' => $r['billing_period'] ?? 'monthly',
-                    'user_count' => (int)($r['user_count'] ?? 5)
+                    'user_count' => (int)($r['user_count'] ?? 1)
                 ];
             }
         } catch (Exception $e) {}
@@ -2691,7 +3265,7 @@ if (($path === '/admin/subscriptions' || $path === '/subscriptions') && ($method
     if ($method === 'POST' && $id === 0 && $userId > 0) {
         $moduleIds = $body['module_ids'] ?? ['accounting', 'crm', 'sales', 'warehouse'];
         $durationDays = (int)($body['duration_days'] ?? 365);
-        $userCount = (int)($body['user_count'] ?? 5);
+        $userCount = (int)($body['user_count'] ?? 1);
         $billingPeriod = ($body['billing_period'] ?? 'yearly') === 'monthly' ? 'monthly' : 'yearly';
         $expiresAt = date('Y-m-d H:i:s', strtotime("+{$durationDays} days"));
         $title = $body['title'] ?? ('اشتراک سازمانی اختصاصی (' . count($moduleIds) . ' ماژول)');
@@ -2887,6 +3461,14 @@ if ($path === '/configurator/data' || $path === '/pricing/configurator') {
             $dbMods = $stmt->fetchAll() ?: [];
             foreach ($dbMods as $m) {
                 $deps = json_decode($m['dependencies'] ?? '[]', true);
+                $cleanDeps = is_array($deps) ? $deps : [];
+                if ($m['id'] === 'mail' && (in_array('crm', $cleanDeps) || in_array('sale', $cleanDeps) || count($cleanDeps) > 2)) {
+                    $cleanDeps = ['contacts'];
+                } else if ($m['id'] === 'contacts' && (in_array('crm', $cleanDeps) || in_array('mail', $cleanDeps) || count($cleanDeps) > 0)) {
+                    $cleanDeps = [];
+                } else if ($m['id'] === 'calendar' && (in_array('crm', $cleanDeps) || in_array('sale', $cleanDeps) || count($cleanDeps) > 3)) {
+                    $cleanDeps = ['mail', 'contacts'];
+                }
                 $inds = json_decode($m['industries'] ?? '[]', true);
                 $modules[] = [
                     'id' => $m['id'],
@@ -2899,7 +3481,7 @@ if ($path === '/configurator/data' || $path === '/pricing/configurator') {
                     'is_recommended' => (bool)($m['is_recommended'] ?? false),
                     'icon' => $m['icon'] ?? 'Package',
                     'badge' => $m['badge'] ?? null,
-                    'dependencies' => is_array($deps) ? $deps : [],
+                    'dependencies' => $cleanDeps,
                     'industries' => is_array($inds) ? $inds : []
                 ];
             }
@@ -2911,11 +3493,13 @@ if ($path === '/configurator/data' || $path === '/pricing/configurator') {
             $dbPres = $stmt->fetchAll() ?: [];
             foreach ($dbPres as $p) {
                 $dmods = json_decode($p['default_modules'] ?? '[]', true);
+                $mmods = json_decode($p['mandatory_modules'] ?? '[]', true);
                 $presets[] = [
                     'id' => $p['id'],
                     'title' => $p['title'],
                     'category' => $p['category'] ?? 'صنف',
                     'description' => $p['description'] ?? '',
+                    'mandatory_modules' => is_array($mmods) ? $mmods : [],
                     'default_modules' => is_array($dmods) ? $dmods : [],
                     'icon' => $p['icon'] ?? 'Layers',
                     'popular' => (bool)($p['popular'] ?? false),
@@ -3101,6 +3685,14 @@ if ($path === '/admin/erp/modules') {
             $dbMods = $stmt->fetchAll() ?: [];
             foreach ($dbMods as $m) {
                 $deps = json_decode($m['dependencies'] ?? '[]', true);
+                $cleanDeps = is_array($deps) ? $deps : [];
+                if ($m['id'] === 'mail' && (in_array('crm', $cleanDeps) || in_array('sale', $cleanDeps) || count($cleanDeps) > 2)) {
+                    $cleanDeps = ['contacts'];
+                } else if ($m['id'] === 'contacts' && (in_array('crm', $cleanDeps) || in_array('mail', $cleanDeps) || count($cleanDeps) > 0)) {
+                    $cleanDeps = [];
+                } else if ($m['id'] === 'calendar' && (in_array('crm', $cleanDeps) || in_array('sale', $cleanDeps) || count($cleanDeps) > 3)) {
+                    $cleanDeps = ['mail', 'contacts'];
+                }
                 $inds = json_decode($m['industries'] ?? '[]', true);
                 $modules[] = [
                     'id' => $m['id'],
@@ -3112,7 +3704,7 @@ if ($path === '/admin/erp/modules') {
                     'is_core' => (bool)($m['is_core'] ?? false),
                     'is_recommended' => (bool)($m['is_recommended'] ?? false),
                     'icon' => $m['icon'] ?? 'Package',
-                    'dependencies' => is_array($deps) ? $deps : [],
+                    'dependencies' => $cleanDeps,
                     'industries' => is_array($inds) ? $inds : []
                 ];
             }
@@ -3137,6 +3729,7 @@ if ($path === '/admin/erp/modules') {
             $dbPres = $stmt->fetchAll() ?: [];
             foreach ($dbPres as $p) {
                 $dmods = json_decode($p['default_modules'] ?? '[]', true);
+                $mmods = json_decode($p['mandatory_modules'] ?? '[]', true);
                 $cleanDmods = [];
                 if (is_array($dmods)) {
                     foreach ($dmods as $dm) {
@@ -3146,12 +3739,21 @@ if ($path === '/admin/erp/modules') {
                         }
                     }
                 }
+                $cleanMmods = [];
+                if (is_array($mmods)) {
+                    foreach ($mmods as $mm) {
+                        $mmLower = strtolower(trim((string)$mm));
+                        if (isset($activeModMap[$mmLower])) {
+                            $cleanMmods[] = $mmLower;
+                        }
+                    }
+                }
                 $presets[] = [
                     'id' => $p['id'],
                     'title' => $p['title'],
                     'category' => $p['category'] ?? 'صنف',
                     'description' => $p['description'] ?? '',
-                    'default_modules' => is_array($dmods) ? $dmods : [],
+                    'mandatory_modules' => $cleanMmods,
                     'default_modules' => $cleanDmods,
                     'popular' => (bool)($p['popular'] ?? false),
                     'is_active' => (bool)$p['is_active']
@@ -3201,8 +3803,8 @@ if ($path === '/admin/erp/presets' && $method === 'POST') {
     $title = trim($body['title'] ?? '');
     $cat = $body['category'] ?? 'صنف';
     $desc = $body['description'] ?? '';
-    $defaultMods = json_encode($body['default_modules'] ?? [], JSON_UNESCAPED_UNICODE);
     $rawDefaultMods = is_array($body['default_modules'] ?? null) ? $body['default_modules'] : [];
+    $rawMandatoryMods = is_array($body['mandatory_modules'] ?? null) ? $body['mandatory_modules'] : [];
     
     // Only allow active modules
     $activeModIds = [];
@@ -3226,7 +3828,19 @@ if ($path === '/admin/erp/presets' && $method === 'POST') {
         }
     }
 
+    $cleanMandatoryMods = [];
+    foreach ($rawMandatoryMods as $mm) {
+        $mmLower = strtolower(trim((string)$mm));
+        if (empty($activeModMap) || isset($activeModMap[$mmLower])) {
+            $cleanMandatoryMods[] = $mmLower;
+            if (!in_array($mmLower, $cleanDefaultMods)) {
+                $cleanDefaultMods[] = $mmLower;
+            }
+        }
+    }
+
     $defaultMods = json_encode(array_values(array_unique($cleanDefaultMods)), JSON_UNESCAPED_UNICODE);
+    $mandatoryMods = json_encode(array_values(array_unique($cleanMandatoryMods)), JSON_UNESCAPED_UNICODE);
     $isActive = isset($body['is_active']) ? (int)$body['is_active'] : 1;
 
     if (empty($id) || empty($title)) {
@@ -3235,15 +3849,16 @@ if ($path === '/admin/erp/presets' && $method === 'POST') {
 
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO industry_presets (id, title, category, default_modules, description, is_active)
-                VALUES (?, ?, ?, ?, ?, ?)
+            $stmt = $pdo->prepare("INSERT INTO industry_presets (id, title, category, default_modules, mandatory_modules, description, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     category = VALUES(category),
                     default_modules = VALUES(default_modules),
+                    mandatory_modules = VALUES(mandatory_modules),
                     description = VALUES(description),
                     is_active = VALUES(is_active)");
-            $stmt->execute([$id, $title, $cat, $defaultMods, $desc, $isActive]);
+            $stmt->execute([$id, $title, $cat, $defaultMods, $mandatoryMods, $desc, $isActive]);
             logAudit($pdo, 'ERP_PRESET_SAVED', 'CONFIGURATION_CHANGE', "ذخیره یا ویرایش تب صنف {$id} ({$title})");
         } catch (Exception $e) {
             sendError('خطا در ذخیره تب: ' . $e->getMessage(), 500);
@@ -3321,6 +3936,162 @@ if (preg_match('#^/admin/erp/modules/([^/]+)$#', $path, $matches) && $method ===
         } catch (Exception $e) {}
     }
     sendJson(['success' => true, 'message' => 'ماژول با موفقیت حذف گردید.']);
+}
+
+if ($path === '/admin/erp/modules/bulk' && $method === 'POST') {
+    $action = $body['action'] ?? '';
+    $moduleIds = $body['module_ids'] ?? [];
+    $val = $body['value'] ?? null;
+
+    if (!$action || !is_array($moduleIds) || empty($moduleIds)) {
+        sendError('عملیات نامعتبر است یا هیچ ماژولی انتخاب نشده است.', 422);
+    }
+
+    $inPlaceholders = implode(',', array_fill(0, count($moduleIds), '?'));
+    $msg = "عملیات گروهی با موفقیت انجام شد.";
+
+    if ($pdo) {
+        try {
+            switch ($action) {
+                case 'set_price':
+                    $newPrice = max(0, (int)$val);
+                    $stmt = $pdo->prepare("UPDATE erp_modules SET price = ? WHERE id IN ($inPlaceholders)");
+                    $stmt->execute(array_merge([$newPrice], $moduleIds));
+                    try {
+                        $stmt2 = $pdo->prepare("UPDATE pricing_modules SET price = ? WHERE id IN ($inPlaceholders)");
+                        $stmt2->execute(array_merge([$newPrice], $moduleIds));
+                    } catch (Exception $e) {}
+                    $msg = "قیمت " . count($moduleIds) . " ماژول انتخابی با موفقیت به {$newPrice} تومان تغییر یافت.";
+                    break;
+
+                case 'set_status':
+                    $isActive = !empty($val) ? 1 : 0;
+                    $stmt = $pdo->prepare("UPDATE erp_modules SET is_active = ? WHERE id IN ($inPlaceholders)");
+                    $stmt->execute(array_merge([$isActive], $moduleIds));
+                    try {
+                        $stmt2 = $pdo->prepare("UPDATE pricing_modules SET is_active = ? WHERE id IN ($inPlaceholders)");
+                        $stmt2->execute(array_merge([$isActive], $moduleIds));
+                    } catch (Exception $e) {}
+                    $msg = count($moduleIds) . " ماژول انتخابی با موفقیت " . ($isActive ? 'فعال' : 'غیرفعال') . " شدند.";
+                    break;
+
+                case 'delete':
+                    $stmt = $pdo->prepare("DELETE FROM erp_modules WHERE id IN ($inPlaceholders)");
+                    $stmt->execute($moduleIds);
+                    try {
+                        $stmt2 = $pdo->prepare("DELETE FROM pricing_modules WHERE id IN ($inPlaceholders)");
+                        $stmt2->execute($moduleIds);
+                    } catch (Exception $e) {}
+                    $msg = count($moduleIds) . " ماژول با موفقیت از سیستم حذف شدند.";
+                    break;
+
+                case 'add_dependency':
+                    $depIds = is_array($val) ? $val : [$val];
+                    $depIds = array_filter(array_map('strval', $depIds));
+                    if (!empty($depIds)) {
+                        $stmt = $pdo->prepare("SELECT id, dependencies FROM erp_modules WHERE id IN ($inPlaceholders)");
+                        $stmt->execute($moduleIds);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($rows as $row) {
+                            $curDeps = json_decode($row['dependencies'] ?? '[]', true);
+                            if (!is_array($curDeps)) $curDeps = [];
+                            foreach ($depIds as $dId) {
+                                if ($row['id'] !== $dId && !in_array($dId, $curDeps)) {
+                                    $curDeps[] = $dId;
+                                }
+                            }
+                            $uStmt = $pdo->prepare("UPDATE erp_modules SET dependencies = ? WHERE id = ?");
+                            $uStmt->execute([json_encode(array_values($curDeps), JSON_UNESCAPED_UNICODE), $row['id']]);
+                            try {
+                                $uStmt2 = $pdo->prepare("UPDATE pricing_modules SET dependencies = ? WHERE id = ?");
+                                $uStmt2->execute([json_encode(array_values($curDeps), JSON_UNESCAPED_UNICODE), $row['id']]);
+                            } catch (Exception $e) {}
+                        }
+                    }
+                    $msg = count($depIds) . " پیش‌نیاز به ماژول‌های انتخابی اضافه شد.";
+                    break;
+
+                case 'remove_dependency':
+                    $depIds = is_array($val) ? $val : [$val];
+                    $depIds = array_filter(array_map('strval', $depIds));
+                    if (!empty($depIds)) {
+                        $stmt = $pdo->prepare("SELECT id, dependencies FROM erp_modules WHERE id IN ($inPlaceholders)");
+                        $stmt->execute($moduleIds);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($rows as $row) {
+                            $curDeps = json_decode($row['dependencies'] ?? '[]', true);
+                            if (is_array($curDeps)) {
+                                $curDeps = array_values(array_diff($curDeps, $depIds));
+                                $uStmt = $pdo->prepare("UPDATE erp_modules SET dependencies = ? WHERE id = ?");
+                                $uStmt->execute([json_encode($curDeps, JSON_UNESCAPED_UNICODE), $row['id']]);
+                                try {
+                                    $uStmt2 = $pdo->prepare("UPDATE pricing_modules SET dependencies = ? WHERE id = ?");
+                                    $uStmt2->execute([json_encode($curDeps, JSON_UNESCAPED_UNICODE), $row['id']]);
+                                } catch (Exception $e) {}
+                            }
+                        }
+                    }
+                    $msg = "پیش‌نیازهای انتخابی از ماژول‌ها حذف شدند.";
+                    break;
+
+                case 'add_preset':
+                    $presetIds = is_array($val) ? $val : [$val];
+                    $presetIds = array_filter(array_map('strval', $presetIds));
+                    if (!empty($presetIds)) {
+                        $stmt = $pdo->prepare("SELECT id, industries FROM erp_modules WHERE id IN ($inPlaceholders)");
+                        $stmt->execute($moduleIds);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($rows as $row) {
+                            $curInd = json_decode($row['industries'] ?? '[]', true);
+                            if (!is_array($curInd)) $curInd = [];
+                            foreach ($presetIds as $pId) {
+                                if (!in_array($pId, $curInd)) {
+                                    $curInd[] = $pId;
+                                }
+                            }
+                            $uStmt = $pdo->prepare("UPDATE erp_modules SET industries = ? WHERE id = ?");
+                            $uStmt->execute([json_encode(array_values($curInd), JSON_UNESCAPED_UNICODE), $row['id']]);
+                            try {
+                                $uStmt2 = $pdo->prepare("UPDATE pricing_modules SET industries = ? WHERE id = ?");
+                                $uStmt2->execute([json_encode(array_values($curInd), JSON_UNESCAPED_UNICODE), $row['id']]);
+                            } catch (Exception $e) {}
+                        }
+                    }
+                    $msg = count($moduleIds) . " ماژول به صنف‌های انتخابی متصل گردید.";
+                    break;
+
+                case 'remove_preset':
+                    $presetIds = is_array($val) ? $val : [$val];
+                    $presetIds = array_filter(array_map('strval', $presetIds));
+                    if (!empty($presetIds)) {
+                        $stmt = $pdo->prepare("SELECT id, industries FROM erp_modules WHERE id IN ($inPlaceholders)");
+                        $stmt->execute($moduleIds);
+                        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                        foreach ($rows as $row) {
+                            $curInd = json_decode($row['industries'] ?? '[]', true);
+                            if (is_array($curInd)) {
+                                $curInd = array_values(array_diff($curInd, $presetIds));
+                                $uStmt = $pdo->prepare("UPDATE erp_modules SET industries = ? WHERE id = ?");
+                                $uStmt->execute([json_encode($curInd, JSON_UNESCAPED_UNICODE), $row['id']]);
+                                try {
+                                    $uStmt2 = $pdo->prepare("UPDATE pricing_modules SET industries = ? WHERE id = ?");
+                                    $uStmt2->execute([json_encode($curInd, JSON_UNESCAPED_UNICODE), $row['id']]);
+                                } catch (Exception $e) {}
+                            }
+                        }
+                    }
+                    $msg = "ماژول‌ها از صنف‌های انتخابی خارج شدند.";
+                    break;
+
+                default:
+                    break;
+            }
+            logAudit($pdo, 'ERP_MODULES_BULK', 'CONFIGURATION_CHANGE', "عملیات گروهی {$action} بر روی " . count($moduleIds) . " ماژول");
+        } catch (Exception $e) {
+            sendError('خطا در انجام عملیات گروهی: ' . $e->getMessage(), 500);
+        }
+    }
+    sendJson(['success' => true, 'message' => $msg]);
 }
 
 if ($path === '/admin/erp/settings' && ($method === 'POST' || $method === 'PUT')) {
@@ -3562,7 +4333,16 @@ if ($path === '/admin/gateways/sms/logs') {
     if ($pdo) {
         try {
             $stmt = $pdo->query("SELECT * FROM sms_logs ORDER BY id DESC LIMIT 100");
-            $logs = $stmt->fetchAll() ?: [];
+            $rows = $stmt->fetchAll() ?: [];
+            foreach ($rows as $row) {
+                $msg = $row['message'] ?? '';
+                $code = $row['code'] ?? null;
+                if (!$code && preg_match('/(?:CODE|Code|کد تایید|کد|رمز)\s*[:=]\s*(\d{4,8})/i', $msg, $m)) {
+                    $code = $m[1];
+                }
+                $row['code'] = $code;
+                $logs[] = $row;
+            }
         } catch (Exception $e) {}
     }
     sendJson(['data' => $logs, 'logs' => $logs]);
@@ -4164,6 +4944,170 @@ if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && $method === 'DELETE
     sendJson(['success' => true, 'message' => 'کلیه اطلاعات کاربر به صورت دائمی پاک شد و امکان ثبت‌نام مجدد از ابتدا فراهم است.']);
 }
 
+if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && in_array($method, ['PUT', 'POST', 'PATCH'])) {
+    $admin = getCurrentUser($pdo);
+    if (!$admin || ($admin['role'] !== 'admin' && $admin['mobile'] !== '09111273476')) {
+        sendError('دسترسی مجاز نیست.', 403);
+    }
+    $uid = (int)$matches[1];
+    $body = getRequestBody();
+
+    if ($pdo && $uid > 0) {
+        try {
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$uid]);
+            $existingUser = $stmt->fetch();
+            if (!$existingUser) {
+                sendError('کاربر مورد نظر یافت نشد.', 404);
+            }
+
+            $firstName = trim($body['first_name'] ?? $existingUser['first_name'] ?? '');
+            $lastName = trim($body['last_name'] ?? $existingUser['last_name'] ?? '');
+            $email = trim($body['email'] ?? $existingUser['email'] ?? '');
+            $jobTitle = trim($body['job_title'] ?? $existingUser['job_title'] ?? '');
+            $rawMobile = trim($body['mobile'] ?? $existingUser['mobile'] ?? '');
+            $normalizedMobile = normalizeMobileNumber($rawMobile);
+
+            if (!empty($rawMobile) && (!preg_match('/^09\d{9}$/', $normalizedMobile) || strlen($normalizedMobile) !== 11)) {
+                sendError('شماره همراه باید ۱۱ رقم باشد و با ۰۹ شروع شود.', 422);
+            }
+
+            // Check if mobile changed and is already taken
+            if (!empty($normalizedMobile) && $normalizedMobile !== $existingUser['mobile']) {
+                $checkMob = $pdo->prepare("SELECT id FROM users WHERE mobile = ? AND id != ? LIMIT 1");
+                $checkMob->execute([$normalizedMobile, $uid]);
+                if ($checkMob->fetch()) {
+                    sendError('این شماره همراه قبلاً برای کاربر دیگری ثبت شده است.', 422);
+                }
+            } else {
+                $normalizedMobile = $existingUser['mobile'];
+            }
+
+            // Role management (protect super admin)
+            $newRole = $existingUser['role'] ?? 'user';
+            if (isset($body['role'])) {
+                $requestedRole = trim($body['role']);
+                if (in_array($requestedRole, ['user', 'admin', 'support'])) {
+                    if ($existingUser['mobile'] === '09111273476' || (int)$existingUser['id'] === 1) {
+                        $newRole = 'admin'; // Protect super admin
+                    } else {
+                        $newRole = $requestedRole;
+                    }
+                }
+            }
+
+            // can_renew_early flag
+            $canRenewEarly = isset($body['can_renew_early']) ? ($body['can_renew_early'] ? 1 : 0) : (int)($existingUser['can_renew_early'] ?? 0);
+
+            // Update user record
+            $updateUser = $pdo->prepare("
+                UPDATE users 
+                SET first_name = ?, last_name = ?, mobile = ?, email = ?, job_title = ?, role = ?, can_renew_early = ?, updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $updateUser->execute([
+                $firstName,
+                $lastName,
+                $normalizedMobile,
+                $email,
+                $jobTitle,
+                $newRole,
+                $canRenewEarly,
+                $uid
+            ]);
+
+            // Update or insert company record
+            $companyName = trim($body['company_name'] ?? $body['name'] ?? '');
+            $industry = trim($body['industry'] ?? '');
+            $employeeCount = trim($body['employee_count'] ?? '');
+            $nationalId = trim($body['national_id'] ?? $body['economic_code'] ?? '');
+            $registrationNum = trim($body['registration_num'] ?? '');
+            $postalCode = trim($body['postal_code'] ?? '');
+            $address = trim($body['address'] ?? '');
+
+            $cleanNationalId = preg_replace('/\D/', '', toEnDigits($nationalId));
+            $cleanPostalCode = preg_replace('/\D/', '', toEnDigits($postalCode));
+
+            if (!empty($cleanNationalId) && strlen($cleanNationalId) !== 10 && strlen($cleanNationalId) !== 11) {
+                sendError('کد ملی باید ۱۰ رقم و شناسه ملی شرکت باید ۱۱ رقم باشد.', 422);
+            }
+            if (!empty($cleanPostalCode) && strlen($cleanPostalCode) !== 10) {
+                sendError('کد پستی باید ۱۰ رقمی باشد.', 422);
+            }
+            $nationalId = $cleanNationalId ?: $nationalId;
+            $postalCode = $cleanPostalCode ?: $postalCode;
+
+            $compStmt = $pdo->prepare("SELECT id FROM companies WHERE user_id = ? LIMIT 1");
+            $compStmt->execute([$uid]);
+            $existingComp = $compStmt->fetch();
+
+            if ($existingComp) {
+                $updComp = $pdo->prepare("
+                    UPDATE companies 
+                    SET company_name = ?, industry = ?, employee_count = ?, national_id = ?, economic_code = ?, registration_num = ?, postal_code = ?, address = ?, updated_at = NOW() 
+                    WHERE user_id = ?
+                ");
+                $updComp->execute([
+                    $companyName,
+                    $industry,
+                    $employeeCount,
+                    $nationalId,
+                    $nationalId,
+                    $registrationNum,
+                    $postalCode,
+                    $address,
+                    $uid
+                ]);
+            } elseif (!empty($companyName) || !empty($industry) || !empty($nationalId)) {
+                $insComp = $pdo->prepare("
+                    INSERT INTO companies (user_id, company_name, industry, employee_count, national_id, economic_code, registration_num, postal_code, address, created_at, updated_at) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ");
+                $insComp->execute([
+                    $uid,
+                    $companyName,
+                    $industry,
+                    $employeeCount,
+                    $nationalId,
+                    $nationalId,
+                    $registrationNum,
+                    $postalCode,
+                    $address
+                ]);
+            }
+
+            logAudit($pdo, 'USER_PROFILE_UPDATED', 'USER_MANAGEMENT', "ویرایش هویت و مشخصات کاربر #{$uid} ({$normalizedMobile}) توسط مدیر", [
+                'user_id' => $uid,
+                'name' => "{$firstName} {$lastName}",
+                'role' => $newRole,
+                'can_renew_early' => $canRenewEarly
+            ]);
+
+            // Fetch refreshed user and company
+            $refUserStmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $refUserStmt->execute([$uid]);
+            $refUser = $refUserStmt->fetch();
+            $refUser['can_renew_early'] = (bool)($refUser['can_renew_early'] ?? 0);
+
+            $refCompStmt = $pdo->prepare("SELECT * FROM companies WHERE user_id = ? LIMIT 1");
+            $refCompStmt->execute([$uid]);
+            $refComp = $refCompStmt->fetch();
+
+            sendJson([
+                'success' => true,
+                'message' => 'مشخصات و هویت کاربر با موفقیت ذخیره شد.',
+                'user' => array_merge($refUser, [
+                    'company' => $refComp,
+                    'company_name' => $refComp['company_name'] ?? ($refUser['first_name'] . ' ' . $refUser['last_name'])
+                ])
+            ]);
+        } catch (Exception $e) {
+            sendError('خطا در ذخیره اطلاعات کاربر: ' . $e->getMessage(), 500);
+        }
+    }
+    sendError('شناسه کاربر نامعتبر است.', 400);
+}
+
 if (preg_match('#^/admin/users/(\d+)/details$#', $path, $matches)) {
     $uid = (int)$matches[1];
     $u = null;
@@ -4217,6 +5161,7 @@ if (preg_match('#^/admin/users/(\d+)/details$#', $path, $matches)) {
 
     // Merge company info into user object
     $userWithComp = $u ? array_merge($u, [
+        'can_renew_early' => (bool)($u['can_renew_early'] ?? 0),
         'company' => $comp,
         'company_name' => $comp['company_name'] ?? ($u['first_name'] . ' ' . $u['last_name'])
     ]) : null;
@@ -4311,7 +5256,7 @@ if (preg_match('#^/admin/users/(\d+)/subscriptions/(\d+)/modules$#', $path, $mat
                 }
                 if (in_array('user_count', $existingCols)) {
                     $ordFields[] = 'user_count';
-                    $ordValues[] = $sub['user_count'] ?? 5;
+                    $ordValues[] = $sub['user_count'] ?? 1;
                 }
                 if (in_array('billing_period', $existingCols)) {
                     $ordFields[] = 'billing_period';
@@ -4362,7 +5307,7 @@ if (preg_match('#^/admin/users/(\d+)/subscriptions$#', $path, $matches) && $meth
     $userId = (int)$matches[1];
     $moduleIds = $body['module_ids'] ?? [];
     $durationDays = (int)($body['duration_days'] ?? 365);
-    $userCount = (int)($body['user_count'] ?? 5);
+    $userCount = (int)($body['user_count'] ?? 1);
     $billingPeriod = ($body['billing_period'] ?? 'yearly') === 'monthly' ? 'monthly' : 'yearly';
 
     if (!is_array($moduleIds) || empty($moduleIds)) {

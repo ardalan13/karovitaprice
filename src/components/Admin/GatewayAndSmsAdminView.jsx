@@ -71,6 +71,60 @@ export function GatewayAndSmsAdminView() {
     return num > 0 ? String(num) : '';
   };
 
+  // Helper to extract verification code & message details for SMS logs
+  const extractSmsCodeAndDetails = (log) => {
+    let code = null;
+    let details = '';
+    const extraParams = [];
+
+    // 1. Check parameters object (if present as object or parsed JSON)
+    let paramsObj = log.parameters;
+    if (typeof paramsObj === 'string') {
+      try { paramsObj = JSON.parse(paramsObj); } catch (e) {}
+    }
+    if (paramsObj && typeof paramsObj === 'object') {
+      Object.entries(paramsObj).forEach(([k, v]) => {
+        const lowerKey = String(k).toLowerCase();
+        if (['code', 'otp', 'passcode', 'verification_code'].includes(lowerKey)) {
+          code = String(v);
+        } else {
+          extraParams.push({ key: k, value: String(v) });
+        }
+      });
+    }
+
+    // 2. Check direct code property
+    if (!code && log.code) {
+      code = String(log.code);
+    }
+
+    // 3. Extract code from message if not found yet
+    const rawMsg = String(log.message || '').trim();
+    if (!code && rawMsg) {
+      const match = rawMsg.match(/(?:CODE|Code|کد تایید|کد|رمز)\s*[:=]\s*([0-9]{4,8})/i);
+      if (match) {
+        code = match[1];
+      }
+    }
+
+    // 4. Formulate clean details text
+    if (rawMsg) {
+      if (rawMsg.includes('ارسال پیامک با الگو')) {
+        const tplMatch = rawMsg.match(/قالب\s*(\d+)/);
+        const tplId = tplMatch ? tplMatch[1] : log.template_id;
+        details = tplId ? `ارسال با الگوی خدماتی SMS.ir (قالب #${tplId})` : 'ارسال با الگوی خدماتی SMS.ir';
+      } else {
+        details = rawMsg;
+      }
+    } else if (log.template_title) {
+      details = log.template_title + (log.template_id ? ` (قالب #${log.template_id})` : '');
+    } else if (log.template_id) {
+      details = `الگوی خدماتی (قالب #${log.template_id})`;
+    }
+
+    return { code, details, extraParams };
+  };
+
   // Test states
   const [testMobile, setTestMobile] = useState('');
   const [testEventType, setTestEventType] = useState('otp');
@@ -969,7 +1023,7 @@ export function GatewayAndSmsAdminView() {
                   <th style={{ padding: '11px 14px' }}>شماره گیرنده</th>
                   <th style={{ padding: '11px 14px' }}>نام کاربر</th>
                   <th style={{ padding: '11px 14px' }}>نوع رویداد</th>
-                  <th style={{ padding: '11px 14px' }}>قالب و پارامترها</th>
+                  <th style={{ padding: '11px 14px' }}>کد و جزئیات پیامک ارسالی</th>
                   <th style={{ padding: '11px 14px' }}>وضعیت ارسال</th>
                 </tr>
               </thead>
@@ -1040,18 +1094,59 @@ export function GatewayAndSmsAdminView() {
                         </td>
 
                         <td style={{ padding: '11px 14px', color: '#334155' }}>
-                          <div style={{ fontSize: '12.5px', fontWeight: 600 }}>
-                            {log.template_title || (log.template_id ? `قالب #${log.template_id}` : '—')}
-                          </div>
-                          {log.parameters && typeof log.parameters === 'object' && Object.keys(log.parameters).length > 0 && (
-                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px', background: '#f8fafc', padding: '2px 8px', borderRadius: '4px', display: 'inline-block', border: '1px solid #e2e8f0' }}>
-                              {Object.entries(log.parameters).map(([k, v]) => (
-                                <span key={k} style={{ marginLeft: '8px' }}>
-                                  <strong style={{ color: '#0870d1' }}>{k}:</strong> {String(v)}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          {(() => {
+                            const { code, details, extraParams } = extractSmsCodeAndDetails(log);
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {code && (
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{
+                                      background: '#eff6ff',
+                                      color: '#1d4ed8',
+                                      border: '1px solid #bfdbfe',
+                                      padding: '2px 8px',
+                                      borderRadius: '6px',
+                                      fontWeight: 800,
+                                      fontSize: '13px',
+                                      fontFamily: 'monospace',
+                                      letterSpacing: '1.2px',
+                                      direction: 'ltr',
+                                      display: 'inline-block'
+                                    }}>
+                                      {code}
+                                    </span>
+                                    <span style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600 }}>
+                                      کد تأیید ارسالی
+                                    </span>
+                                  </div>
+                                )}
+                                {details && (
+                                  <div style={{ fontSize: '12px', color: '#475569', lineHeight: '1.4' }}>
+                                    {details}
+                                  </div>
+                                )}
+                                {extraParams.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '2px' }}>
+                                    {extraParams.map(p => (
+                                      <span key={p.key} style={{
+                                        fontSize: '11px',
+                                        background: '#f8fafc',
+                                        color: '#334155',
+                                        border: '1px solid #e2e8f0',
+                                        padding: '1px 6px',
+                                        borderRadius: '4px'
+                                      }}>
+                                        <strong style={{ color: '#0284c7' }}>{p.key}:</strong> {p.value}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {!code && !details && extraParams.length === 0 && (
+                                  <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         <td style={{ padding: '11px 14px' }}>

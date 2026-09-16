@@ -23,11 +23,97 @@ import {
   Eye,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  CheckSquare,
+  Square,
+  CheckCircle,
+  XCircle,
+  Link2,
+  Lock
 } from 'lucide-react';
 import { api } from '../../services/api';
 
 const money = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
+
+function HoverBadgesList({ 
+  items = [], 
+  type = 'dep', 
+  maxVisible = 2, 
+  emptyText = '—', 
+  isTopRow = false 
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+
+  if (!items || items.length === 0) {
+    return <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>{emptyText}</span>;
+  }
+
+  const isDep = type === 'dep';
+  const hasMore = items.length > maxVisible;
+  const visibleItems = hasMore ? items.slice(0, maxVisible) : items;
+  const remainingCount = items.length - maxVisible;
+
+  return (
+    <div 
+      className="hover-expand-wrap"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+        {visibleItems.map((item, idx) => {
+          const label = typeof item === 'object' ? item.title : item;
+          return (
+            <span 
+              key={idx}
+              className={isDep ? 'dep-pill' : 'preset-pill-tag'}
+            >
+              {label}
+            </span>
+          );
+        })}
+
+        {hasMore && (
+          <span className={`hover-expand-trigger-badge ${type}`}>
+            +{remainingCount} {isDep ? 'پیش‌نیاز دیگر' : 'صنف دیگر'}
+          </span>
+        )}
+      </div>
+
+      {isHovered && hasMore && (
+        <div 
+          className={`hover-popover-card ${isTopRow ? 'pos-bottom' : 'pos-top'}`}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="hover-popover-header">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {isDep ? <Link2 size={13} color="#2563eb" /> : <Tag size={13} color="#16a34a" />}
+              <span>{isDep ? 'تمام ماژول‌های پیش‌نیاز' : 'تمام اصناف شامل این ماژول'}</span>
+            </div>
+            <span className="hover-popover-count">
+              {items.length} {isDep ? 'ماژول' : 'صنف'}
+            </span>
+          </div>
+
+          <div className="hover-popover-list">
+            {items.map((item, idx) => {
+              const label = typeof item === 'object' ? item.title : item;
+              const subId = typeof item === 'object' ? item.id : null;
+              return (
+                <span key={idx} className={`hover-popover-pill ${type}`}>
+                  <CheckCircle2 size={11} color={isDep ? "#0284c7" : "#16a34a"} style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 600 }}>{label}</span>
+                  {subId && subId !== label && (
+                    <code className="hover-popover-code">{subId}</code>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger }) {
   const [activeSubTab, setActiveSubTab] = useState('presets'); // 'presets' | 'modules' | 'settings' | 'coupons'
@@ -39,7 +125,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
   // Tab/Preset Modal State
   const [tabModalOpen, setTabModalOpen] = useState(false);
   const [editingPreset, setEditingPreset] = useState(null);
-  const [tabForm, setTabForm] = useState({ id: '', title: '', default_modules: [] });
+  const [tabForm, setTabForm] = useState({ id: '', title: '', default_modules: [], mandatory_modules: [] });
   
   // Module Modal State (for both Add and Edit)
   const [moduleModalOpen, setModuleModalOpen] = useState(false);
@@ -78,6 +164,86 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
   // Quick module price inline edit state
   const [inlinePrices, setInlinePrices] = useState({});
   const [savingModuleId, setSavingModuleId] = useState(null);
+
+  // Bulk Actions State
+  const [selectedModuleIds, setSelectedModuleIds] = useState([]);
+  const [bulkModal, setBulkModal] = useState(null); // null | 'price' | 'dependency' | 'preset' | 'delete'
+  const [bulkPriceVal, setBulkPriceVal] = useState('');
+  const [bulkDepVal, setBulkDepVal] = useState('');
+  const [bulkPresetVal, setBulkPresetVal] = useState('');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+
+  // Multi-select states for bulk dependency & preset assignment
+  const [bulkSelectedDeps, setBulkSelectedDeps] = useState([]);
+  const [bulkDepSearch, setBulkDepSearch] = useState('');
+  const [bulkSelectedPresets, setBulkSelectedPresets] = useState([]);
+  const [bulkPresetSearch, setBulkPresetSearch] = useState('');
+
+  const toggleBulkDep = (id) => {
+    setBulkSelectedDeps(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleBulkPreset = (id) => {
+    setBulkSelectedPresets(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectModule = (id) => {
+    setSelectedModuleIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = (filteredList) => {
+    const filteredIds = filteredList.map(m => m.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedModuleIds.includes(id));
+    if (allSelected) {
+      setSelectedModuleIds(prev => prev.filter(id => !filteredIds.includes(id)));
+    } else {
+      setSelectedModuleIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+    }
+  };
+
+  const handleBulkAction = async (action, value) => {
+    if (!selectedModuleIds.length) return;
+    setBulkSubmitting(true);
+    try {
+      const res = await api('/admin/erp/modules/bulk', {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          module_ids: selectedModuleIds,
+          value,
+        }),
+      });
+      if (res.modules) {
+        setData(prev => ({
+          ...prev,
+          modules: res.modules,
+          presets: res.presets || prev.presets,
+        }));
+        const prices = {};
+        res.modules.forEach(m => {
+          prices[m.id] = m.price;
+        });
+        setInlinePrices(prices);
+      } else {
+        await loadData();
+      }
+      showSuccess(res.message || 'عملیات گروهی با موفقیت انجام گردید.');
+      if (action === 'delete') {
+        setSelectedModuleIds([]);
+      }
+      setBulkModal(null);
+    } catch (err) {
+      alert(err.message || 'خطا در اجرای عملیات گروهی');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
 
   // Load all ERP configurator data
   const loadData = async () => {
@@ -127,7 +293,8 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
     setTabForm({
       id: `tab_${Date.now()}`,
       title: '',
-      default_modules: ['crm', 'sales'],
+      default_modules: ['account', 'hr', 'crm', 'sale'],
+      mandatory_modules: ['account', 'hr'],
     });
     setTabModalOpen(true);
   };
@@ -139,17 +306,47 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
       id: preset.id,
       title: preset.title,
       default_modules: (preset.default_modules || []).filter(id => activeModuleIds.has(id)),
+      mandatory_modules: (preset.mandatory_modules || []).filter(id => activeModuleIds.has(id)),
     });
     setTabModalOpen(true);
   };
 
   const toggleModuleInTabForm = (modId) => {
     setTabForm(prev => {
-      const current = prev.default_modules || [];
-      if (current.includes(modId)) {
-        return { ...prev, default_modules: current.filter(id => id !== modId) };
+      const currentDefs = prev.default_modules || [];
+      const currentMands = prev.mandatory_modules || [];
+      if (currentDefs.includes(modId)) {
+        return {
+          ...prev,
+          default_modules: currentDefs.filter(id => id !== modId),
+          mandatory_modules: currentMands.filter(id => id !== modId),
+        };
       } else {
-        return { ...prev, default_modules: [...current, modId] };
+        return {
+          ...prev,
+          default_modules: [...currentDefs, modId],
+        };
+      }
+    });
+  };
+
+  const toggleMandatoryInTabForm = (modId) => {
+    setTabForm(prev => {
+      const currentDefs = prev.default_modules || [];
+      const currentMands = prev.mandatory_modules || [];
+      const isMandatory = currentMands.includes(modId);
+      if (isMandatory) {
+        return {
+          ...prev,
+          mandatory_modules: currentMands.filter(id => id !== modId),
+        };
+      } else {
+        const nextDefs = currentDefs.includes(modId) ? currentDefs : [...currentDefs, modId];
+        return {
+          ...prev,
+          default_modules: nextDefs,
+          mandatory_modules: [...currentMands, modId],
+        };
       }
     });
   };
@@ -163,7 +360,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
   };
 
   const clearAllModulesForTab = () => {
-    setTabForm(prev => ({ ...prev, default_modules: [] }));
+    setTabForm(prev => ({ ...prev, default_modules: [], mandatory_modules: [] }));
   };
 
   const handleSaveTab = async (e) => {
@@ -613,8 +810,9 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
             {(data?.presets || []).map((preset, index) => {
               const assignedModules = (preset.default_modules || [])
                 .map(id => data?.modules?.find(m => m.id === id))
-                .filter(m => m && m.is_active !== false)
-                .map(m => m.title);
+                .filter(m => m && m.is_active !== false);
+              const mandatoryIds = new Set(preset.mandatory_modules || []);
+              const mandatoryCount = assignedModules.filter(m => mandatoryIds.has(m.id)).length;
 
               return (
                 <article key={preset.id} className="erp-admin-preset-card">
@@ -646,14 +844,26 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                   <div className="preset-card-body">
                     <div className="preset-slug-tag">شناسه تب: <code>{preset.id}</code></div>
                     <div className="preset-modules-summary">
-                      <span className="label">ماژول‌های پیش‌فرض ({assignedModules.length} ماژول):</span>
-                      <div className="preset-chips-wrap">
-                        {assignedModules.map((name, i) => (
-                          <span key={i} className="module-pill-tag">
-                            <Check size={11} />
-                            {name}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span className="label">ماژول‌های پیش‌فرض ({assignedModules.length} ماژول):</span>
+                        {mandatoryCount > 0 && (
+                          <span className="preset-mand-count-badge">
+                            <Lock size={11} />
+                            {mandatoryCount.toLocaleString('fa-IR')} الزامی
                           </span>
-                        ))}
+                        )}
+                      </div>
+                      <div className="preset-chips-wrap">
+                        {assignedModules.map((mod, i) => {
+                          const isMand = mandatoryIds.has(mod.id);
+                          return (
+                            <span key={i} className={`module-pill-tag ${isMand ? 'mandatory' : ''}`}>
+                              {isMand ? <Lock size={11} /> : <Check size={11} />}
+                              {mod.title}
+                              {isMand && <span className="mand-tag-suffix"> (الزامی)</span>}
+                            </span>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -760,10 +970,115 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
             </div>
           </div>
 
+          {selectedModuleIds.length > 0 && (
+            <div className="erp-bulk-bar">
+              <div className="bulk-bar-info">
+                <span className="bulk-count-badge">
+                  <CheckSquare size={16} />
+                  <strong>{selectedModuleIds.length.toLocaleString('fa-IR')}</strong> ماژول انتخاب شده
+                </span>
+                <button type="button" className="btn-bulk-text" onClick={() => setSelectedModuleIds([])}>
+                  لغو انتخاب
+                </button>
+              </div>
+              <div className="bulk-bar-actions">
+                <button 
+                  type="button" 
+                  className="btn-bulk-action price" 
+                  disabled={bulkSubmitting}
+                  onClick={() => { setBulkPriceVal(''); setBulkModal('price'); }}
+                  title="تعیین یک قیمت مشخص برای همه ماژول‌های انتخابی"
+                >
+                  <DollarSign size={14} />
+                  <span>قیمت‌گذاری یکسان</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-bulk-action activate" 
+                  disabled={bulkSubmitting}
+                  onClick={() => handleBulkAction('set_status', true)}
+                  title="فعال‌سازی تمامی ماژول‌های انتخاب‌شده"
+                >
+                  <CheckCircle size={14} />
+                  <span>فعال‌سازی همه</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-bulk-action deactivate" 
+                  disabled={bulkSubmitting}
+                  onClick={() => handleBulkAction('set_status', false)}
+                  title="غیرفعال‌سازی تمامی ماژول‌های انتخاب‌شده"
+                >
+                  <XCircle size={14} />
+                  <span>غیرفعال‌سازی همه</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-bulk-action dep" 
+                  disabled={bulkSubmitting}
+                  onClick={() => { 
+                    setBulkSelectedDeps([]); 
+                    setBulkDepSearch(''); 
+                    setBulkModal('dependency'); 
+                  }}
+                  title="مدیریت و انتساب پیش‌نیاز به ماژول‌های انتخابی"
+                >
+                  <Link2 size={14} />
+                  <span>انتساب پیش‌نیاز</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-bulk-action preset" 
+                  disabled={bulkSubmitting}
+                  onClick={() => { 
+                    setBulkSelectedPresets([]); 
+                    setBulkPresetSearch(''); 
+                    setBulkModal('preset'); 
+                  }}
+                  title="افزودن ماژول‌های انتخابی به صنف‌ها و تب‌های پیش‌فرض"
+                >
+                  <Layers size={14} />
+                  <span>انتساب صنف / تب</span>
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-bulk-action delete" 
+                  disabled={bulkSubmitting}
+                  onClick={() => setBulkModal('delete')}
+                  title="حذف کامل ماژول‌های انتخاب‌شده از سیستم"
+                >
+                  <Trash2 size={14} />
+                  <span>حذف گروهی</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="erp-admin-table-wrap">
             <table className="erp-admin-table">
               <thead>
                 <tr>
+                  <th style={{ width: '42px', textAlign: 'center' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={filteredModules.length > 0 && filteredModules.every(m => selectedModuleIds.includes(m.id))}
+                      ref={el => {
+                        if (el) {
+                          const isAll = filteredModules.length > 0 && filteredModules.every(m => selectedModuleIds.includes(m.id));
+                          const isSome = filteredModules.some(m => selectedModuleIds.includes(m.id));
+                          el.indeterminate = isSome && !isAll;
+                        }
+                      }}
+                      onChange={() => toggleSelectAll(filteredModules)}
+                      title="انتخاب یا لغو انتخاب تمام ماژول‌های فیلتر شده"
+                      style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                    />
+                  </th>
                   <th style={{ width: '45px' }}>#</th>
                   <th 
                     style={{ cursor: 'pointer', userSelect: 'none' }}
@@ -831,15 +1146,34 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                   const isSaving = savingModuleId === mod.id;
                   const currentInlineVal = inlinePrices[mod.id] !== undefined ? inlinePrices[mod.id] : mod.price;
                   const isModified = Number(currentInlineVal) !== Number(mod.price);
+                  const isSelected = selectedModuleIds.includes(mod.id);
 
                   return (
-                    <tr key={mod.id} className={mod.is_active === false ? 'row-inactive' : ''}>
+                    <tr 
+                      key={mod.id} 
+                      className={`${mod.is_active === false ? 'row-inactive' : ''} ${isSelected ? 'row-selected' : ''}`}
+                    >
+                      <td style={{ textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected}
+                          onChange={() => toggleSelectModule(mod.id)}
+                          style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                        />
+                      </td>
                       <td>{idx + 1}</td>
                       <td>
                         <div className="module-title-cell">
                           <strong>{mod.title}</strong>
                           {mod.dependencies && mod.dependencies.length > 0 && (
-                            <span className="dep-notice">وابسته به {mod.dependencies.join(', ')}</span>
+                            <span 
+                              className="dep-notice" 
+                              title={`وابسته به: ${mod.dependencies.join(', ')}`}
+                            >
+                              وابسته به {mod.dependencies.length <= 2 
+                                ? mod.dependencies.join(', ') 
+                                : `${mod.dependencies.slice(0, 2).join(', ')} و ${mod.dependencies.length - 2} ماژول دیگر`}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -847,71 +1181,26 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                         <code className="slug-code">{mod.id}</code>
                       </td>
                       <td>
-                        {mod.dependencies && mod.dependencies.length > 0 ? (
-                          <div className="dep-chips">
-                            {mod.dependencies.map(d => {
-                              const foundDep = data?.modules?.find(m => m.id === d);
-                              return (
-                                <span key={d} className="dep-pill">
-                                  {foundDep ? foundDep.title : d}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span style={{ color: '#94a3b8', fontSize: '12px' }}>مستقل</span>
-                        )}
+                        <HoverBadgesList 
+                          items={(mod.dependencies || []).map(d => {
+                            const foundDep = data?.modules?.find(m => m.id === d);
+                            return { id: d, title: foundDep ? foundDep.title : d };
+                          })}
+                          type="dep"
+                          maxVisible={2}
+                          emptyText="مستقل"
+                          isTopRow={idx < 2}
+                        />
                       </td>
                       {/* صنف‌های درج شده در این ماژول */}
                       <td>
-                        {(() => {
-                          const presetsList = modulePresetsMap[mod.id] || [];
-                          if (!presetsList.length) {
-                            return (
-                              <span style={{ color: '#94a3b8', fontSize: '11.5px', fontStyle: 'italic' }}>
-                                عمومی / فاقد صنف
-                              </span>
-                            );
-                          }
-                          return (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '240px' }}>
-                              {presetsList.slice(0, 3).map((pTitle, pIdx) => (
-                                <span 
-                                  key={pIdx}
-                                  title={`شامل در صنف ${pTitle}`}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '2px 7px',
-                                    borderRadius: '5px',
-                                    background: '#f0fdf4',
-                                    color: '#15803d',
-                                    border: '1px solid #bbf7d0',
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap'
-                                  }}
-                                >
-                                  {pTitle}
-                                </span>
-                              ))}
-                              {presetsList.length > 3 && (
-                                <span 
-                                  title={presetsList.join('، ')}
-                                  style={{
-                                    fontSize: '11px',
-                                    padding: '2px 6px',
-                                    borderRadius: '5px',
-                                    background: '#f1f5f9',
-                                    color: '#475569',
-                                    fontWeight: 600,
-                                    cursor: 'help'
-                                  }}
-                                >
-                                  +{presetsList.length - 3} صنف دیگر
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <HoverBadgesList 
+                          items={(modulePresetsMap[mod.id] || []).map(p => ({ id: p, title: p }))}
+                          type="preset"
+                          maxVisible={3}
+                          emptyText="عمومی / فاقد صنف"
+                          isTopRow={idx < 2}
+                        />
                       </td>
                       <td>
                         <div className="price-input-row">
@@ -1004,10 +1293,10 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                   min="1"
                   max="100"
                   value={settingsForm.base_user_limit}
-                  onChange={e => setSettingsForm({ ...settingsForm, base_user_limit: Number(e.target.value) })}
+                  onChange={e => setSettingsForm({ ...settingsForm, base_user_limit: e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value, 10) || 1) })}
                   required
                 />
-                <small className="help-text">تعداد کاربرانی که در ماژول CRM پایه محاسبه شده و هزینه اضافی ندارند (پیش‌فرض: ۱ کاربر). سایر ماژول‌ها نامحدود هستند.</small>
+                <small className="help-text">تعداد کاربرانی که در اشتراک پایه محاسبه شده و هزینه اضافی ندارند (پیش‌فرض: ۱ کاربر). این سقف برای تمامی ماژول‌های سیستم اعمال می‌گردد.</small>
               </div>
 
               <div className="form-group">
@@ -1021,12 +1310,35 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                     step="any"
                     min="0"
                     value={settingsForm.extra_user_price}
-                    onChange={e => setSettingsForm({ ...settingsForm, extra_user_price: Number(e.target.value) })}
+                    onChange={e => setSettingsForm({ ...settingsForm, extra_user_price: e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0) })}
                     required
                   />
                   <span className="unit">تومان / کاربر</span>
                 </div>
-                <small className="help-text">مبلغی که به ازای هر کاربر مازاد در ماژول CRM به هزینه ماهانه افزوده می‌شود (پیش‌فرض: ۸۰۰,۰۰۰ تومان معادل تعرفه پایه CRM).</small>
+                {settingsForm.extra_user_price !== '' && !isNaN(Number(settingsForm.extra_user_price)) && (
+                  <div style={{ marginTop: '6px', fontSize: '12.5px', color: '#0284c7', fontWeight: 700 }}>
+                    معادل ماهانه: {money(settingsForm.extra_user_price)} | سالانه (۱۰ ماه محاسبه + ۲ ماه رایگان): {money(Number(settingsForm.extra_user_price) * (Number(settingsForm.yearly_multiplier) || 10))}
+                  </div>
+                )}
+                <small className="help-text">مبلغی که به ازای هر کاربر مازاد بر سقف پایه به هزینه ماهانه اشتراک افزوده می‌شود (مثلاً: ۱۵۰,۰۰۰ تومان).</small>
+                <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { label: '۱۵۰ هزار تومان (استاندارد)', val: 150000 },
+                    { label: '۳۰۰ هزار تومان', val: 300000 },
+                    { label: '۵۰۰ هزار تومان', val: 500000 },
+                    { label: '۸۰۰ هزار تومان', val: 800000 },
+                  ].map(chip => (
+                    <button
+                      key={chip.val}
+                      type="button"
+                      className="chip-btn"
+                      style={{ fontSize: '11.5px', padding: '3px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#f8fafc', cursor: 'pointer', color: '#334155' }}
+                      onClick={() => setSettingsForm(prev => ({ ...prev, extra_user_price: chip.val }))}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="form-group">
@@ -1147,8 +1459,8 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                 <div className="modal-modules-selector-section">
                   <div className="selector-head">
                     <div>
-                      <strong>انتخاب ماژول‌های پیش‌فرض این تب:</strong>
-                      <p>ماژول‌هایی که با انتخاب این تب توسط کاربر باید به صورت خودکار تیک بخورند را انتخاب کنید.</p>
+                      <strong>انتخاب ماژول‌های این صنف و تعیین ماژول‌های الزامی:</strong>
+                      <p>ماژول‌های مورد نظر را انتخاب کنید. همچنین با فعال کردن دکمه <strong>«🔒 الزامی»</strong>، خرید آن ماژول برای این صنف اجباری و قفل خواهد شد.</p>
                     </div>
                     <div className="selector-quick-actions">
                       <button type="button" className="btn-quick" onClick={selectAllModulesForTab}>انتخاب همه</button>
@@ -1158,33 +1470,49 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
 
                   {(() => {
                     const activeModsList = (data?.modules || []).filter(mod => mod.is_active !== false);
-                    const selectedCount = tabForm.default_modules.filter(id => activeModsList.some(m => m.id === id)).length;
+                    const selectedCount = (tabForm.default_modules || []).filter(id => activeModsList.some(m => m.id === id)).length;
+                    const mandatoryCount = (tabForm.mandatory_modules || []).filter(id => activeModsList.some(m => m.id === id)).length;
                     return (
                       <>
                         <div className="selected-count-bar">
-                          <span>تعداد ماژول‌های انتخابی برای این تب: <strong>{selectedCount} از {activeModsList.length}</strong></span>
+                          <span>تعداد ماژول‌های انتخابی: <strong>{selectedCount} از {activeModsList.length}</strong></span>
+                          {mandatoryCount > 0 && (
+                            <span style={{ marginRight: '16px', color: '#b45309', fontWeight: 600 }}>
+                              (🔒 {mandatoryCount} ماژول الزامی برای این صنف)
+                            </span>
+                          )}
                         </div>
 
                         <div className="modules-checkbox-grid">
                           {activeModsList.map(mod => {
-                            const isChecked = tabForm.default_modules.includes(mod.id);
+                            const isChecked = (tabForm.default_modules || []).includes(mod.id);
+                            const isMandatory = (tabForm.mandatory_modules || []).includes(mod.id);
                             return (
-                              <label 
+                              <div 
                                 key={mod.id} 
-                                className={`mod-checkbox-card ${isChecked ? 'selected' : ''}`}
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  toggleModuleInTabForm(mod.id);
-                                }}
+                                className={`mod-checkbox-card ${isChecked ? 'selected' : ''} ${isMandatory ? 'mandatory-active' : ''}`}
+                                onClick={() => toggleModuleInTabForm(mod.id)}
                               >
                                 <div className={`custom-check-box ${isChecked ? 'checked' : ''}`}>
                                   {isChecked && <Check size={13} color="#fff" />}
                                 </div>
-                                <div className="mod-info">
+                                <div className="mod-info" style={{ flex: 1, minWidth: 0 }}>
                                   <span className="mod-title">{mod.title}</span>
                                   <span className="mod-price">{money(mod.price)}</span>
                                 </div>
-                              </label>
+                                <button
+                                  type="button"
+                                  className={`btn-mod-mandatory-toggle ${isMandatory ? 'active' : ''}`}
+                                  title={isMandatory ? 'این ماژول برای این صنف الزامی و غیرقابل حذف است. برای تبدیل به اختیاری کلیک کنید.' : 'کلیک کنید تا این ماژول برای این صنف الزامی (قفل شده) شود'}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleMandatoryInTabForm(mod.id);
+                                  }}
+                                >
+                                  <Lock size={12} />
+                                  <span>{isMandatory ? 'الزامی' : 'اختیاری'}</span>
+                                </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -1460,6 +1788,444 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================= */}
+      {/* BULK ACTION MODALS */}
+      {/* ============================================================= */}
+
+      {/* 1. Bulk Price Modal */}
+      {bulkModal === 'price' && (
+        <div className="erp-modal-overlay" onClick={() => !bulkSubmitting && setBulkModal(null)}>
+          <div className="erp-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
+            <div className="erp-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <DollarSign size={20} color="#2563eb" />
+                <h3>قیمت‌گذاری یکسان ({selectedModuleIds.length.toLocaleString('fa-IR')} ماژول)</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close-modal" 
+                disabled={bulkSubmitting}
+                onClick={() => setBulkModal(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (bulkPriceVal === '' || isNaN(Number(bulkPriceVal))) {
+                alert('لطفاً مبلغ معتبری وارد کنید.');
+                return;
+              }
+              handleBulkAction('set_price', Number(bulkPriceVal));
+            }}>
+              <div className="erp-modal-body">
+                <p style={{ color: '#475569', fontSize: '13px', margin: '0 0 16px', lineHeight: 1.6 }}>
+                  مبلغ ماهانه مورد نظر خود را وارد کنید. این قیمت به عنوان نرخ پایه ماهانه بر روی تمامی <strong>{selectedModuleIds.length.toLocaleString('fa-IR')}</strong> ماژول انتخاب‌شده اعمال خواهد شد.
+                </p>
+
+                <div className="form-group">
+                  <label>قیمت ماهانه جدید (تومان)</label>
+                  <input 
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="مثلاً ۲,۵۰۰,۰۰۰"
+                    value={bulkPriceVal}
+                    onChange={e => setBulkPriceVal(e.target.value)}
+                    autoFocus
+                    required
+                    style={{ fontSize: '15px', fontWeight: 'bold' }}
+                  />
+                  {bulkPriceVal !== '' && !isNaN(Number(bulkPriceVal)) && (
+                    <small style={{ color: '#0284c7', marginTop: '4px', display: 'block', fontWeight: 600 }}>
+                      معادل: {money(bulkPriceVal)}
+                    </small>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '14px' }}>
+                  <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>مبالغ پیشنهادی و استاندارد:</span>
+                  <div className="bulk-presets-chips">
+                    {[
+                      { label: '۲۵۰ هزار تومان (پایه سیستم)', val: 250000 },
+                      { label: '۸۰۰ هزار تومان (تعرفه متوسط)', val: 800000 },
+                      { label: '۱ میلیون تومان (تعرفه پروژه)', val: 1000000 },
+                      { label: '۲.۵ میلیون تومان (ماژول‌های پیشرفته)', val: 2500000 },
+                    ].map(chip => (
+                      <button 
+                        key={chip.val}
+                        type="button" 
+                        className="chip-btn"
+                        onClick={() => setBulkPriceVal(chip.val)}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="erp-modal-foot">
+                <button type="button" className="btn-cancel" disabled={bulkSubmitting} onClick={() => setBulkModal(null)}>
+                  انصراف
+                </button>
+                <button type="submit" className="btn-submit-save" disabled={bulkSubmitting}>
+                  {bulkSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
+                  <span>اعمال قیمت برای {selectedModuleIds.length.toLocaleString('fa-IR')} ماژول</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Bulk Prerequisite / Dependency Modal */}
+      {bulkModal === 'dependency' && (
+        <div className="erp-modal-overlay" onClick={() => !bulkSubmitting && setBulkModal(null)}>
+          <div className="erp-modal-card medium" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px' }}>
+            <div className="erp-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Link2 size={20} color="#8b5cf6" />
+                <h3>مدیریت و انتساب پیش‌نیاز گروهی ({selectedModuleIds.length.toLocaleString('fa-IR')} ماژول انتخابی)</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close-modal" 
+                disabled={bulkSubmitting}
+                onClick={() => setBulkModal(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="erp-modal-body">
+              <p style={{ color: '#475569', fontSize: '13px', margin: 0, lineHeight: 1.6 }}>
+                می‌توانید یک یا چند ماژول را با تیک زدن انتخاب نمایید تا به عنوان پیش‌نیاز به تمامی <strong>{selectedModuleIds.length.toLocaleString('fa-IR')}</strong> ماژول منتخب افزوده شده یا از پیش‌نیازهای آن‌ها حذف گردند:
+              </p>
+
+              <div className="modal-modules-selector-section">
+                <div className="selector-head">
+                  <div>
+                    <strong>فهرست ماژول‌های پیش‌نیاز:</strong>
+                    <p>ماژول‌هایی که برای فعال‌سازی ماژول‌های انتخاب‌شده ضروری خواهند بود</p>
+                  </div>
+                  <div className="selector-quick-actions">
+                    <button 
+                      type="button" 
+                      className="btn-quick"
+                      onClick={() => {
+                        const availableIds = (data?.modules || [])
+                          .filter(m => !selectedModuleIds.includes(m.id) || selectedModuleIds.length > 1)
+                          .map(m => m.id);
+                        setBulkSelectedDeps(availableIds);
+                      }}
+                    >
+                      انتخاب همه
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn-quick"
+                      onClick={() => setBulkSelectedDeps([])}
+                    >
+                      لغو انتخاب
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Search */}
+                <div style={{ position: 'relative' }}>
+                  <Search size={15} style={{ position: 'absolute', right: '12px', top: '11px', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    placeholder="جستجوی عنوان یا شناسه ماژول..."
+                    value={bulkDepSearch}
+                    onChange={e => setBulkDepSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 36px 8px 12px',
+                      fontSize: '12.5px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      background: '#ffffff',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {bulkDepSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setBulkDepSearch('')}
+                      style={{
+                        position: 'absolute',
+                        left: '10px',
+                        top: '8px',
+                        background: 'transparent',
+                        border: 'none',
+                        color: '#94a3b8',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#64748b' }}>
+                  <span>
+                    تعداد پیش‌نیازهای تیک‌خورده: <strong style={{ color: '#8b5cf6' }}>{bulkSelectedDeps.length.toLocaleString('fa-IR')}</strong> مورد
+                  </span>
+                </div>
+
+                <div className="modules-checkbox-grid" style={{ maxHeight: '250px' }}>
+                  {(data?.modules || [])
+                    .filter(m => !selectedModuleIds.includes(m.id) || selectedModuleIds.length > 1)
+                    .filter(m => {
+                      if (!bulkDepSearch.trim()) return true;
+                      const q = bulkDepSearch.toLowerCase();
+                      return (m.title && m.title.toLowerCase().includes(q)) || (m.id && m.id.toLowerCase().includes(q));
+                    })
+                    .map(mod => {
+                      const isChecked = bulkSelectedDeps.includes(mod.id);
+                      return (
+                        <label 
+                          key={mod.id} 
+                          className={`mod-checkbox-card ${isChecked ? 'selected' : ''}`}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            toggleBulkDep(mod.id);
+                          }}
+                        >
+                          <div className={`custom-check-box ${isChecked ? 'checked' : ''}`} style={isChecked ? { background: '#8b5cf6', borderColor: '#8b5cf6' } : {}}>
+                            {isChecked && <Check size={13} color="#fff" />}
+                          </div>
+                          <div className="mod-info">
+                            <span className="mod-title">{mod.title}</span>
+                            <span className="mod-price">{mod.id}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            <div className="erp-modal-foot" style={{ justifyContent: 'space-between' }}>
+              <button type="button" className="btn-cancel" disabled={bulkSubmitting} onClick={() => setBulkModal(null)}>
+                انصراف
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn-cancel" 
+                  style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                  disabled={bulkSubmitting || bulkSelectedDeps.length === 0}
+                  onClick={() => handleBulkAction('remove_dependency', bulkSelectedDeps)}
+                >
+                  حذف این ({bulkSelectedDeps.length.toLocaleString('fa-IR')}) پیش‌نیاز
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-submit-save" 
+                  style={{ background: '#8b5cf6' }}
+                  disabled={bulkSubmitting || bulkSelectedDeps.length === 0}
+                  onClick={() => handleBulkAction('add_dependency', bulkSelectedDeps)}
+                >
+                  {bulkSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Link2 size={16} />}
+                  <span>افزودن ({bulkSelectedDeps.length.toLocaleString('fa-IR')}) پیش‌نیاز</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Bulk Preset / Industry Modal */}
+      {bulkModal === 'preset' && (
+        <div className="erp-modal-overlay" onClick={() => !bulkSubmitting && setBulkModal(null)}>
+          <div className="erp-modal-card medium" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px' }}>
+            <div className="erp-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={20} color="#0284c7" />
+                <h3>انتساب گروهی صنف و تب ({selectedModuleIds.length.toLocaleString('fa-IR')} ماژول انتخابی)</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close-modal" 
+                disabled={bulkSubmitting}
+                onClick={() => setBulkModal(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="erp-modal-body">
+              <p style={{ color: '#475569', fontSize: '13px', margin: 0, lineHeight: 1.6 }}>
+                صنف‌ها و تب‌های پیش‌فرض مورد نظر خود را با تیک زدن انتخاب فرمایید تا تمامی <strong>{selectedModuleIds.length.toLocaleString('fa-IR')}</strong> ماژول منتخب به آن‌ها متصل شوند یا از آن‌ها خارج گردند:
+              </p>
+
+              <div className="modal-modules-selector-section">
+                <div className="selector-head">
+                  <div>
+                    <strong>فهرست صنف‌ها و تب‌های پیش‌فرض:</strong>
+                    <p>صنف‌هایی که ماژول‌های انتخابی در تب آن‌ها قرار می‌گیرند</p>
+                  </div>
+                  <div className="selector-quick-actions">
+                    <button 
+                      type="button" 
+                      className="btn-quick"
+                      onClick={() => {
+                        const allPresetIds = (data?.presets || []).map(p => p.id);
+                        setBulkSelectedPresets(allPresetIds);
+                      }}
+                    >
+                      انتخاب همه صنف‌ها
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn-quick"
+                      onClick={() => setBulkSelectedPresets([])}
+                    >
+                      لغو انتخاب
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#64748b' }}>
+                  <span>
+                    تعداد صنف‌های تیک‌خورده: <strong style={{ color: '#0284c7' }}>{bulkSelectedPresets.length.toLocaleString('fa-IR')}</strong> صنف
+                  </span>
+                </div>
+
+                <div className="modules-checkbox-grid" style={{ maxHeight: '250px' }}>
+                  {(data?.presets || []).map(preset => {
+                    const isChecked = bulkSelectedPresets.includes(preset.id);
+                    return (
+                      <label 
+                        key={preset.id} 
+                        className={`mod-checkbox-card ${isChecked ? 'selected' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleBulkPreset(preset.id);
+                        }}
+                      >
+                        <div className={`custom-check-box ${isChecked ? 'checked' : ''}`} style={isChecked ? { background: '#0284c7', borderColor: '#0284c7' } : {}}>
+                          {isChecked && <Check size={13} color="#fff" />}
+                        </div>
+                        <div className="mod-info">
+                          <span className="mod-title">{preset.title}</span>
+                          <span className="mod-price">شناسه صنف: {preset.id}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="erp-modal-foot" style={{ justifyContent: 'space-between' }}>
+              <button type="button" className="btn-cancel" disabled={bulkSubmitting} onClick={() => setBulkModal(null)}>
+                انصراف
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  type="button" 
+                  className="btn-cancel" 
+                  style={{ color: '#ef4444', borderColor: '#fca5a5' }}
+                  disabled={bulkSubmitting || bulkSelectedPresets.length === 0}
+                  onClick={() => handleBulkAction('remove_preset', bulkSelectedPresets)}
+                >
+                  خروج از این ({bulkSelectedPresets.length.toLocaleString('fa-IR')}) صنف
+                </button>
+                <button 
+                  type="button" 
+                  className="btn-submit-save" 
+                  style={{ background: '#0284c7' }}
+                  disabled={bulkSubmitting || bulkSelectedPresets.length === 0}
+                  onClick={() => handleBulkAction('add_preset', bulkSelectedPresets)}
+                >
+                  {bulkSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Layers size={16} />}
+                  <span>افزودن به ({bulkSelectedPresets.length.toLocaleString('fa-IR')}) صنف</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Bulk Delete Confirmation Modal */}
+      {bulkModal === 'delete' && (
+        <div className="erp-modal-overlay" onClick={() => !bulkSubmitting && setBulkModal(null)}>
+          <div className="erp-modal-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="erp-modal-head">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldAlert size={22} color="#ef4444" />
+                <h3 style={{ color: '#dc2626' }}>تأیید حذف گروهی ماژول‌ها</h3>
+              </div>
+              <button 
+                type="button" 
+                className="btn-close-modal" 
+                disabled={bulkSubmitting}
+                onClick={() => setBulkModal(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="erp-modal-body">
+              <div style={{
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                padding: '14px',
+                borderRadius: '8px',
+                color: '#991b1b',
+                fontSize: '13px',
+                lineHeight: 1.6,
+                marginBottom: '14px'
+              }}>
+                <strong>هشدار امنیتی و حذفی:</strong> شما در حال حذف دائم <strong>{selectedModuleIds.length.toLocaleString('fa-IR')}</strong> ماژول از ساختار سیستم ERP کارویتا هستید. تمامی ارجاعات این ماژول‌ها در صنف‌ها و پیش‌نیازها نیز پاک خواهند شد. این عملیات غیرقابل بازگشت است.
+              </div>
+
+              <div style={{ maxHeight: '140px', overflowY: 'auto', display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                {selectedModuleIds.map(id => {
+                  const m = data?.modules?.find(item => item.id === id);
+                  return (
+                    <span 
+                      key={id}
+                      style={{
+                        fontSize: '11.5px',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        color: '#334155'
+                      }}
+                    >
+                      {m ? m.title : id}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="erp-modal-foot">
+              <button type="button" className="btn-cancel" disabled={bulkSubmitting} onClick={() => setBulkModal(null)}>
+                انصراف
+              </button>
+              <button 
+                type="button" 
+                className="btn-submit-save" 
+                style={{ background: '#dc2626' }}
+                disabled={bulkSubmitting}
+                onClick={() => handleBulkAction('delete', null)}
+              >
+                {bulkSubmitting ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                <span>بله، تمام {selectedModuleIds.length.toLocaleString('fa-IR')} ماژول را حذف کن</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

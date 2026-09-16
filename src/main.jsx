@@ -25,6 +25,7 @@ import OfflineBanner from './components/PWA/OfflineBanner';
 import PwaInstallPrompt from './components/PWA/PwaInstallPrompt';
 import { Welcome } from './components/Landing/Welcome';
 import { PricingConfigurator } from './components/PricingConfigurator/PricingConfigurator';
+import { DEFAULT_PRESETS } from './components/PricingConfigurator/configuratorData';
 import { SubscriptionRenewView } from './components/Subscription/SubscriptionRenewView';
 import { SubscriptionResourcesView } from './components/Subscription/SubscriptionResourcesView';
 import { ERPWorkspaceView } from './components/Subscription/ERPWorkspaceView';
@@ -159,8 +160,9 @@ function Auth({ defaultIntent }) {
     if (!cleanMobile) {
       return setError('لطفاً شماره موبایل خود را وارد کنید.');
     }
-    if (cleanMobile.length < 10) {
-      return setError('شماره موبایل باید حداقل ۱۰ یا ۱۱ رقم باشد.');
+    const cleanDigits = cleanMobile.replace(/\D/g, '');
+    if (!/^09\d{9}$/.test(cleanDigits)) {
+      return setError('شماره موبایل باید ۱۱ رقمی باشد و با ۰۹ شروع شود (مثال: ۰۹۱۲۳۴۵۶۷۸۹).');
     }
     try {
       setLoading(true);
@@ -552,10 +554,19 @@ function Company() {
       return { name: '', industry: '', employee_count: '', job_title: '' };
     }
   });
+  const [presets, setPresets] = useState(DEFAULT_PRESETS);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    api('/configurator/data')
+      .then(res => {
+        if (res && Array.isArray(res.presets) && res.presets.length > 0) {
+          setPresets(res.presets.filter(p => p.is_active !== false));
+        }
+      })
+      .catch(() => {});
+
     api('/onboarding')
       .then(r => {
         if (r && (r.company || r.user)) {
@@ -581,18 +592,54 @@ function Company() {
   };
 
   async function submit() {
-    if (!f.name?.trim() || !f.industry || !f.employee_count || !f.job_title) {
-      return setError('لطفاً مشخصات شرکت و سمت خود را به طور کامل وارد کنید.');
+    if (!f.name?.trim()) {
+      return setError('لطفاً نام شرکت یا کسب‌وکار خود را وارد کنید.');
     }
+    if (!f.industry || !f.industry.trim()) {
+      return setError('انتخاب حوزه فعالیت (صنف تخصصی) الزامی است.');
+    }
+    if (!f.employee_count) {
+      return setError('لطفاً تعداد کارکنان را مشخص فرمایید.');
+    }
+    if (!f.job_title) {
+      return setError('لطفاً سمت خود در شرکت را مشخص فرمایید.');
+    }
+
     try {
       setLoading(true);
       setError('');
+
+      // Find the selected preset object to get both ID and Persian Title
+      const selectedPreset = presets.find(p => p.id === f.industry || p.title === f.industry);
+      const resolvedIndustryId = selectedPreset ? selectedPreset.id : f.industry;
+      const resolvedIndustryTitle = selectedPreset ? selectedPreset.title : f.industry;
+
+      const payload = {
+        ...f,
+        industry: resolvedIndustryTitle,
+        industry_id: resolvedIndustryId,
+      };
+
       await api('/onboarding/company', {
         method: 'POST',
-        body: JSON.stringify(f),
+        body: JSON.stringify(payload),
       });
-      localStorage.setItem('draft_onboard_company', JSON.stringify(f));
-      nav('/plans');
+
+      const draftData = {
+        ...f,
+        industry: resolvedIndustryTitle,
+        industry_id: resolvedIndustryId,
+        industry_title: resolvedIndustryTitle
+      };
+      localStorage.setItem('draft_onboard_company', JSON.stringify(draftData));
+
+      nav('/plans', {
+        state: {
+          initialIndustryId: resolvedIndustryId,
+          initialIndustry: resolvedIndustryId,
+          industry: resolvedIndustryTitle
+        }
+      });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -605,22 +652,29 @@ function Company() {
     nav('/onboarding/user');
   }
 
+  const currentPresetValue = presets.find(p => p.id === f.industry || p.title === f.industry)?.id || f.industry || '';
+
   return (
     <Onboard active={2}>
       <h1>مشخصات شرکت</h1>
-      <p>برای پیشنهاد بهترین اشتراک، کسب‌وکار خود را معرفی کنید.</p>
+      <p>برای پیشنهاد بهترین اشتراک و پیکربندی ماژول‌ها، صنف و کسب‌وکار خود را معرفی کنید.</p>
       <div className="form-grid">
-        <Field label="نام شرکت" value={f.name} set={v => handleChange('name', v)} />
+        <Field label="نام شرکت یا کسب‌وکار" value={f.name} set={v => handleChange('name', v)} />
         <Field label="تعداد کارکنان" type="number" value={f.employee_count} set={v => handleChange('employee_count', v)} />
         <label>
-          حوزه فعالیت
-          <select value={f.industry} onChange={e => handleChange('industry', e.target.value)}>
-            <option value="">انتخاب کنید</option>
-            <option>فروش و بازرگانی</option>
-            <option>خدمات حرفه‌ای</option>
-            <option>فناوری اطلاعات</option>
-            <option>ساخت‌وساز</option>
-            <option>سلامت و درمان</option>
+          حوزه فعالیت (صنف تخصصی)
+          <select 
+            value={currentPresetValue} 
+            onChange={e => handleChange('industry', e.target.value)}
+            required
+            style={{ borderColor: !f.industry && error ? '#ef4444' : undefined }}
+          >
+            <option value="">-- انتخاب صنف و حوزه فعالیت (الزامی) --</option>
+            {presets.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.title}
+              </option>
+            ))}
           </select>
         </label>
         <label>
@@ -648,7 +702,7 @@ function Company() {
   );
 }
 
-function Field({ label, value, set, type = 'text', wide, disabled = false, placeholder = '' }) {
+function Field({ label, value, set, type = 'text', wide, disabled = false, placeholder = '', ...rest }) {
   return (
     <label className={wide ? 'wide' : ''}>
       {label}
@@ -658,6 +712,7 @@ function Field({ label, value, set, type = 'text', wide, disabled = false, place
         disabled={disabled}
         placeholder={placeholder}
         onChange={e => set && set(e.target.value)} 
+        {...rest}
       />
     </label>
   );
@@ -685,6 +740,7 @@ function ProfileSettings({ user, onUpdateUser }) {
     email: user?.email || '',
     mobile: user?.mobile || '',
     job_title: user?.job_title || '',
+    national_code: user?.national_code || '',
   });
   const [backup, setBackup] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -708,6 +764,7 @@ function ProfileSettings({ user, onUpdateUser }) {
         email: user.email || '',
         mobile: user.mobile || '',
         job_title: user.job_title || '',
+        national_code: user.national_code || '',
       });
     }
   }, [user]);
@@ -789,6 +846,11 @@ function ProfileSettings({ user, onUpdateUser }) {
       setError('نام و نام خانوادگی الزامی است.');
       return;
     }
+    const cleanNationalCode = toEnDigits(profile.national_code || '').trim().replace(/\D/g, '');
+    if (cleanNationalCode && cleanNationalCode.length !== 10) {
+      setError('کد ملی باید ۱۰ رقم باشد.');
+      return;
+    }
     setSaving(true);
     setError('');
     setMsg('');
@@ -800,6 +862,7 @@ function ProfileSettings({ user, onUpdateUser }) {
           last_name: profile.last_name,
           email: profile.email,
           job_title: profile.job_title,
+          national_code: cleanNationalCode,
         }),
       });
       setMsg(res.message || 'اطلاعات حساب با موفقیت ذخیره شد.');
@@ -809,6 +872,7 @@ function ProfileSettings({ user, onUpdateUser }) {
         onUpdateUser({
           ...user,
           ...profile,
+          national_code: cleanNationalCode,
         });
       }
     } catch (e) {
@@ -845,6 +909,15 @@ function ProfileSettings({ user, onUpdateUser }) {
           value={profile.last_name} 
           disabled={!isEditing}
           set={v => setProfile({ ...profile, last_name: v })} 
+        />
+        <Field 
+          label="کد ملی" 
+          value={profile.national_code} 
+          disabled={!isEditing}
+          placeholder="کد ملی ۱۰ رقمی"
+          maxLength={10}
+          dir="ltr"
+          set={v => setProfile({ ...profile, national_code: toEnDigits(v).replace(/\D/g, '').slice(0, 10) })} 
         />
         <Field 
           label="شماره تلفن همراه (شناسه حساب)" 
@@ -1039,7 +1112,7 @@ function Plans() {
 
   let initialUsers = location.state?.userCount;
   if (!initialUsers && queryParams.get('users')) {
-    initialUsers = Number(queryParams.get('users')) || 5;
+    initialUsers = Number(queryParams.get('users')) || null;
   }
 
   useEffect(() => {
@@ -1065,7 +1138,7 @@ function Plans() {
   }, []);
 
   const resolvedInitialModules = initialModules || (trialSub ? trialSub.module_ids : null);
-  const resolvedInitialUsers = initialUsers || (trialSub ? trialSub.user_count : 5);
+  const resolvedInitialUsers = initialUsers || null;
   const isFromTrial = fromTrial || Boolean(trialSub) || hasUsedTrial;
 
   return (
@@ -1083,6 +1156,7 @@ function Plans() {
         isInsideDashboard={hasCompletedOnboarding}
         hasActiveSubscription={hasActiveSub}
         hasUsedTrial={hasUsedTrial || isFromTrial}
+        initialIndustryId={location.state?.initialIndustryId || location.state?.initialIndustry || location.state?.industry}
         initialModuleIds={resolvedInitialModules}
         initialUserCount={resolvedInitialUsers}
         fromTrial={isFromTrial}
@@ -1304,6 +1378,11 @@ function Dashboard() {
     };
   }, []);
 
+  // Clear payment alert or transient notices when user switches tabs/pages
+  useEffect(() => {
+    setPaymentAlert(null);
+  }, [tab]);
+
   if (loading && !d) {
     return <Loader message="در حال بارگذاری اطلاعات داشبورد…" />;
   }
@@ -1415,6 +1494,13 @@ function Dashboard() {
   const hasActiveTrial = !hasActiveCommercial && Boolean(activeTrialSub && activeTrialSub.status === 'active');
   const targetSub = activePurchasedSub || purchasedSubs.find(s => s.status === 'active') || active[0] || subsList[0];
 
+  const isExpired = targetSub?.expires_at ? new Date(targetSub.expires_at) < new Date() : false;
+  const remainingDays = targetSub?.expires_at
+    ? Math.ceil((new Date(targetSub.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+  const canRenewEarly = Boolean(currentUser?.can_renew_early || targetSub?.can_renew_early);
+  const canRenewSubscription = isExpired || remainingDays <= 30 || isTrial(targetSub) || canRenewEarly;
+
   return (
     <Shell tab={tab} setTab={setTab} name={currentUser.first_name || 'کاربر'}>
       {tab !== 'support' && tab !== 'renew' && tab !== 'resources' && (
@@ -1428,34 +1514,38 @@ function Dashboard() {
               <>
                 {/* دکمه اول (اصلی): تمدید اشتراک همراه با نشان ۲ ماه رایگان */}
                 <div style={{ position: 'relative', display: 'inline-flex' }}>
-                  <span
-                    style={{
-                      position: 'absolute',
-                      top: '-11px',
-                      right: '10px',
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      color: '#ffffff',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      padding: '2px 9px',
-                      borderRadius: '20px',
-                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.45)',
-                      letterSpacing: '-0.2px',
-                      whiteSpace: 'nowrap',
-                      zIndex: 2,
-                      pointerEvents: 'none',
-                      border: '1.5px solid #ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    🎁 ۲ ماه رایگان
-                  </span>
+                  {canRenewSubscription && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-11px',
+                        right: '10px',
+                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                        color: '#ffffff',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        padding: '2px 9px',
+                        borderRadius: '20px',
+                        boxShadow: '0 2px 8px rgba(16, 185, 129, 0.45)',
+                        letterSpacing: '-0.2px',
+                        whiteSpace: 'nowrap',
+                        zIndex: 2,
+                        pointerEvents: 'none',
+                        border: '1.5px solid #ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      🎁 ۲ ماه رایگان
+                    </span>
+                  )}
                   <button
                     type="button"
-                    className="btn-primary"
+                    disabled={!canRenewSubscription}
+                    className={canRenewSubscription ? "btn-primary" : "btn-secondary"}
                     onClick={() => {
+                      if (!canRenewSubscription) return;
                       const s = targetSub || active[0] || subsList[0];
                       if (s) {
                         setSelectedSubForDetails(s);
@@ -1464,9 +1554,20 @@ function Dashboard() {
                         nav('/plans?mode=renew');
                       }
                     }}
+                    title={
+                      !canRenewSubscription
+                        ? 'باکس تمدید اشتراک تنها از ۳۰ روز مانده به پایان اعتبار یا با مجوز مدیریت فعال می‌شود.'
+                        : 'تمدید اشتراک با ۲ ماه هدیه رایگان'
+                    }
                     style={{
-                      background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                      borderColor: '#0284c7',
+                      background: canRenewSubscription
+                        ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'
+                        : '#f1f5f9',
+                      borderColor: canRenewSubscription ? '#0284c7' : '#cbd5e1',
+                      color: canRenewSubscription ? '#ffffff' : '#94a3b8',
+                      cursor: canRenewSubscription ? 'pointer' : 'not-allowed',
+                      opacity: canRenewSubscription ? 1 : 0.7,
+                      boxShadow: canRenewSubscription ? '0 2px 6px rgba(2, 132, 199, 0.3)' : 'none',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px'

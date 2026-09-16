@@ -98,7 +98,7 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
   }, [subscription]);
 
   // Current active user seats
-  const initialUserCount = Math.max(Number(subscription.user_count) || 5, 5);
+  const initialUserCount = Math.max(Number(subscription.user_count) || 1, 1);
   const [targetUserCount, setTargetUserCount] = useState(initialUserCount);
 
   // System catalog & settings
@@ -175,11 +175,10 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
     }, 0);
   }, [selectedModulesObjects]);
 
-  const hasCrm = currentActiveModuleIds.includes('crm') || selectedNewModuleIds.includes('crm');
   const extraUserPrice = configSettings.extra_user_price || 800000;
   const newlyAddedUserSeats = Math.max(targetUserCount - initialUserCount, 0);
-  // Extra user seats cost money ONLY if CRM is active in subscription or selected now!
-  const newlyAddedUsersMonthlyCost = hasCrm ? (newlyAddedUserSeats * extraUserPrice) : 0;
+  // Extra user seats cost applies universally across the ERP system
+  const newlyAddedUsersMonthlyCost = newlyAddedUserSeats * extraUserPrice;
 
   // Normalized billing period of current subscription
   const subPeriod = useMemo(() => {
@@ -346,11 +345,7 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
               <span>افزایش تعداد کاربر همزمان</span>
             </h3>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
-              {hasCrm ? (
-                `ظرفیت پایه فعلی: ${initialUserCount.toLocaleString('fa-IR')} کاربر (هزینه هر کاربر مازاد در CRM: ${extraUserPrice.toLocaleString('fa-IR')} تومان/ماه)`
-              ) : (
-                `ظرفیت فعلی: ${initialUserCount.toLocaleString('fa-IR')} کاربر (کاربران نامحدود و رایگان در ماژول‌های فعال شما)`
-              )}
+              ظرفیت فعلی: {initialUserCount.toLocaleString('fa-IR')} کاربر (هزینه هر کاربر مازاد: {extraUserPrice.toLocaleString('fa-IR')} تومان/ماه)
             </p>
           </div>
 
@@ -528,7 +523,7 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
               <span style={{ fontSize: '13px', color: '#475569' }}>
                 خلاصه انتخاب‌ها: <strong>{selectedNewModuleIds.length.toLocaleString('fa-IR')} ماژول جدید</strong>
                 {newlyAddedUserSeats > 0 && (
-                  <span> + <strong>{newlyAddedUserSeats.toLocaleString('fa-IR')} کاربر اضافی {hasCrm ? `(${newlyAddedUsersMonthlyCost.toLocaleString('fa-IR')} ت/ماه)` : '(رایگان)'}</strong></span>
+                  <span> + <strong>{newlyAddedUserSeats.toLocaleString('fa-IR')} کاربر اضافی ({newlyAddedUsersMonthlyCost.toLocaleString('fa-IR')} ت/ماه)</strong></span>
                 )}
               </span>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>

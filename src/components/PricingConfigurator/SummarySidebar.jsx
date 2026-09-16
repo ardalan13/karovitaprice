@@ -4,12 +4,12 @@ import { formatPrice, toPersianDigits } from './configuratorData';
 
 export function SummarySidebar({
   selectedModules = [],
-  userCount = 5,
+  userCount = 1,
   onChangeUserCount,
   billingPeriod = 'yearly',
   onChangeBillingPeriod,
   baseUserLimit = 1,
-  hasCrm = false,
+  extraUserPrice = 150000,
   extraUsersCount = 0,
   extraUsersCost = 0,
   modulesTotal = 0,
@@ -26,10 +26,10 @@ export function SummarySidebar({
   hasTrialAvailable = true,
 }) {
   const [couponInput, setCouponInput] = useState(couponCode || '');
-  const isCrmActive = hasCrm || selectedModules.some(m => m.id === 'crm');
+  const minLimit = baseUserLimit || 1;
 
   function handleDecrement() {
-    if (userCount > 1 && onChangeUserCount) {
+    if (userCount > minLimit && onChangeUserCount) {
       onChangeUserCount(userCount - 1);
     }
   }
@@ -46,6 +46,19 @@ export function SummarySidebar({
       onApplyCoupon(couponInput.trim());
     }
   }
+
+  const periodMultiplierMap = {
+    yearly: 10,
+    '6_months': 6,
+    '3_months': 3,
+  };
+  const multiplier = periodMultiplierMap[billingPeriod] || 10;
+
+  const periodShortLabelMap = {
+    yearly: '۱ ساله',
+    '6_months': '۶ ماهه',
+    '3_months': '۳ ماهه',
+  };
 
   const periodLabelMap = {
     yearly: '۱ ساله (معادل ۱۰ ماه + ۲ ماه رایگان)',
@@ -75,7 +88,7 @@ export function SummarySidebar({
               type="button"
               className="erp-sidebar-stepper-btn"
               onClick={handleDecrement}
-              disabled={userCount <= 1}
+              disabled={userCount <= minLimit}
               aria-label="کاهش کاربر"
             >
               <Minus size={16} />
@@ -94,15 +107,9 @@ export function SummarySidebar({
               <Plus size={16} />
             </button>
           </div>
-          {isCrmActive ? (
-            <p className="erp-sidebar-help-text" style={{ color: '#0369a1' }}>
-              ۱ کاربر پایه در CRM لحاظ شده است (کاربران مازاد CRM: ۸۰۰,۰۰۰ ت/ماه)
-            </p>
-          ) : (
-            <p className="erp-sidebar-help-text" style={{ color: '#16a34a' }}>
-              کاربران نامحدود و رایگان در تمامی ماژول‌های انتخابی
-            </p>
-          )}
+          <p className="erp-sidebar-help-text" style={{ color: '#0369a1' }}>
+            تا {toPersianDigits(baseUserLimit)} کاربر در اشتراک پایه رایگان لحاظ شده است (کاربران مازاد: {formatPrice(extraUserPrice)}/ماه)
+          </p>
         </div>
 
         {/* 2. Billing Period Tabs */}
@@ -159,7 +166,7 @@ export function SummarySidebar({
         {/* 3. Selected Active Modules List */}
         <div className="erp-summary-section">
           <div className="erp-section-title-row">
-            <span className="erp-section-label">ماژول‌های فعال شما</span>
+            <span className="erp-section-label">ماژول‌های فعال شما ({periodShortLabelMap[billingPeriod] || 'دوره'})</span>
             <span className="erp-count-badge">
               {toPersianDigits(selectedModules.length)} ماژول
             </span>
@@ -173,12 +180,16 @@ export function SummarySidebar({
           ) : (
             <div className="erp-selected-modules-scroll-box">
               <ul className="erp-selected-modules-list">
-                {selectedModules.map((mod) => (
-                  <li key={mod.id} className="erp-selected-module-item">
-                    <span className="erp-module-name">{mod.title}</span>
-                    <span className="erp-module-price">{formatPrice(mod.price)}</span>
-                  </li>
-                ))}
+                {selectedModules.map((mod) => {
+                  const basePrice = Number(mod.price) || 0;
+                  const itemPeriodPrice = basePrice * multiplier;
+                  return (
+                    <li key={mod.id} className="erp-selected-module-item">
+                      <span className="erp-module-name">{mod.title}</span>
+                      <span className="erp-module-price">{formatPrice(itemPeriodPrice)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -187,29 +198,27 @@ export function SummarySidebar({
         {/* 4. Cost Breakdown */}
         <div className="erp-summary-breakdown">
           <div className="erp-breakdown-row">
-            <span className="erp-breakdown-label">هزینه ماهیانه ماژول‌ها:</span>
-            <span className="erp-breakdown-value">{formatPrice(modulesTotal)}</span>
+            <span className="erp-breakdown-label">
+              مجموع ماژول‌ها ({periodShortLabelMap[billingPeriod] || 'دوره'}):
+            </span>
+            <span className="erp-breakdown-value">{formatPrice(modulesTotal * multiplier)}</span>
           </div>
 
           <div className="erp-breakdown-row">
             <span className="erp-breakdown-label">
-              {isCrmActive ? (
-                extraUsersCount === 0 
-                  ? 'کاربر پایه CRM (۱ کاربر):' 
-                  : `${toPersianDigits(extraUsersCount)} کاربر مازاد CRM:`
-              ) : (
-                'کاربران ماژول‌ها:'
-              )}
+              {extraUsersCount === 0 
+                ? `کاربران پایه (${toPersianDigits(baseUserLimit)} کاربر):` 
+                : `${toPersianDigits(extraUsersCount)} کاربر مازاد (${periodShortLabelMap[billingPeriod] || 'دوره'}):`}
             </span>
-            <span className={`erp-breakdown-value ${(!isCrmActive || extraUsersCount === 0) ? 'erp-text-free' : ''}`}>
-              {!isCrmActive ? 'نامحدود (رایگان)' : (extraUsersCount === 0 ? 'رایگان' : formatPrice(extraUsersCost))}
+            <span className={`erp-breakdown-value ${extraUsersCount === 0 ? 'erp-text-free' : ''}`}>
+              {extraUsersCount === 0 ? 'رایگان' : formatPrice(extraUsersCost * multiplier)}
             </span>
           </div>
 
           {discountAmount > 0 && (
             <div className="erp-breakdown-row erp-text-green">
               <span className="erp-breakdown-label">کد تخفیف:</span>
-              <span className="erp-breakdown-value">- {formatPrice(discountAmount)}</span>
+              <span className="erp-breakdown-value">- {formatPrice(discountAmount * multiplier)}</span>
             </div>
           )}
         </div>
@@ -227,9 +236,6 @@ export function SummarySidebar({
               ✓ محاسبه بر پایه ۱۰ ماه هزینه (۲ ماه هدیه رایگان کارویتا)
             </div>
           )}
-          <div className="erp-payable-subtitle">
-            قیمت نهایی پس از تایید نیازهای فنی قطعی خواهد شد.
-          </div>
         </div>
 
         {/* 6. Coupon Form */}

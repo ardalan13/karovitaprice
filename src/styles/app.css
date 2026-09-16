@@ -4143,6 +4143,31 @@ button:disabled {
   border: 1px solid #dbeafe;
 }
 
+.module-pill-tag.mandatory {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fde68a;
+  font-weight: 700;
+}
+
+.mand-tag-suffix {
+  font-size: 10px;
+  color: #b45309;
+}
+
+.preset-mand-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 12px;
+}
+
 .preset-card-foot {
   margin-top: auto;
   padding-top: 10px;
@@ -4222,8 +4247,8 @@ button:disabled {
   background: #ffffff;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
-  overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  overflow: visible;
 }
 
 .erp-admin-table {
@@ -4241,12 +4266,31 @@ button:disabled {
   border-bottom: 1px solid #e2e8f0;
 }
 
+.erp-admin-table thead tr:first-child th:first-child {
+  border-top-right-radius: 15px;
+}
+.erp-admin-table thead tr:first-child th:last-child {
+  border-top-left-radius: 15px;
+}
+.erp-admin-table tbody tr:last-child td:first-child {
+  border-bottom-right-radius: 15px;
+}
+.erp-admin-table tbody tr:last-child td:last-child {
+  border-bottom-left-radius: 15px;
+}
+
 .erp-admin-table td {
   padding: 12px 16px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 13px;
   color: #1e293b;
   vertical-align: middle;
+  position: relative;
+}
+
+.erp-admin-table tr:hover {
+  position: relative;
+  z-index: 20;
 }
 
 .erp-admin-table tr:hover td {
@@ -4272,6 +4316,10 @@ button:disabled {
 .module-title-cell .dep-notice {
   font-size: 11px;
   color: #94a3b8;
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .slug-code {
@@ -4290,11 +4338,269 @@ button:disabled {
 
 .dep-pill {
   font-size: 11px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.preset-pill-tag {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* -------------------------------------------------------------------------
+ * ERP Admin - Hover Expandable Badges & Floating Popovers
+ * ------------------------------------------------------------------------- */
+.hover-expand-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.hover-expand-wrap:hover {
+  z-index: 100;
+}
+
+.hover-expand-trigger-badge {
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px dashed;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.hover-expand-trigger-badge.dep {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.hover-expand-trigger-badge.dep:hover {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.15);
+}
+
+.hover-expand-trigger-badge.preset {
   background: #f1f5f9;
   color: #475569;
-  padding: 2px 6px;
+  border-color: #cbd5e1;
+}
+
+.hover-expand-trigger-badge.preset:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: #94a3b8;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Floating Popover Card */
+.hover-popover-card {
+  position: absolute;
+  z-index: 1050;
+  min-width: 260px;
+  max-width: 350px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.2), 0 4px 14px rgba(0, 0, 0, 0.08);
+  padding: 10px 12px;
+  text-align: right;
+  direction: rtl;
+  animation: popoverFadeIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto;
+}
+
+.hover-popover-card.pos-top {
+  bottom: calc(100% + 8px);
+  right: 0;
+}
+
+.hover-popover-card.pos-bottom {
+  top: calc(100% + 8px);
+  right: 0;
+}
+
+/* Hover bridge so moving mouse from trigger to popover does not lose hover */
+.hover-popover-card.pos-top::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 100%;
+  height: 12px;
+}
+
+.hover-popover-card.pos-bottom::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  width: 100%;
+  height: 12px;
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hover-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.hover-popover-count {
+  font-size: 10.5px;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.hover-popover-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+
+.hover-popover-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.hover-popover-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
   border-radius: 4px;
+}
+
+.hover-popover-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
   font-weight: 600;
+  line-height: 1.3;
+}
+
+.hover-popover-pill.dep {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.hover-popover-pill.preset {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.hover-popover-code {
+  font-size: 9.5px;
+  background: rgba(0, 0, 0, 0.06);
+  color: inherit;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .erp-admin-table tr:hover td {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .preset-pill-tag {
+  background: #052e16;
+  color: #86efac;
+  border-color: #14532d;
+}
+
+[data-theme="dark"] .dep-pill {
+  background: #082f49;
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+[data-theme="dark"] .hover-expand-trigger-badge.dep {
+  background: #0f172a;
+  color: #60a5fa;
+  border-color: #1e3a8a;
+}
+
+[data-theme="dark"] .hover-expand-trigger-badge.preset {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .hover-popover-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="dark"] .hover-popover-header {
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .hover-popover-count {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .hover-popover-pill.dep {
+  background: #082f49;
+  color: #7dd3fc;
+  border-color: #0369a1;
+}
+
+[data-theme="dark"] .hover-popover-pill.preset {
+  background: #052e16;
+  color: #86efac;
+  border-color: #166534;
+}
+
+[data-theme="dark"] .hover-popover-code {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .price-input-row {
@@ -4572,7 +4878,8 @@ button:disabled {
   overflow-y: auto;
 }
 
-.erp-modal-box {
+.erp-modal-box,
+.erp-modal-card {
   background: #ffffff;
   border-radius: 18px;
   width: 100%;
@@ -4585,9 +4892,11 @@ button:disabled {
   direction: rtl;
   animation: scaleUp 0.25s ease;
   margin: auto;
+  border: 1px solid #e2e8f0;
 }
 
-.erp-modal-box form {
+.erp-modal-box form,
+.erp-modal-card form {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -4597,7 +4906,13 @@ button:disabled {
   height: 100%;
 }
 
-.erp-modal-box.large {
+.erp-modal-box.medium,
+.erp-modal-card.medium {
+  max-width: 680px;
+}
+
+.erp-modal-box.large,
+.erp-modal-card.large {
   max-width: 840px;
 }
 
@@ -4798,6 +5113,40 @@ button:disabled {
 .mod-price {
   font-size: 11px;
   color: #64748b;
+}
+
+.btn-mod-mandatory-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.btn-mod-mandatory-toggle:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #334155;
+}
+
+.btn-mod-mandatory-toggle.active {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+  box-shadow: 0 1px 2px rgba(245, 158, 11, 0.15);
+}
+
+.mod-checkbox-card.mandatory-active {
+  border-color: #f59e0b;
+  background: #fffdf5;
 }
 
 .erp-modal-foot {
@@ -5474,6 +5823,163 @@ select {
   background: var(--bg-app) !important;
 }
 
+/* ERP Admin Bulk Actions Bar & Modals */
+.erp-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  padding: 12px 18px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.18);
+  animation: bulkSlideDown 0.25s ease;
+}
 
+@keyframes bulkSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
+.bulk-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
+.bulk-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.btn-bulk-text {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 12.5px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  text-decoration: underline;
+}
+
+.btn-bulk-text:hover {
+  color: #ffffff;
+}
+
+.bulk-bar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-bulk-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-bulk-action.price {
+  background: #2563eb;
+  color: #ffffff;
+}
+.btn-bulk-action.price:hover {
+  background: #1d4ed8;
+}
+
+.btn-bulk-action.activate {
+  background: #10b981;
+  color: #ffffff;
+}
+.btn-bulk-action.activate:hover {
+  background: #059669;
+}
+
+.btn-bulk-action.deactivate {
+  background: #64748b;
+  color: #ffffff;
+}
+.btn-bulk-action.deactivate:hover {
+  background: #475569;
+}
+
+.btn-bulk-action.dep {
+  background: #8b5cf6;
+  color: #ffffff;
+}
+.btn-bulk-action.dep:hover {
+  background: #7c3aed;
+}
+
+.btn-bulk-action.preset {
+  background: #0284c7;
+  color: #ffffff;
+}
+.btn-bulk-action.preset:hover {
+  background: #0369a1;
+}
+
+.btn-bulk-action.delete {
+  background: #ef4444;
+  color: #ffffff;
+}
+.btn-bulk-action.delete:hover {
+  background: #dc2626;
+}
+
+.erp-admin-table tr.row-selected td {
+  background: #eff6ff !important;
+}
+
+[data-theme="dark"] .erp-admin-table tr.row-selected td {
+  background: #1e293b !important;
+}
+
+.bulk-presets-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #334155;
+  font-weight: 500;
+}
+
+.chip-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  color: #0f172a;
+}

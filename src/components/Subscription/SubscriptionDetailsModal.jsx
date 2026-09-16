@@ -155,7 +155,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
   });
 
   // Base subscription user count and current state for user capacity
-  const initialUserCount = Math.max(Number(subscription.user_count) || 5, 5);
+  const initialUserCount = Math.max(Number(subscription.user_count) || 1, 1);
   const [userCount, setUserCount] = useState(initialUserCount);
 
   // Local active modules state (allows instant real-time updates upon purchase)
@@ -204,6 +204,8 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
   const isExpired = new Date(subscription.expires_at) < new Date();
   const isTrial = subscription.source === 'trial';
   const remainingDays = getRemainingDays(subscription.expires_at);
+  const canRenewEarly = Boolean(user?.can_renew_early || subscription?.can_renew_early);
+  const isRenewalActive = isExpired || remainingDays <= 30 || isTrial || canRenewEarly;
 
   // Fetch updated catalog and pricing settings from server
   useEffect(() => {
@@ -293,8 +295,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
 
   const baseUserLimit = configSettings.base_user_limit || 1;
   const extraUserPrice = configSettings.extra_user_price || 800000;
-  const hasCrmInCart = selectedModulesObjects.some(m => m.id === 'crm') || activeIds.includes('crm');
-  const extraUsersCount = hasCrmInCart ? Math.max(userCount - baseUserLimit, 0) : 0;
+  const extraUsersCount = Math.max(userCount - baseUserLimit, 0);
   const extraUsersMonthlyCost = extraUsersCount * extraUserPrice;
 
   const currentPeriodConfig = PERIOD_CONFIG[selectedPeriod] || PERIOD_CONFIG['3_months'];
@@ -318,8 +319,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
     }, 0);
   }, [activeModules, allModules]);
 
-  const renewHasCrm = activeModules.some(m => m.id === 'crm');
-  const renewExtraUsersCount = renewHasCrm ? Math.max(initialUserCount - baseUserLimit, 0) : 0;
+  const renewExtraUsersCount = Math.max(initialUserCount - baseUserLimit, 0);
   const renewExtraUsersMonthlyCost = renewExtraUsersCount * extraUserPrice;
   const renewBaseMonthlyTotal = activeModulesMonthlySum + renewExtraUsersMonthlyCost;
   const renewMultiplier = renewPeriodConfig.multiplier;
@@ -494,18 +494,26 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
             </button>
             <button
               type="button"
+              disabled={!isRenewalActive}
               className={`erp-sub-modal-tab-btn ${activeTab === 'renew' ? 'active' : ''}`}
-              onClick={() => setActiveTab('renew')}
-              style={{ position: 'relative' }}
+              onClick={() => isRenewalActive && setActiveTab('renew')}
+              style={{
+                position: 'relative',
+                opacity: isRenewalActive ? 1 : 0.6,
+                cursor: isRenewalActive ? 'pointer' : 'not-allowed'
+              }}
+              title={!isRenewalActive ? 'باکس تمدید اشتراک تنها از ۳۰ روز مانده به پایان دوره یا با مجوز مدیریت فعال می‌شود.' : ''}
             >
               {isTrial ? <ShoppingCart size={16} /> : <RotateCw size={16} />}
               <span>{isTrial ? 'خرید اشتراک تجاری' : 'تمدید اشتراک'}</span>
-              <span 
-                className="erp-sub-modal-tab-badge"
-                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', fontWeight: 800 }}
-              >
-                🎁 ۲ ماه رایگان
-              </span>
+              {isRenewalActive && (
+                <span 
+                  className="erp-sub-modal-tab-badge"
+                  style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#ffffff', fontWeight: 800 }}
+                >
+                  🎁 ۲ ماه رایگان
+                </span>
+              )}
             </button>
             {!isTrial && (
               <button
@@ -1140,19 +1148,23 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
                 <>
                   <button 
                     type="button" 
+                    disabled={!isRenewalActive}
                     className="erp-btn-add-modules"
                     style={{ 
                       padding: '0 18px', 
                       height: '44px', 
                       fontSize: '13px',
-                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                      color: '#ffffff',
-                      borderColor: '#10b981'
+                      background: isRenewalActive ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : '#f1f5f9',
+                      color: isRenewalActive ? '#ffffff' : '#94a3b8',
+                      borderColor: isRenewalActive ? '#10b981' : '#cbd5e1',
+                      cursor: isRenewalActive ? 'pointer' : 'not-allowed',
+                      opacity: isRenewalActive ? 1 : 0.7
                     }}
-                    onClick={() => setActiveTab('renew')}
+                    onClick={() => isRenewalActive && setActiveTab('renew')}
+                    title={!isRenewalActive ? 'باکس تمدید اشتراک تنها از ۳۰ روز مانده به پایان دوره یا با مجوز مدیریت فعال می‌شود.' : ''}
                   >
                     {isTrial ? <ShoppingCart size={15} /> : <RotateCw size={15} />}
-                    <span>{isTrial ? 'خرید اشتراک تجاری' : 'تمدید اشتراک (۲ ماه رایگان)'}</span>
+                    <span>{isTrial ? 'خرید اشتراک تجاری' : isRenewalActive ? 'تمدید اشتراک (۲ ماه رایگان)' : 'تمدید اشتراک'}</span>
                   </button>
                   {!isTrial && availableNewModules.length > 0 && (
                     <button 

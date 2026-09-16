@@ -22,7 +22,7 @@ export interface SellerInfo {
 
 export const OFFICIAL_SELLER_INFO: SellerInfo = {
   company_name: 'شرکت داده‌پردازان ابری کارویتا (سهامی خاص)',
-  brand_name: 'کارویتا ابری (Karvita Cloud ERP)',
+  brand_name: 'کارویتا ابری (Karovita Cloud ERP)',
   registration_number: '۵۶۸۹۴۲',
   national_id: '۱۴۰۰۹۸۷۴۵۶۱',
   economic_code: '۴۱۱۶۵۸۹۴۷۵۲۳',
@@ -33,8 +33,8 @@ export const OFFICIAL_SELLER_INFO: SellerInfo = {
   address: 'تهران، خیابان ولیعصر، بالاتر از میدان ونک، برج فناوری و نوآوری ابری، طبقه ۸، واحد ۸۰۴',
   phone: '۰۲۱-۸۸۹۹۰۰۱۱',
   fax: '۰۲۱-۸۸۹۹۰۰۱۲',
-  email: 'finance@karvita.ir',
-  website: 'https://karvita.ir',
+  email: 'finance@karovita.ir',
+  website: 'https://karovita.ir',
 };
 
 // Convert number to Persian words
@@ -125,21 +125,49 @@ export function generateOfficialTaxInvoiceHtml(params: {
   // Customer / Buyer legal info
   const buyerName = company?.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.mobile;
   const buyerEconomicCode = company?.economic_code || user.economic_code || '—';
-  const buyerNationalId = company?.national_id || user.national_id || (user.mobile ? `۰۹${user.mobile.slice(2, 10)}` : '—');
+  const buyerNationalId = company?.national_id?.trim() || user.national_code?.trim() || user.national_id?.trim() || (user.mobile ? `۰۹${user.mobile.slice(2, 10)}` : '—');
   const buyerRegNo = company?.registration_number || '—';
   const buyerPostalCode = company?.postal_code || '—';
   const buyerPhone = company?.phone || user.mobile;
   const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'تهران، اقامتگاه قانونی ثبت شده در سامانه');
 
-  // Breakdown calculations
-  const rawTotal = Number(order?.breakdown?.modules_total || order?.amount || tx?.amount || 0);
-  const extraUsersCost = Number(order?.breakdown?.extra_users_cost || 0);
-  const discountAmount = Number(order?.discount_amount || order?.breakdown?.discount_amount || 0);
-  const finalAmount = Number(tx?.amount || order?.amount || 0);
+  // Determine billing period, multiplier and titles
+  const period = String(order?.billing_period || '').toLowerCase();
+  const unitMultiplier = (period === 'yearly' || period === '12_months')
+    ? 10
+    : ((period === '6_months' || period === 'semiannual')
+      ? 6
+      : ((period === '3_months' || period === 'quarterly') ? 3 : 1));
 
-  // VAT 10% calculation
+  const periodTitleFa = (period === 'yearly' || period === '12_months')
+    ? '۱ ساله (معادل ۱۰ ماه + ۲ ماه هدیه)'
+    : ((period === '6_months' || period === 'semiannual')
+      ? '۶ ماهه'
+      : ((period === '3_months' || period === 'quarterly') ? '۳ ماهه' : 'ماهانه'));
+
+  const finalAmount = Number(tx?.amount || order?.amount || 0);
   const vatRate = 0.10;
-  // Final amount is inclusive of VAT or calculated:
+
+  // Breakdown calculations
+  const extraUsersCount = Number(order?.breakdown?.extra_users_count || (order?.user_count && order.user_count > 1 ? order.user_count - 1 : 0));
+  const monthlyExtraCost = Number(order?.breakdown?.extra_users_cost || 0);
+  const extraUsersPeriodTotal = monthlyExtraCost * unitMultiplier;
+
+  let calculatedModulesPeriodTotal = 0;
+  if (order?.module_ids && order.module_ids.length > 0) {
+    calculatedModulesPeriodTotal = order.module_ids.reduce((sum: number, modId: string) => {
+      const m = modulesList.find(x => x.id === modId);
+      return sum + (m ? (Number(m.price) || 0) * unitMultiplier : 0);
+    }, 0);
+  } else {
+    calculatedModulesPeriodTotal = Number(order?.breakdown?.modules_total || 0) * unitMultiplier;
+  }
+
+  const rawTotal = (calculatedModulesPeriodTotal + extraUsersPeriodTotal) > 0 
+    ? (calculatedModulesPeriodTotal + extraUsersPeriodTotal)
+    : finalAmount;
+
+  const discountAmount = Math.max(rawTotal - finalAmount, 0);
   const baseBeforeVat = Math.round(finalAmount / (1 + vatRate));
   const vatAmount = finalAmount - baseBeforeVat;
   const amountInWords = numberToWordsPersian(finalAmount);
@@ -152,11 +180,10 @@ export function generateOfficialTaxInvoiceHtml(params: {
     order.module_ids.forEach((modId: string) => {
       const m = modulesList.find(x => x.id === modId);
       const title = m ? m.title : modId;
-      const modBasePrice = m ? m.price : 0;
-      const unitMultiplier = order.billing_period === 'yearly' ? 12 : 1;
-      const rowTotal = modBasePrice * unitMultiplier;
-      const rowVat = Math.round(rowTotal * vatRate);
-      const rowGrand = rowTotal + rowVat;
+      const modBasePrice = m ? Number(m.price) || 0 : 0;
+      const rowItemTotal = modBasePrice * unitMultiplier;
+      const rowItemBase = Math.round(rowItemTotal / (1 + vatRate));
+      const rowVat = rowItemTotal - rowItemBase;
 
       itemRowsHtml += `
         <tr>
@@ -164,39 +191,66 @@ export function generateOfficialTaxInvoiceHtml(params: {
           <td style="font-family:monospace; text-align:center;">KAR-${modId.toUpperCase()}</td>
           <td>
             <strong>حق بهره‌برداری ماژول نرم‌افزاری: ${title}</strong>
-            <div style="font-size:10px; color:#64748b; margin-top:2px;">لایسنس ابری ${order.billing_period === 'yearly' ? 'سالانه' : 'ماهانه'} - پشتیبانی و نگهداری تخصصی</div>
+            <div style="font-size:10px; color:#64748b; margin-top:2px;">لایسنس ابری ${periodTitleFa} - پشتیبانی و نگهداری تخصصی</div>
           </td>
-          <td style="text-align:center;">۱</td>
-          <td style="text-align:center;">ماژول</td>
-          <td style="text-align:left; font-family:monospace;">${(modBasePrice * unitMultiplier).toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace;">${rowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:center;">${unitMultiplier}</td>
+          <td style="text-align:center;">ماه</td>
+          <td style="text-align:left; font-family:monospace;">${modBasePrice.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${rowItemTotal.toLocaleString('fa-IR')}</td>
           <td style="text-align:left; font-family:monospace;">۰</td>
-          <td style="text-align:left; font-family:monospace;">${rowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${rowItemTotal.toLocaleString('fa-IR')}</td>
           <td style="text-align:center;">۱۰٪</td>
           <td style="text-align:left; font-family:monospace;">${rowVat.toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace; font-weight:bold;">${rowGrand.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace; font-weight:bold;">${rowItemTotal.toLocaleString('fa-IR')}</td>
         </tr>
       `;
     });
+
+    if (extraUsersCount > 0 && monthlyExtraCost > 0) {
+      const extraUserUnitPrice = Math.round(monthlyExtraCost / extraUsersCount);
+      const extraUsersRowTotal = extraUsersPeriodTotal;
+      const extraUsersRowBase = Math.round(extraUsersRowTotal / (1 + vatRate));
+      const extraUsersRowVat = extraUsersRowTotal - extraUsersRowBase;
+
+      itemRowsHtml += `
+        <tr>
+          <td style="text-align:center;">${rowIdx++}</td>
+          <td style="font-family:monospace; text-align:center;">KAR-EXTRA-USR</td>
+          <td>
+            <strong>لایسنس و حق دسترسی کاربران مازاد سامانه ابری کارویتا</strong>
+            <div style="font-size:10px; color:#64748b; margin-top:2px;">اشتراک دسترسی ابری ${periodTitleFa} برای ${extraUsersCount.toLocaleString('fa-IR')} کاربر مازاد بر سقف پایه</div>
+          </td>
+          <td style="text-align:center;">${extraUsersCount}</td>
+          <td style="text-align:center;">کاربر (${unitMultiplier} ماه)</td>
+          <td style="text-align:left; font-family:monospace;">${(extraUserUnitPrice * unitMultiplier).toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">۰</td>
+          <td style="text-align:left; font-family:monospace;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:center;">۱۰٪</td>
+          <td style="text-align:left; font-family:monospace;">${extraUsersRowVat.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace; font-weight:bold;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+        </tr>
+      `;
+    }
   } else {
     // Standard package or custom license
     const pkgTitle = order?.package_name || 'اشتراک و لایسنس جامع سامانه ابری کارویتا';
-    itemRowsHtml = `
+    itemRowsHtml += `
       <tr>
         <td style="text-align:center;">۱</td>
         <td style="font-family:monospace; text-align:center;">KAR-ERP-LIC</td>
         <td>
           <strong>${pkgTitle}</strong>
           <div style="font-size:10px; color:#64748b; margin-top:2px;">
-            شامل دسترسی به زیرساخت ابری، لایسنس کاربری (${order?.user_count || 5} کاربر) و نگهداری سرویس
+            شامل دسترسی به زیرساخت ابری، لایسنس کاربری (${order?.user_count || 1} کاربر) و نگهداری سرویس
           </div>
         </td>
         <td style="text-align:center;">۱</td>
-        <td style="text-align:center;">دوره ${order?.billing_period === 'yearly' ? 'سالانه' : 'ماهانه'}</td>
-        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
-        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
+        <td style="text-align:center;">دوره ${periodTitleFa}</td>
+        <td style="text-align:left; font-family:monospace;">${rawTotal.toLocaleString('fa-IR')}</td>
+        <td style="text-align:left; font-family:monospace;">${rawTotal.toLocaleString('fa-IR')}</td>
         <td style="text-align:left; font-family:monospace;">${discountAmount.toLocaleString('fa-IR')}</td>
-        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
+        <td style="text-align:left; font-family:monospace;">${finalAmount.toLocaleString('fa-IR')}</td>
         <td style="text-align:center;">۱۰٪</td>
         <td style="text-align:left; font-family:monospace;">${vatAmount.toLocaleString('fa-IR')}</td>
         <td style="text-align:left; font-family:monospace; font-weight:bold;">${finalAmount.toLocaleString('fa-IR')}</td>
@@ -531,7 +585,7 @@ export function generateOfficialTaxInvoiceHtml(params: {
       <tr>
         <td style="width:20%;">
           <div style="border: 2px solid #0870d1; border-radius: 8px; padding: 6px 12px; display:inline-block; color:#0870d1; font-weight:900; font-size:16px;">
-            KARVITA
+            KAROVITA
           </div>
           <div style="font-size:9.5px; color:#475569; margin-top:2px;">سامانه جامع ابری کارویتا</div>
         </td>
@@ -730,7 +784,7 @@ export function generateOfficialContractHtml(params: {
   const dateFa = contractDate.toLocaleDateString('fa-IR');
   
   const buyerName = company?.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.mobile;
-  const buyerNationalId = company?.national_id || user.national_id || user.mobile;
+  const buyerNationalId = company?.national_id?.trim() || user.national_code?.trim() || user.national_id?.trim() || user.mobile;
   const buyerPhone = company?.phone || user.mobile;
   const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'اقامتگاه قانونی ثبت شده در سامانه');
   const finalAmount = Number(tx?.amount || order?.amount || 0);
@@ -872,16 +926,21 @@ export function generateOfficialContractHtml(params: {
 
   <div class="print-actions">
     <strong style="color:#0870d1; font-size:14px;">قرارداد رسمی لایسنس و ارائه خدمات ابری کارویتا (SLA Agreement)</strong>
-    <button type="button" class="btn-print" onclick="window.print()">
-      چاپ و ذخیره PDF قرارداد
-    </button>
+    <div style="display:flex; gap:8px;">
+      <button type="button" class="btn-print" style="background:#16a34a;" onclick="window.downloadContractPdf()">
+        دانلود خودکار PDF قرارداد
+      </button>
+      <button type="button" class="btn-print" onclick="window.print()">
+        چاپ و ذخیره PDF قرارداد
+      </button>
+    </div>
   </div>
 
   <div class="contract-wrapper">
     <div class="header-box">
       <div>
         <h1 class="contract-title">قرارداد اعطای لایسنس و ارائه خدمات ابری (SLA)</h1>
-        <small style="color:#64748b;">سامانه مدیریت یکپارچه منابع سازمانی ابری کارویتا (Karvita Cloud ERP)</small>
+        <small style="color:#64748b;">سامانه مدیریت یکپارچه منابع سازمانی ابری کارویتا (Karovita Cloud ERP)</small>
       </div>
       <div style="text-align:left; font-size:11px; line-height:1.6;">
         <div>شماره قرارداد: <strong style="font-family:monospace;">${contractNum}</strong></div>
@@ -897,12 +956,12 @@ export function generateOfficialContractHtml(params: {
 
     <div class="clause">
       <div class="clause-title">ماده ۲: موضوع قرارداد</div>
-      موضوع قرارداد عبارت است از اعطای حق بهره‌برداری غیرانحصاری (لایسنس ابری)، میزبانی امن داده‌ها، پشتیبانی فنی و دسترسی به سامانه ابری کارویتا و ماژول‌های منتخَب کارفرما شامل: <strong>${selectedModulesTitles}</strong> برای ظرفیت <strong>${order?.user_count || 5} کاربر همزمان</strong>.
+      موضوع قرارداد عبارت است از اعطای حق بهره‌برداری غیرانحصاری (لایسنس ابری)، میزبانی امن داده‌ها، پشتیبانی فنی و دسترسی به سامانه ابری کارویتا و ماژول‌های منتخَب کارفرما شامل: <strong>${selectedModulesTitles}</strong> برای ظرفیت <strong>${order?.user_count || 1} کاربر همزمان</strong>.
     </div>
 
     <div class="clause">
       <div class="clause-title">ماده ۳: مدت قرارداد و دوره اشتراک</div>
-      مدت این قرارداد به مدت <strong>یک دوره ${order?.billing_period === 'yearly' ? 'یک‌ساله (۱۲ ماه شمسی)' : 'یک‌ماهه'}</strong> از تاریخ پرداخت و فعال‌سازی سفارش بوده و با تمدید اشتراک و تسویه فاکتورهای آتی به صورت خودکار قابل تمدید است.
+      مدت این قرارداد به مدت <strong>یک دوره ${(order?.billing_period === 'yearly' || order?.billing_period === '12_months') ? 'یک‌ساله (۱۲ ماه شمسی با احتساب ۲ ماه هدیه کارویتا)' : ((order?.billing_period === '6_months' || order?.billing_period === 'semiannual') ? 'شش‌ماهه (۶ ماه شمسی)' : ((order?.billing_period === '3_months' || order?.billing_period === 'quarterly') ? 'سه‌ماهه (۳ ماه شمسی)' : 'یک‌ماهه'))}</strong> از تاریخ پرداخت و فعال‌سازی سفارش بوده و با تمدید اشتراک و تسویه فاکتورهای آتی به صورت خودکار قابل تمدید است.
     </div>
 
     <div class="clause">
@@ -921,9 +980,36 @@ export function generateOfficialContractHtml(params: {
     </div>
 
     <div class="clause">
-      <div class="clause-title">ماده ۷: حل اختلاف و قوانین حاکم</div>
-      این قرارداد تابع قوانین جاری جمهوری اسلامی ایران و قانون تجارت الکترونیکی بوده و در صورت بروز هرگونه اختلاف، موضوع ابتدا از طریق مذاکره و در صورت عدم توافق از طریق مراجع قانونی صالحه حل و فصل خواهد شد.
-    </div>
+      <div class="clause-title">ماده ۷: دوره استفاده رایگان و آشنایی با کارویتا</div>
+ مشتری پیش از پرداخت، از دوره رایگان پنج‌روزه (۵ روز) از تمامی امکانات بهره‌مند بوده و تصدیق می‌کند دسترسی کامل و فرصت کافی برای ارزیابی داشته است؛ خرید پس از این دوره به‌منزله شناخت کامل از عملکرد نرم‌افزار است.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۸: تعهد به پرداخت و شرط عدم بازگشت وجه</div>
+ ۱. مشتری با پرداخت مبلغ اشتراک تصریح می‌کند با شناخت کامل و اراده آزاد خرید کرده است. ۲. از لحظه تأیید پرداخت، مبلغ به هیچ‌وجه قابل بازگشت نیست و مشتری حق درخواست استرداد، فسخ یا انصراف ندارد. ۳. مشتری تصدیق می‌کند شرایط قرارداد را مطالعه و دکمه «پذیرش و پرداخت» را آگاهانه فشرده است. ۴. عدم استفاده یا عدم رضایت پس از دوره رایگان، دلیلی برای استرداد نیست.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۹: مبنای حقوقی شرط عدم بازگشت وجه</div>
+ مبنای حقوقی، قانون تجارت الکترونیکی ایران و ماده ۳۷ آن است: در معامله از راه دور مصرف‌کننده حداقل هفت روز کاری فرصت انصراف دارد؛ در این قرارداد دوره رایگان پنج‌روزه همان فرصت ارزیابی و انصراف بدونِ هزینه است و پس از پرداخت مسئولیت کامل تصمیم بر عهده مشتری است.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۱۰: صدور تأییدیه قرائت و پذیرش الکترونیکی</div>
+ پذیرش الکترونیکی مشتری به‌منزله امضا و جایگزین امضای دست‌نویس است. زمان، تاریخ پذیرش و شناسه تراکنش پرداخت در سامانه کارویتا به‌عنوان دلیل اثبات نگهداری می‌شود.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۱۱: حقوق و تعهدات طرفین</div>
+ تأمین‌کننده: فعال‌سازی سریع حساب پس از پرداخت، ارائه خدمات مطابق ویژگی‌های تجربه‌شده در دوره رایگان، حفظ اطلاعات مطابق حریم خصوصی. مشتری: مطالعه قرارداد پیش از پرداخت، استفاده از دوره رایگان برای آشنایی، استفاده قانونی از نرم‌افزار، پذیرش مسئولیت کامل تصمیم به خرید.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۱۲: استثنائات و موارد استرداد وجه</div>
+ تنها در این موارد محدود استرداد بررسی می‌شود: پرداخت مبلغ بیش از مبلغ نمایش‌داده‌شده (خطای محاسباتی سامانه)، کسر تکراری برای یک تراکنش واحد، عدم فعال‌سازی حساب توسط تأمین‌کننده در بازه تعهدشده. مشتری باید حداکثر ظرف ۷۲ ساعت از پرداخت، از طریق پشتیبانی کارویتا با شماره تراکنش درخواست ثبت کند.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۱۳: حل اختلاف و قانون حاکم</div>
+ این قرارداد تابع قوانین جمهوری اسلامی ایران است. اختلاف ابتدا از طریق پشتیبانی کارویتا و مذاکره دوستانه حل‌وفصل می‌شود؛ در صورت عدم توافق، مرجع رسیدگی مراجع قضایی ذی‌صلاح محل اقامت تأمین‌کننده است.</div>
+
+    <div class="clause">
+      <div class="clause-title">ماده ۱۴: امضا و تأیید نهایی</div>
+ مشتری پذیرش الکترونیکی این قرارداد و پرداخت مبلغ را تأیید می‌کند و این پذیرش به‌منزله امضای الکترونیکی اوست. تاریخ پذیرش: <strong>${dateFa}</strong> ــ شناسه تراکنش: <strong style="font-family:monospace;">${tx?.tracking_code || tx?.ref_number || tx?.id || '—'}</strong> ــ رایانامه: <strong>${user.email || '—'}</strong> ــ شناسه کاربری: <strong style="font-family:monospace;">${user.mobile || user.id || '—'}</strong></div>
 
     <div class="signatures-box">
       <div class="sig-party">
@@ -941,6 +1027,32 @@ export function generateOfficialContractHtml(params: {
       </div>
     </div>
   </div>
+
+  <!-- Contract Auto PDF: html2pdf.js auto-download + manual button -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+  <script>
+    (function () {
+      function runAutoDownload() {
+        try {
+          var el = document.querySelector('.contract-wrapper');
+          if (!el || typeof html2pdf === 'undefined') return;
+          var num = (document.title.split(' - ')[1] || 'Contract').trim();
+          html2pdf().set({
+            margin: [8, 8, 8, 8],
+            filename: 'Karovita-Contract-' + num + '.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] }
+          }).from(el).save();
+        } catch (e) { console.warn('auto pdf failed', e); }
+      }
+      window.downloadContractPdf = runAutoDownload;
+      window.addEventListener('load', function () {
+        setTimeout(runAutoDownload, 1200);
+      });
+    })();
+  </script>
 
 </body>
 </html>`;

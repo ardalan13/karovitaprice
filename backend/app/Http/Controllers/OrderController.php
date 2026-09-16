@@ -18,7 +18,7 @@ class OrderController extends Controller {
 
         $amount = (int) $validated['amount'];
         $moduleIds = $validated['module_ids'] ?? [];
-        $userCount = (int) ($validated['user_count'] ?? 5);
+        $userCount = (int) ($validated['user_count'] ?? 1);
         $billingPeriod = $validated['billing_period'] ?? 'monthly';
         $packageName = $validated['package_name'] ?? 'اشتراک ماژول‌های ERP';
 
@@ -110,7 +110,7 @@ class OrderController extends Controller {
                 'source' => 'purchase',
                 'status' => 'active',
                 'module_ids' => $order->module_ids,
-                'user_count' => $order->user_count ?? 5,
+                'user_count' => $order->user_count ?? 1,
                 'billing_period' => $order->billing_period ?? 'monthly',
                 'starts_at' => Carbon::now(),
                 'expires_at' => $expiresAt,

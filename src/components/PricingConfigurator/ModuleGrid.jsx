@@ -7,7 +7,8 @@ export function ModuleGrid({
   modules = [],
   selectedModuleIds = [],
   suggestedModuleIds = [],
-  mandatoryModuleIds = ['account', 'hr'],
+  mandatoryModuleIds = [],
+  lockedDependenciesMap = {},
   onToggleModule,
 }) {
   const [showAllPrimary, setShowAllPrimary] = useState(false);
@@ -17,27 +18,18 @@ export function ModuleGrid({
   const suggestedSet = new Set(suggestedModuleIds);
   const selectedSet = new Set(selectedModuleIds);
 
-  // Unified list of all active modules:
-  // Tier 1: Mandatory modules (e.g. account, hr)
-  // Tier 2: Suggested or selected modules for the active industry
-  // Tier 3: All other ERP modules (previously in other modules)
+  const isModuleLocked = (modId) => {
+    return mandatorySet.has(modId);
+  };
+
+  // Sort modules alphabetically by name (title)
   const allModules = [...activeModulesList].sort((a, b) => {
-    const aMandatory = mandatorySet.has(a.id);
-    const bMandatory = mandatorySet.has(b.id);
-    if (aMandatory && !bMandatory) return -1;
-    if (!aMandatory && bMandatory) return 1;
-
-    const aSuggested = suggestedSet.has(a.id) || selectedSet.has(a.id);
-    const bSuggested = suggestedSet.has(b.id) || selectedSet.has(b.id);
-    if (aSuggested && !bSuggested) return -1;
-    if (!aSuggested && bSuggested) return 1;
-
     return (a.title || '').localeCompare(b.title || '', 'fa');
   });
 
-  // Calculate default visible count so all suggested and selected modules are always visible
+  // Calculate default visible count so all suggested, mandatory and selected modules are always visible
   const suggestedOrSelectedCount = allModules.filter(
-    m => mandatorySet.has(m.id) || suggestedSet.has(m.id) || selectedSet.has(m.id)
+    m => isModuleLocked(m.id) || suggestedSet.has(m.id) || selectedSet.has(m.id)
   ).length;
   const initialVisibleCount = Math.max(suggestedOrSelectedCount, 9);
 
@@ -46,20 +38,15 @@ export function ModuleGrid({
   const renderModuleCard = (mod) => {
     const isSelected = selectedModuleIds.includes(mod.id);
     const isMandatory = mandatoryModuleIds.includes(mod.id);
-    // Strictly lock only mandatory modules; all other suggested/active modules can be freely toggled
     const isLocked = isMandatory;
 
     let tooltipText = undefined;
     if (isMandatory) {
       tooltipText = 'ماژول پایه و الزامی این صنف (غیرقابل حذف)';
-    } else if (mod.id === 'crm') {
-      tooltipText = 'مدیریت ارتباط با مشتری (CRM) - ماهانه ۸۰۰,۰۰۰ تومان (۱ کاربر پایه + به ازای هر کاربر اضافه ۸۰۰,۰۰۰ ت)';
-    } else if (mod.id === 'project') {
-      tooltipText = 'پروژه - ماهانه ۱,۰۰۰,۰۰۰ تومان (کاربران نامحدود و بدون هزینه اضافه)';
-    } else if (mod.id === 'contacts') {
-      tooltipText = 'مخاطبان و اشخاص - رایگان (پایه سیستم)';
     } else if (mod.description) {
-      tooltipText = `${mod.title}: ${mod.description} (ماهانه ۲۵۰,۰۰۰ تومان - کاربران نامحدود)`;
+      tooltipText = `${mod.title}: ${mod.description}${mod.price > 0 ? ` (ماهانه ${toPersianDigits(Number(mod.price).toLocaleString('fa-IR'))} تومان)` : ' (رایگان)'}`;
+    } else {
+      tooltipText = `${mod.title}${mod.price > 0 ? ` - ماهانه ${toPersianDigits(Number(mod.price).toLocaleString('fa-IR'))} تومان` : ' - رایگان'}`;
     }
 
     return (
@@ -88,32 +75,6 @@ export function ModuleGrid({
             <span className="erp-module-mandatory-badge">
               <Lock size={11} className="erp-lock-icon" />
               الزامی
-            </span>
-          )}
-          {mod.id === 'crm' && (
-            <span style={{
-              fontSize: '10px',
-              color: '#0284c7',
-              background: '#e0f2fe',
-              padding: '1px 5px',
-              borderRadius: '4px',
-              fontWeight: 700,
-              whiteSpace: 'nowrap'
-            }}>
-              مجوز کاربر
-            </span>
-          )}
-          {mod.id === 'project' && (
-            <span style={{
-              fontSize: '10px',
-              color: '#059669',
-              background: '#ecfdf5',
-              padding: '1px 5px',
-              borderRadius: '4px',
-              fontWeight: 700,
-              whiteSpace: 'nowrap'
-            }}>
-              کاربر نامحدود
             </span>
           )}
           <span className="erp-module-card-title">{mod.title}</span>

@@ -50,10 +50,17 @@ export function NewTicketModal({ onClose, onSuccess }) {
           setDepartmentId(depts[0].id);
         }
 
-        const pkgs = pkgRes.data || [];
+        const pkgsRaw = pkgRes.data || pkgRes.packages || [];
+        const pkgs = (Array.isArray(pkgsRaw) ? pkgsRaw : []).map(p => ({
+          ...p,
+          displayName: p.name || p.package_name || p.title || `اشتراک فعال #${p.id}`
+        }));
         setPackages(pkgs);
-        if (pkgs.length > 0) {
-          setServiceName(pkgs[0].name);
+
+        // Find active subscription or default to first
+        const activeSub = pkgs.find(p => p.status === 'active' || p.is_active) || pkgs[0];
+        if (activeSub) {
+          setServiceName(activeSub.displayName);
         } else {
           setServiceName('سرویس عمومی / بدون اشتراک فعال');
         }
@@ -230,8 +237,8 @@ export function NewTicketModal({ onClose, onSuccess }) {
                     {packages.length > 0 ? (
                       <>
                         {packages.map(pkg => (
-                          <option key={pkg.id} value={pkg.name}>
-                            {pkg.name}
+                          <option key={pkg.id} value={pkg.displayName || pkg.name}>
+                            {pkg.displayName || pkg.name}
                           </option>
                         ))}
                         <option value="سرویس عمومی / سایر خدمات">سرویس عمومی / سایر خدمات</option>

@@ -29,7 +29,10 @@ import {
   Sparkles,
   Users,
   Settings2,
-  Receipt
+  Receipt,
+  Save,
+  Zap,
+  Key
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -51,6 +54,27 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
   const [newSubPeriod, setNewSubPeriod] = useState('yearly');
   const [creatingSub, setCreatingSub] = useState(false);
 
+  // User Identity & Profile Edit State
+  const [profileForm, setProfileForm] = useState({
+    first_name: '',
+    last_name: '',
+    mobile: '',
+    email: '',
+    job_title: '',
+    role: 'user',
+    can_renew_early: false,
+    company_name: '',
+    industry: '',
+    employee_count: '',
+    national_id: '',
+    registration_num: '',
+    postal_code: '',
+    address: ''
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+
   useEffect(() => {
     if (userId) {
       loadUserDetails();
@@ -65,6 +89,26 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
       const payload = res?.data || res;
       if (payload && (payload.user || payload.subscriptions || payload.orders)) {
         setData(payload);
+
+        // Initialize profileForm from returned user & company
+        const u = payload.user || {};
+        const c = payload.company || u.company || {};
+        setProfileForm({
+          first_name: u.first_name || '',
+          last_name: u.last_name || '',
+          mobile: u.mobile || '',
+          email: u.email || '',
+          job_title: u.job_title || '',
+          role: u.role || 'user',
+          can_renew_early: Boolean(u.can_renew_early),
+          company_name: c.company_name || c.name || '',
+          industry: c.industry || '',
+          employee_count: c.employee_count || '',
+          national_id: c.national_id || c.economic_code || '',
+          registration_num: c.registration_num || c.registration_number || '',
+          postal_code: c.postal_code || '',
+          address: c.address || ''
+        });
 
         // Initialize subEditState
         const initialSubState = {};
@@ -209,6 +253,94 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
     } finally {
       setCreatingSub(false);
     }
+  };
+
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+
+    const cleanDigits = (v) => String(v || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/\D/g, '');
+    const cleanMobile = cleanDigits(profileForm.mobile);
+    const cleanNationalId = cleanDigits(profileForm.national_id);
+    const cleanPostalCode = cleanDigits(profileForm.postal_code);
+
+    if (profileForm.mobile && (!/^09\d{9}$/.test(cleanMobile) || cleanMobile.length !== 11)) {
+      return setProfileError('شماره همراه باید ۱۱ رقمی باشد و با ۰۹ شروع شود (مثال: ۰۹۱۲۳۴۵۶۷۸۹).');
+    }
+
+    if (cleanNationalId && cleanNationalId.length !== 10 && cleanNationalId.length !== 11) {
+      return setProfileError('کد ملی باید ۱۰ رقم و شناسه ملی شرکت باید ۱۱ رقم باشد.');
+    }
+
+    if (cleanPostalCode && cleanPostalCode.length !== 10) {
+      return setProfileError('کد پستی باید ۱۰ رقمی باشد.');
+    }
+
+    setSavingProfile(true);
+    try {
+      const payload = {
+        ...profileForm,
+        mobile: cleanMobile || profileForm.mobile,
+        national_id: cleanNationalId || profileForm.national_id,
+        postal_code: cleanPostalCode || profileForm.postal_code,
+      };
+      const res = await api(`/admin/users/${userId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      if (res && res.error) {
+        throw new Error(res.message || 'خطا در ذخیره مشخصات کاربر');
+      }
+      setProfileSuccess(res?.message || 'مشخصات و هویت کاربر با موفقیت ذخیره شد.');
+
+      // Update local data with returned user if present
+      if (res?.user) {
+        setData(prev => ({
+          ...prev,
+          user: {
+            ...prev?.user,
+            ...res.user
+          },
+          company: res.user.company || prev?.company
+        }));
+      }
+
+      if (typeof onUserUpdated === 'function') {
+        onUserUpdated();
+      }
+
+      setTimeout(() => {
+        setProfileSuccess('');
+      }, 4000);
+    } catch (err) {
+      setProfileError(err.message || 'خطا در ذخیره مشخصات کاربر');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleResetProfile = () => {
+    const u = data?.user || {};
+    const c = data?.company || u.company || {};
+    setProfileForm({
+      first_name: u.first_name || '',
+      last_name: u.last_name || '',
+      mobile: u.mobile || '',
+      email: u.email || '',
+      job_title: u.job_title || '',
+      role: u.role || 'user',
+      can_renew_early: Boolean(u.can_renew_early),
+      company_name: c.company_name || c.name || '',
+      industry: c.industry || '',
+      employee_count: c.employee_count || '',
+      national_id: c.national_id || c.economic_code || '',
+      registration_num: c.registration_num || c.registration_number || '',
+      postal_code: c.postal_code || '',
+      address: c.address || ''
+    });
+    setProfileError('');
+    setProfileSuccess('');
   };
 
   const handleDownloadInvoice = (orderOrTxId) => {
@@ -1345,83 +1477,525 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
                 </div>
               )}
 
-              {/* TAB 3: USER PROFILE & IDENTITY */}
+              {/* TAB 3: USER PROFILE & IDENTITY EDITABLE FORM */}
               {activeTab === 'profile' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  
+                  {/* Status Banners */}
+                  {profileSuccess && (
+                    <div style={{
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      color: '#065f46',
+                      borderRadius: '10px',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700
+                    }}>
+                      <CheckCircle2 size={18} color="#059669" />
+                      <span>{profileSuccess}</span>
+                    </div>
+                  )}
+
+                  {profileError && (
+                    <div style={{
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#991b1b',
+                      borderRadius: '10px',
+                      padding: '12px 16px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700
+                    }}>
+                      <AlertCircle size={18} color="#dc2626" />
+                      <span>{profileError}</span>
+                    </div>
+                  )}
+
+                  {/* 1. مشخصات فردی و تماس */}
                   <div style={{
-                    background: '#f8fafc',
-                    borderRadius: '12px',
+                    background: '#ffffff',
+                    borderRadius: '14px',
                     border: '1px solid #e2e8f0',
-                    padding: '16px'
+                    padding: '18px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
                   }}>
-                    <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#1e293b' }}>
-                      مشخصات فردی و تماس
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>شماره همراه:</span>
-                        <strong style={{ fontFamily: 'monospace', direction: 'ltr' }}>{user?.mobile}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                      <User size={18} color="#0870d1" />
+                      <h3 style={{ margin: 0, fontSize: '14.5px', fontWeight: 800, color: '#0f172a' }}>
+                        مشخصات فردی و حساب کاربری
+                      </h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '13px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          نام:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.first_name}
+                          onChange={e => setProfileForm(p => ({ ...p, first_name: e.target.value }))}
+                          placeholder="مثلاً علی"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>نام و نام خانوادگی:</span>
-                        <strong>{[user?.first_name, user?.last_name].filter(Boolean).join(' ') || '—'}</strong>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          نام خانوادگی:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.last_name}
+                          onChange={e => setProfileForm(p => ({ ...p, last_name: e.target.value }))}
+                          placeholder="مثلاً رضایی"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>ایمیل:</span>
-                        <span style={{ direction: 'ltr' }}>{user?.email || '—'}</span>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          شماره همراه:
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={profileForm.mobile}
+                          onChange={e => setProfileForm(p => ({ ...p, mobile: e.target.value }))}
+                          placeholder="09123456789"
+                          maxLength={11}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>سمت سازمانی:</span>
-                        <span>{user?.job_title || '—'}</span>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          آدرس ایمیل:
+                        </label>
+                        <input
+                          type="email"
+                          dir="ltr"
+                          value={profileForm.email}
+                          onChange={e => setProfileForm(p => ({ ...p, email: e.target.value }))}
+                          placeholder="name@company.com"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>سطح دسترسی:</span>
-                        <strong style={{ color: user?.role === 'admin' ? '#b91c1c' : user?.role === 'support' ? '#c2410c' : '#0369a1' }}>
-                          {user?.role === 'admin' ? 'مدیر سیستم' : user?.role === 'support' ? 'کارشناس پشتیبانی' : 'کاربر عادی'}
-                        </strong>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          سمت سازمانی:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.job_title}
+                          onChange={e => setProfileForm(p => ({ ...p, job_title: e.target.value }))}
+                          placeholder="مثلاً مدیرعامل / مدیر مالی"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                        <span style={{ color: '#64748b' }}>تاریخ عضویت:</span>
-                        <span>{user?.created_at ? new Date(user.created_at).toLocaleDateString('fa-IR') : '—'}</span>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          سطح دسترسی (نقش):
+                        </label>
+                        <select
+                          value={profileForm.role}
+                          disabled={user?.mobile === '09111273476' || user?.is_owner}
+                          onChange={e => setProfileForm(p => ({ ...p, role: e.target.value }))}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            background: (user?.mobile === '09111273476' || user?.is_owner) ? '#f8fafc' : '#ffffff',
+                            cursor: (user?.mobile === '09111273476' || user?.is_owner) ? 'not-allowed' : 'pointer',
+                            outline: 'none'
+                          }}
+                        >
+                          <option value="user">کاربر عادی (مشتری)</option>
+                          <option value="support">کارشناس پشتیبانی (Support)</option>
+                          <option value="admin">مدیر سیستم (Admin)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748b', display: 'flex', gap: '8px' }}>
+                      <span>تاریخ عضویت در سامانه:</span>
+                      <strong style={{ color: '#334155' }}>{user?.created_at ? new Date(user.created_at).toLocaleDateString('fa-IR') : '—'}</strong>
+                    </div>
+                  </div>
+
+                  {/* 2. مجوز ویژه: فعال‌سازی زودهنگام باکس تمدید اشتراک */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f0f7ff 0%, #e0f2fe 100%)',
+                    borderRadius: '14px',
+                    border: '1.5px solid #0284c7',
+                    padding: '18px 20px',
+                    boxShadow: '0 4px 14px rgba(2, 132, 199, 0.08)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', maxWidth: '640px' }}>
+                        <div style={{
+                          width: '38px',
+                          height: '38px',
+                          borderRadius: '10px',
+                          background: profileForm.can_renew_early ? '#0284c7' : '#94a3b8',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          boxShadow: profileForm.can_renew_early ? '0 3px 10px rgba(2, 132, 199, 0.3)' : 'none',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          <Zap size={20} />
+                        </div>
+                        <div>
+                          <h4 style={{ margin: '0 0 4px', fontSize: '14.5px', fontWeight: 800, color: '#0f172a' }}>
+                            مجوز تمدید زودهنگام اشتراک توسط کاربر
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '12.5px', color: '#334155', lineHeight: 1.55 }}>
+                            باکس نحوه تمدید اشتراک به طور خودکار فقط زمانی فعال می‌شود که ۱ ماه (۳۰ روز) از اشتراک کاربر باقی مانده باشد.
+                            با <strong>فعال‌سازی این گزینه</strong>، کاربر مجاز می‌شود حتی زودتر از ۱ ماه باقی‌مانده، باکس تمدید و روش‌های پرداخت را مشاهده کرده و سرویس خود را پیش از موعد تمدید یا ارتقا دهد.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Switch toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setProfileForm(p => ({ ...p, can_renew_early: !p.can_renew_early }))}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          background: profileForm.can_renew_early ? '#0284c7' : '#e2e8f0',
+                          color: profileForm.can_renew_early ? '#ffffff' : '#475569',
+                          border: 'none',
+                          borderRadius: '30px',
+                          padding: '8px 18px',
+                          fontWeight: 800,
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: profileForm.can_renew_early ? '0 3px 10px rgba(2, 132, 199, 0.35)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          background: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transform: profileForm.can_renew_early ? 'scale(1)' : 'scale(0.85)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                          {profileForm.can_renew_early ? <Check size={13} color="#0284c7" /> : <X size={13} color="#94a3b8" />}
+                        </div>
+                        <span>{profileForm.can_renew_early ? 'تمدید زودهنگام فعال است' : 'تمدید زودهنگام غیرفعال'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3. اطلاعات شرکت و کسب‌وکار */}
+                  <div style={{
+                    background: '#ffffff',
+                    borderRadius: '14px',
+                    border: '1px solid #e2e8f0',
+                    padding: '18px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', borderBottom: '1px solid #f1f5f9', paddingBottom: '10px' }}>
+                      <Building2 size={18} color="#0870d1" />
+                      <h3 style={{ margin: 0, fontSize: '14.5px', fontWeight: 800, color: '#0f172a' }}>
+                        اطلاعات شرکت و کسب‌وکار
+                      </h3>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', fontSize: '13px' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          نام شرکت / برند:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.company_name}
+                          onChange={e => setProfileForm(p => ({ ...p, company_name: e.target.value }))}
+                          placeholder="مثلاً شرکت تجارت نوین کارویتا"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          صنعت / رسته فعالیت:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.industry}
+                          onChange={e => setProfileForm(p => ({ ...p, industry: e.target.value }))}
+                          placeholder="مثلاً فناوری اطلاعات و تجارت الکترونیک"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          تعداد پرسنل:
+                        </label>
+                        <input
+                          type="text"
+                          value={profileForm.employee_count}
+                          onChange={e => setProfileForm(p => ({ ...p, employee_count: e.target.value }))}
+                          placeholder="مثلاً ۱۰ تا ۵۰ نفر"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          شناسه ملی شرکت (۱۱ رقم) / کد ملی (۱۰ رقم):
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={profileForm.national_id}
+                          onChange={e => setProfileForm(p => ({ ...p, national_id: e.target.value }))}
+                          placeholder="کد ملی ۱۰ رقمی یا شناسه ملی ۱۱ رقمی"
+                          maxLength={11}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          شماره ثبت شرکت:
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={profileForm.registration_num}
+                          onChange={e => setProfileForm(p => ({ ...p, registration_num: e.target.value }))}
+                          placeholder="مثلاً ۱۲۳۴۵۶"
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          کد پستی ۱۰ رقمی:
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={profileForm.postal_code}
+                          onChange={e => setProfileForm(p => ({ ...p, postal_code: e.target.value }))}
+                          placeholder="مثلاً ۱۹۸۵۷۱۴۱۱۱"
+                          maxLength={10}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'monospace',
+                            outline: 'none'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 700, fontSize: '12.5px' }}>
+                          نشانی اقامتگاه قانونی شرکت:
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={profileForm.address}
+                          onChange={e => setProfileForm(p => ({ ...p, address: e.target.value }))}
+                          placeholder="آدرس دقیق استان، شهر، خیابان، پلاک، واحد..."
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '9px 12px',
+                            border: '1.5px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontFamily: 'inherit',
+                            outline: 'none',
+                            resize: 'vertical'
+                          }}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {user?.company && (
-                    <div style={{
-                      background: '#f8fafc',
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      padding: '16px'
-                    }}>
-                      <h3 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#1e293b' }}>
-                        اطلاعات شرکت و کسب‌وکار
-                      </h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <span style={{ color: '#64748b' }}>نام شرکت:</span>
-                          <strong>{user.company.name || '—'}</strong>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <span style={{ color: '#64748b' }}>صنعت / رسته:</span>
-                          <span>{user.company.industry || '—'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <span style={{ color: '#64748b' }}>تعداد پرسنل:</span>
-                          <span>{user.company.employee_count || '—'}</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <span style={{ color: '#64748b' }}>شناسه ملی / کد اقتصادی:</span>
-                          <span>{user.company.national_id || '—'}</span>
-                        </div>
-                        <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'space-between', padding: '8px 12px', background: '#ffffff', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
-                          <span style={{ color: '#64748b' }}>نشانی:</span>
-                          <span>{user.company.address || '—'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                  {/* Actions Toolbar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: '12px',
+                    paddingTop: '6px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={handleResetProfile}
+                      disabled={savingProfile}
+                      style={{
+                        padding: '9px 18px',
+                        background: '#f1f5f9',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      <span>بازنشانی مقادیر</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={savingProfile}
+                      style={{
+                        padding: '10px 24px',
+                        background: 'linear-gradient(135deg, #0870d1 0%, #0284c7 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: savingProfile ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 3px 12px rgba(8, 112, 209, 0.28)',
+                        opacity: savingProfile ? 0.75 : 1
+                      }}
+                    >
+                      {savingProfile ? (
+                        <>
+                          <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                          <span>در حال ذخیره تغییرات...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save size={15} />
+                          <span>ذخیره تغییرات هویت و دسترسی کاربر</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               )}
             </>
           )}

@@ -4,14 +4,16 @@ import { toPersianDigits } from './configuratorData';
 
 export function UserBillingControls({
   stepNumber = 1,
-  userCount = 5,
+  userCount = 1,
   onChangeUserCount,
-  billingPeriod = 'monthly',
+  billingPeriod = 'yearly',
   onChangeBillingPeriod,
-  baseUserLimit = 5,
+  baseUserLimit = 1,
 }) {
+  const minLimit = baseUserLimit || 1;
+
   function handleDecrement() {
-    if (userCount > 1) {
+    if (userCount > minLimit && onChangeUserCount) {
       onChangeUserCount(userCount - 1);
     }
   }
@@ -49,7 +51,7 @@ export function UserBillingControls({
               type="button"
               className="erp-stepper-btn"
               onClick={handleDecrement}
-              disabled={userCount <= 1}
+              disabled={userCount <= minLimit}
               aria-label="کاهش تعداد کاربر"
             >
               <Minus size={16} />
@@ -58,7 +60,7 @@ export function UserBillingControls({
             <input
               id="erp-user-count-input"
               type="number"
-              min="1"
+              min={minLimit}
               max="999"
               className="erp-stepper-input"
               value={userCount}

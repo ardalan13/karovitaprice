@@ -20,6 +20,7 @@ export function PricingConfigurator({
   onBackToDashboard,
   hasActiveSubscription = false,
   hasUsedTrial = false,
+  initialIndustryId,
   initialModuleIds,
   initialUserCount,
   initialBillingPeriod,
@@ -28,6 +29,50 @@ export function PricingConfigurator({
   const nav = useNavigate();
   const location = useLocation();
 
+
+  const [modules, setModules] = useState(DEFAULT_MODULES);
+  const [presets, setPresets] = useState(DEFAULT_PRESETS);
+  const [settings, setSettings] = useState({
+    base_user_limit: 1,
+    extra_user_price: 150000,
+    yearly_multiplier: 10,
+    semiannual_multiplier: 6,
+    quarterly_multiplier: 3,
+  });
+
+  // Helper to match preset ID or Title against a preset list
+  const matchPresetId = (val, presetList) => {
+    if (!val || !Array.isArray(presetList)) return null;
+    const str = String(val).trim();
+    const byId = presetList.find(p => p.id === str);
+    if (byId) return byId.id;
+    const byTitle = presetList.find(p => p.title === str);
+    if (byTitle) return byTitle.id;
+    const byPartial = presetList.find(p => p.title && (p.title.includes(str) || str.includes(p.title)));
+    if (byPartial) return byPartial.id;
+    return null;
+  };
+
+  // Resolve initial preset / industry ID from prop, router state, query, company profile, or localStorage
+  const resolvedInitialPreset = useMemo(() => {
+    if (initialIndustryId) return initialIndustryId;
+    if (location.state?.initialIndustryId) return location.state.initialIndustryId;
+    if (location.state?.initialIndustry) return location.state.initialIndustry;
+    if (location.state?.industry) return location.state.industry;
+    const q = new URLSearchParams(location.search);
+    const qInd = q.get('industry') || q.get('preset');
+    if (qInd) return qInd;
+    if (user?.company?.industry) return user.company.industry;
+    try {
+      const draft = localStorage.getItem('draft_onboard_company');
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        if (parsed.industry_id) return parsed.industry_id;
+        if (parsed.industry) return parsed.industry;
+      }
+    } catch {}
+    return null;
+  }, [initialIndustryId, location.state, location.search, user?.company?.industry]);
 
   // 1. Resolve initial modules from props, location.state, or URL params
   const resolvedInitialModuleIds = useMemo(() => {
@@ -49,64 +94,60 @@ export function PricingConfigurator({
     return null;
   }, [initialModuleIds, location.state, location.search]);
 
-  // 2. Resolve initial user count
+  // 2. Resolve initial user count (use settings.base_user_limit as minimum)
   const resolvedInitialUserCount = useMemo(() => {
-    if (initialUserCount && Number(initialUserCount) >= 5) {
+    const baseLimit = settings.base_user_limit || 1;
+    if (initialUserCount && Number(initialUserCount) >= baseLimit) {
       return Number(initialUserCount);
     }
-    if (location.state?.userCount && Number(location.state.userCount) >= 5) {
+    if (location.state?.userCount && Number(location.state.userCount) >= baseLimit) {
       return Number(location.state.userCount);
     }
     const q = new URLSearchParams(location.search);
     const qUsers = q.get('users');
-    if (qUsers && Number(qUsers) >= 5) {
+    if (qUsers && Number(qUsers) >= baseLimit) {
       return Number(qUsers);
     }
-    return 5;
-  }, [initialUserCount, location.state, location.search]);
+    return baseLimit;
+  }, [initialUserCount, location.state, location.search, settings.base_user_limit]);
 
   const isFromTrial = fromTrial || location.state?.fromTrial || (new URLSearchParams(location.search).get('fromTrial') === '1');
 
-  const [modules, setModules] = useState(DEFAULT_MODULES);
-  const [presets, setPresets] = useState(DEFAULT_PRESETS);
-  const [settings, setSettings] = useState({
-    base_user_limit: 1,
-    extra_user_price: 800000,
-    yearly_multiplier: 10,
-    semiannual_multiplier: 6,
-    quarterly_multiplier: 3,
+  // Single-industry selection (strictly 1 active industry at a time - default to user chosen preset)
+  const [selectedIndustryId, setSelectedIndustryId] = useState(() => {
+    const matched = matchPresetId(resolvedInitialPreset, DEFAULT_PRESETS);
+    return matched || 'manufacturing';
   });
-
-  // Single-industry selection (strictly 1 active industry at a time)
-  const [selectedIndustryId, setSelectedIndustryId] = useState('manufacturing');
   
-  // Mandatory modules (core system modules + active preset mandatory modules)
+  // Mandatory modules (active preset mandatory modules as defined in admin panel)
   const mandatoryModuleIds = useMemo(() => {
     const p = presets.find(item => item.id === selectedIndustryId);
     const presetMandatory = p && Array.isArray(p.mandatory_modules) ? p.mandatory_modules : [];
-    return Array.from(new Set(['account', 'hr', ...presetMandatory]));
+    return Array.from(new Set(presetMandatory));
   }, [presets, selectedIndustryId]);
 
-  // Initialize module selection with trial modules if provided, otherwise default to manufacturing preset
-  const [selectedModuleIds, setSelectedModuleIds] = useState(() => {
-    if (resolvedInitialModuleIds && resolvedInitialModuleIds.length > 0) {
-      return Array.from(new Set(['account', 'hr', ...resolvedInitialModuleIds]));
-    }
-    const defPreset = DEFAULT_PRESETS.find(p => p.id === 'manufacturing');
-    const defMods = defPreset && Array.isArray(defPreset.default_modules) ? defPreset.default_modules : [
-      'account',
-      'hr',
-      'purchase',
-      'maintenance',
-      'activities',
-      'calendar',
-      'contacts',
-      'survey',
-    ];
-    return Array.from(new Set(['account', 'hr', ...defMods]));
+  // Initialize user count from resolved value
+  const [userCount, setUserCount] = useState(() => {
+    const baseLimit = settings.base_user_limit || 1;
+    return Math.max(resolvedInitialUserCount, baseLimit);
   });
 
-  const [userCount, setUserCount] = useState(resolvedInitialUserCount);
+  // Initialize module selection with trial modules if provided, otherwise default to chosen preset
+  const [selectedModuleIds, setSelectedModuleIds] = useState(() => {
+    if (resolvedInitialModuleIds && resolvedInitialModuleIds.length > 0) {
+      return resolveAllDependencies(resolvedInitialModuleIds, DEFAULT_MODULES);
+    }
+    const initialKey = matchPresetId(resolvedInitialPreset, DEFAULT_PRESETS) || 'manufacturing';
+    const defPreset = DEFAULT_PRESETS.find(p => p.id === initialKey) || DEFAULT_PRESETS[0];
+    const defMandatory = defPreset && Array.isArray(defPreset.mandatory_modules) ? defPreset.mandatory_modules : [];
+    const defMods = defPreset && Array.isArray(defPreset.default_modules) ? defPreset.default_modules : [
+      'contacts',
+      'calendar',
+      'mail',
+    ];
+    const merged = Array.from(new Set([...defMandatory, ...defMods]));
+    return resolveAllDependencies(merged, DEFAULT_MODULES);
+  });
 
   // Sync if resolvedInitialModuleIds arrives asynchronously from parent
   const hasAppliedPropsRef = useRef(false);
@@ -114,19 +155,21 @@ export function PricingConfigurator({
     if (resolvedInitialModuleIds && resolvedInitialModuleIds.length > 0 && !hasAppliedPropsRef.current) {
       hasAppliedPropsRef.current = true;
       const merged = Array.from(new Set([...mandatoryModuleIds, ...resolvedInitialModuleIds]));
-      setSelectedModuleIds(merged);
-      if (resolvedInitialUserCount && resolvedInitialUserCount >= 5) {
-        setUserCount(resolvedInitialUserCount);
-      }
+      setSelectedModuleIds(resolveAllDependencies(merged, modules));
     }
-  }, [resolvedInitialModuleIds, resolvedInitialUserCount, mandatoryModuleIds]);
+  }, [resolvedInitialModuleIds, mandatoryModuleIds, modules]);
 
-  const [billingPeriod, setBillingPeriod] = useState(initialBillingPeriod || 'yearly');
+  // Coupon State
   const [couponCode, setCouponCode] = useState('');
   const [couponInfo, setCouponInfo] = useState(null);
   const [couponMessage, setCouponMessage] = useState(null);
   const [couponSuccess, setCouponSuccess] = useState(false);
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+
+  // Billing Period
+  const [billingPeriod, setBillingPeriod] = useState(initialBillingPeriod || 'yearly');
+
+  // Checkout State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
   const [hasOnboarded, setHasOnboarded] = useState(false);
@@ -143,13 +186,37 @@ export function PricingConfigurator({
         }
         if (data.presets && Array.isArray(data.presets) && data.presets.length > 0) {
           setPresets(data.presets);
+          if (resolvedInitialPreset) {
+            const matchedId = matchPresetId(resolvedInitialPreset, data.presets);
+            if (matchedId) {
+              setSelectedIndustryId(matchedId);
+              if (!resolvedInitialModuleIds) {
+                const pObj = data.presets.find(p => p.id === matchedId);
+                if (pObj) {
+                  const pMand = Array.isArray(pObj.mandatory_modules) ? pObj.mandatory_modules : [];
+                  const pDefs = Array.isArray(pObj.default_modules) ? pObj.default_modules : [];
+                  const merged = Array.from(new Set([...pMand, ...pDefs]));
+                  setSelectedModuleIds(resolveAllDependencies(merged, data.modules || modules));
+                }
+              }
+            }
+          }
         }
         if (data.settings) {
+          const newBaseLimit = Number(data.settings.base_user_limit) || 1;
           setSettings(prev => ({
             ...prev,
             ...data.settings,
+            base_user_limit: newBaseLimit,
             yearly_multiplier: data.settings.yearly_multiplier || 10,
           }));
+          setUserCount(prev => {
+            const hasExplicit = Boolean(initialUserCount || location.state?.userCount || new URLSearchParams(location.search).get('users'));
+            if (!hasExplicit) {
+              return newBaseLimit;
+            }
+            return Math.max(prev, newBaseLimit);
+          });
         }
       })
       .catch(err => {
@@ -165,6 +232,11 @@ export function PricingConfigurator({
       .catch(() => {});
   }, []);
 
+  // Locked dependencies map (modules that cannot be unchecked because another selected module requires them)
+  const lockedDependenciesMap = useMemo(() => {
+    return getLockedDependenciesMap(selectedModuleIds, modules);
+  }, [selectedModuleIds, modules]);
+
   // Single Industry Selection Handler
   function handleSelectIndustry(industryId) {
     setSelectedIndustryId(industryId);
@@ -172,29 +244,52 @@ export function PricingConfigurator({
     if (p) {
       const presetMandatory = Array.isArray(p.mandatory_modules) ? p.mandatory_modules : [];
       const presetDefaults = Array.isArray(p.default_modules) ? p.default_modules : [];
-      const merged = Array.from(new Set(['account', 'hr', ...presetMandatory, ...presetDefaults]));
-      setSelectedModuleIds(merged);
+      const merged = Array.from(new Set([...presetMandatory, ...presetDefaults]));
+      const resolved = resolveAllDependencies(merged, modules);
+      setSelectedModuleIds(resolved);
     }
   }
 
   // Handle Manual Module Toggle (All non-mandatory modules can be activated/deactivated)
   function handleToggleModule(moduleId) {
+    // 1. Mandatory modules for this preset cannot be deselected
     if (mandatoryModuleIds.includes(moduleId)) {
-      return; // Mandatory cannot be deselected
+      return;
     }
 
     const isCurrentlySelected = selectedModuleIds.includes(moduleId);
     if (isCurrentlySelected) {
-      setSelectedModuleIds(prev => prev.filter(id => id !== moduleId));
+      // Find all dependent modules that would be broken if moduleId is removed
+      const toRemove = new Set([moduleId]);
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const id of selectedModuleIds) {
+          if (toRemove.has(id)) continue;
+          const modObj = modules.find(m => m.id === id);
+          if (modObj && Array.isArray(modObj.dependencies)) {
+            if (modObj.dependencies.some(dep => toRemove.has(dep))) {
+              toRemove.add(id);
+              changed = true;
+            }
+          }
+        }
+      }
+
+      // If any module in toRemove is an industry mandatory module, moduleId cannot be deselected
+      const blocksMandatory = Array.from(toRemove).some(id => mandatoryModuleIds.includes(id));
+      if (blocksMandatory) {
+        return;
+      }
+
+      setSelectedModuleIds(prev => prev.filter(id => !toRemove.has(id)));
     } else {
-      setSelectedModuleIds(prev => (prev.includes(moduleId) ? prev : [...prev, moduleId]));
+      setSelectedModuleIds(prev => {
+        const next = prev.includes(moduleId) ? prev : [...prev, moduleId];
+        return resolveAllDependencies(next, modules);
+      });
     }
   }
-
-  // Locked dependencies map (modules that cannot be unchecked because another selected module requires them)
-  const lockedDependenciesMap = useMemo(() => {
-    return getLockedDependenciesMap(selectedModuleIds, modules);
-  }, [selectedModuleIds, modules]);
 
   // Selected module objects
   const selectedModules = useMemo(() => {
@@ -214,13 +309,10 @@ export function PricingConfigurator({
   // Real-time Pricing Calculations
   const calculations = useMemo(() => {
     const modulesTotal = selectedModules.reduce((sum, m) => sum + (Number(m.price) || 0), 0);
-    const hasCrm = selectedModuleIds.includes('crm');
-    const baseLimit = settings.base_user_limit || 1;
-    const extraPrice = settings.extra_user_price || 800000;
-    // CRITICAL RULE: Extra user seat costs apply ONLY AND EXCLUSIVELY to CRM module!
-    // If CRM is selected, base includes 1 user; each extra user costs extraPrice (800,000 T/month).
-    // If CRM is NOT selected, all modules have UNLIMITED users at 0 extra cost!
-    const extraUsersCount = hasCrm ? Math.max((Number(userCount) || 1) - baseLimit, 0) : 0;
+    const baseLimit = Number(settings.base_user_limit) || 1;
+    const extraPrice = typeof settings.extra_user_price === 'number' ? settings.extra_user_price : (Number(settings.extra_user_price) >= 0 ? Number(settings.extra_user_price) : 150000);
+    // Extra user seat cost applies universally across all modules beyond base_user_limit
+    const extraUsersCount = Math.max((Number(userCount) || 1) - baseLimit, 0);
     const extraUsersCost = extraUsersCount * extraPrice;
     const baseMonthlyTotal = modulesTotal + extraUsersCost;
 
@@ -245,7 +337,6 @@ export function PricingConfigurator({
 
     return {
       modulesTotal,
-      hasCrm,
       extraUsersCount,
       extraUsersCost,
       baseMonthlyTotal,
@@ -305,7 +396,7 @@ export function PricingConfigurator({
     try {
       const payload = {
         selected_module_ids: selectedModuleIds,
-        user_count: Number(userCount) || 5,
+        user_count: Number(userCount) || (settings.base_user_limit || 1),
         billing_period: billingPeriod,
         coupon_code: couponCode || undefined,
         amount: calculations.finalAmount,
@@ -344,7 +435,7 @@ export function PricingConfigurator({
     try {
       const payload = {
         selected_module_ids: selectedModuleIds,
-        user_count: Number(userCount) || 5,
+        user_count: Number(userCount) || (settings.base_user_limit || 1),
       };
 
       await api('/trial', {
@@ -479,7 +570,7 @@ export function PricingConfigurator({
             billingPeriod={billingPeriod}
             onChangeBillingPeriod={setBillingPeriod}
             baseUserLimit={settings.base_user_limit || 1}
-            hasCrm={calculations.hasCrm}
+            extraUserPrice={typeof settings.extra_user_price === 'number' ? settings.extra_user_price : (Number(settings.extra_user_price) >= 0 ? Number(settings.extra_user_price) : 150000)}
             extraUsersCount={calculations.extraUsersCount}
             extraUsersCost={calculations.extraUsersCost}
             modulesTotal={calculations.modulesTotal}

@@ -39,7 +39,7 @@ class AdminController extends Controller {
                 'status' => $t->status,
                 'created_at' => $t->created_at->toISOString(),
                 'package_name' => $pkgName,
-                'user_count' => $t->order->user_count ?? 5,
+                'user_count' => $t->order->user_count ?? 1,
                 'billing_period' => $t->order->billing_period ?? 'monthly',
                 'order_number' => $t->order->order_number ?? '—',
             ];
@@ -145,7 +145,7 @@ class AdminController extends Controller {
                 'tracking_code' => $tx?->authority ?? '—',
                 'paid_at' => $tx?->paid_at ?? ($o->status === 'paid' ? $o->created_at?->toISOString() : null),
                 'billing_period' => $o->billing_period ?? 'monthly',
-                'user_count' => (int) ($o->user_count ?? 5),
+                'user_count' => (int) ($o->user_count ?? 1),
             ];
         });
 
@@ -169,7 +169,7 @@ class AdminController extends Controller {
 
                 if (!$existingSub) {
                     $period = $order->billing_period ?? 'monthly';
-                    $userCount = (int) ($order->user_count ?? 5);
+                    $userCount = (int) ($order->user_count ?? 1);
                     $expires = $period === 'yearly' ? Carbon::now()->addYear() : Carbon::now()->addMonth();
 
                     Subscription::create([
@@ -365,8 +365,8 @@ class AdminController extends Controller {
             'source' => $request->input('source', 'admin'),
             'status' => 'active',
             'billing_period' => $request->input('billing_period', 'monthly'),
-            'user_count' => (int) $request->input('user_count', 5),
-            'user_limit' => (int) $request->input('user_limit', 5),
+            'user_count' => (int) $request->input('user_count', 1),
+            'user_limit' => (int) $request->input('user_limit', 1),
             'module_ids' => $request->input('module_ids', []),
             'starts_at' => Carbon::now(),
             'expires_at' => Carbon::now()->addDays($days),

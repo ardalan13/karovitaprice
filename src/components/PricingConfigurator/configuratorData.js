@@ -181,8 +181,7 @@ export const DEFAULT_MODULES = [
     "description": "اسناد دوبل، تراز آزمایشی، سود و زیان، دفاتر مالی و استهلاک",
     "dependencies": [
       "mail",
-      "contacts",
-      "sale"
+      "contacts"
     ],
     "industries": [
       "manufacturing",
@@ -712,26 +711,24 @@ export const DEFAULT_MODULES = [
 
 export const DEFAULT_PRESETS = [
   {
-    "id": "manufacturing",
-    "title": "تولیدی و صنعتی",
-    "icon": "Factory",
+    "id": "advertising_marketing",
+    "title": "تبلیغات، مارکتینگ و روابط عمومی",
+    "icon": "Megaphone",
     "category": "صنف",
-    "description": "مناسب کارخانجات و کارگاه‌های تولیدی با خط تولید، انبار، کنترل کیفیت و بهای تمام‌شده",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
+    "description": "",
+    "mandatory_modules": [],
     "default_modules": [
-      "account",
-      "hr",
-      "calendar",
       "contacts",
       "mail",
+      "crm",
+      "project",
       "sale",
-      "hr_attendance",
-      "hr_recruitment",
-      "hr_holidays"
+      "hr",
+      "calendar",
+      "survey",
+      "hr_recruitment"
     ],
+    "popular": false,
     "is_active": true
   },
   {
@@ -739,270 +736,18 @@ export const DEFAULT_PRESETS = [
     "title": "بازرگانی، واردات و صادرات",
     "icon": "Ship",
     "category": "صنف",
-    "description": "مناسب شرکت‌های بازرگانی، صادرات و واردات، خرید خارجی و ترخیص کالا",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
+    "description": "",
+    "mandatory_modules": [],
     "default_modules": [
-      "account",
-      "hr",
       "sale",
       "contacts",
-      "calendar",
-      "mail"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "distribution_logistics",
-    "title": "پخش، انبارداری و توزیع",
-    "icon": "Truck",
-    "category": "صنف",
-    "description": "مناسب شرکت‌های پخش مویرگی، لجستیک، انبارداری چندگانه و توزیع کالا",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "sale",
-      "contacts",
-      "hr_attendance",
-      "calendar",
-      "mail",
-      "hr_holidays"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "contracting_projects",
-    "title": "پیمانکاری و پروژه‌محور",
-    "icon": "Building2",
-    "category": "صنف",
-    "description": "مناسب پیمانکاران عمرانی، نفت و گاز، شرکت‌های مهندسی مشاور و پروژه‌ای",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "project",
-      "contacts",
-      "calendar",
-      "mail"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "real_estate",
-    "title": "املاک و مستغلات",
-    "icon": "Building",
-    "category": "صنف",
-    "description": "مناسب آژانس‌ها و هلدینگ‌های املاک، انبوه‌سازان و مدیریت فایل‌های رهن و اجاره",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
       "crm",
-      "contacts",
-      "sale",
-      "calendar",
       "mail",
+      "hr",
+      "calendar",
       "survey"
     ],
-    "is_active": true
-  },
-  {
-    "id": "healthcare_clinic",
-    "title": "کلینیک، سلامت و درمان",
-    "icon": "Stethoscope",
-    "category": "صنف",
-    "description": "مناسب کلینیک‌ها، درمانگاه‌ها، مطب‌ها و مراکز ارائه‌دهنده خدمات درمانی",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "contacts",
-      "calendar",
-      "mass_mailing_sms",
-      "mail",
-      "crm",
-      "survey",
-      "hr_attendance",
-      "hr_holidays"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "medical_pharma",
-    "title": "تجهیزات پزشکی و دارویی",
-    "icon": "Pill",
-    "category": "صنف",
-    "description": "مناسب شرکت‌های تولید و توزیع دارو، تجهیزات پزشکی، ردیابی لات نامبر و انقضا",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "sale",
-      "crm",
-      "contacts",
-      "calendar",
-      "mail"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "it_software",
-    "title": "فناوری اطلاعات و نرم‌افزار",
-    "icon": "Laptop",
-    "category": "صنف",
-    "description": "مناسب شرکت‌های دانش‌بنیان، تیم‌های توسعه نرم‌افزار، پشتیبانی و اشتراک ابری",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "project",
-      "helpdesk",
-      "crm",
-      "contacts",
-      "calendar",
-      "mail",
-      "survey",
-      "hr_recruitment",
-      "hr_holidays"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "education_academy",
-    "title": "آموزشگاه‌ها و مراکز علمی",
-    "icon": "GraduationCap",
-    "category": "صنف",
-    "description": "مناسب موسسات آموزشی، مدارس، آموزشگاه‌های زبان و دوره‌های آزاد علمی",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "contacts",
-      "calendar",
-      "crm",
-      "mass_mailing_sms",
-      "mail",
-      "survey",
-      "hr_attendance",
-      "hr_recruitment",
-      "hr_holidays"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "legal_law",
-    "title": "مؤسسات حقوقی و داوری",
-    "icon": "Scale",
-    "category": "صنف",
-    "description": "مناسب دفاتر وکالت، موسسات داوری، مشاوران حقوقی و پیگیری اوقات دادرسی",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "contacts",
-      "calendar",
-      "activities",
-      "mail",
-      "crm",
-      "survey"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "immigration",
-    "title": "مؤسسات مهاجرتی",
-    "icon": "Plane",
-    "category": "صنف",
-    "description": "مناسب دفاتر اخذ ویزا و مهاجرت، چک‌لیست ترجمه و پیگیری وضعیت سفارت",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "crm",
-      "contacts",
-      "activities",
-      "calendar",
-      "mail",
-      "survey"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "advertising_marketing",
-    "title": "تبلیغات، مارکتینگ و روابط عمومی",
-    "icon": "Megaphone",
-    "category": "صنف",
-    "description": "مناسب آژانس‌های تبلیغاتی، دیجیتال مارکتینگ، کمپین‌ها و تولید محتوا",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "crm",
-      "project",
-      "mass_mailing_sms",
-      "calendar",
-      "contacts",
-      "mail",
-      "activities",
-      "survey",
-      "hr_recruitment"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "insurance_agency",
-    "title": "بیمه و نمایندگی‌ها",
-    "icon": "ShieldCheck",
-    "category": "صنف",
-    "description": "مناسب نمایندگی‌ها و کارگزاری‌های بیمه، تمدید بیمه‌نامه‌ها و پیگیری اقساط",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
-    "default_modules": [
-      "account",
-      "hr",
-      "crm",
-      "contacts",
-      "activities",
-      "calendar",
-      "mass_mailing_sms",
-      "mail",
-      "survey"
-    ],
+    "popular": false,
     "is_active": true
   },
   {
@@ -1010,21 +755,254 @@ export const DEFAULT_PRESETS = [
     "title": "مشاوره مدیریت و خدمات مالی",
     "icon": "BarChart3",
     "category": "صنف",
-    "description": "مناسب شرکت‌های حسابداری، مشاوره مالیاتی، ارزیابی طرح‌های توجیهی و تحول سازمانی",
+    "description": "",
     "mandatory_modules": [
       "account",
       "hr"
     ],
     "default_modules": [
-      "account",
-      "hr",
-      "crm",
-      "project",
-      "calendar",
       "contacts",
       "mail",
+      "crm",
+      "sale",
+      "project",
+      "calendar",
+      "survey",
+      "hr_recruitment"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "contracting_projects",
+    "title": "پیمانکاری و پروژهمحور",
+    "icon": "Building2",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "sale",
+      "crm",
+      "project",
+      "hr",
+      "mail",
+      "hr_attendance",
+      "calendar",
+      "survey",
+      "hr_recruitment"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "distribution_logistics",
+    "title": "پخش، انبارداری و توزیع",
+    "icon": "Truck",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "sale",
+      "contacts",
+      "crm",
+      "hr",
+      "mail",
+      "calendar",
+      "survey",
       "activities"
     ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "education_academy",
+    "title": "آموزشگاهها و مراکز علمی",
+    "icon": "GraduationCap",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "crm",
+      "sale",
+      "hr",
+      "hr_attendance",
+      "calendar",
+      "survey",
+      "activities",
+      "hr_recruitment"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "healthcare_clinic",
+    "title": "کلینیک، سلامت و درمان",
+    "icon": "Stethoscope",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "crm",
+      "hr",
+      "hr_attendance",
+      "calendar",
+      "survey",
+      "hr_holidays"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "immigration",
+    "title": "مؤسسات مهاجرتی",
+    "icon": "Plane",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "crm",
+      "sale",
+      "project",
+      "hr",
+      "calendar",
+      "survey",
+      "activities",
+      "hr_holidays"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "insurance_agency",
+    "title": "بیمه و نمایندگیها",
+    "icon": "ShieldCheck",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "crm",
+      "sale",
+      "hr",
+      "calendar",
+      "survey",
+      "hr_holidays"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "it_software",
+    "title": "فناوری اطلاعات و نرمافزار",
+    "icon": "Laptop",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [
+      "calendar"
+    ],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "sale",
+      "crm",
+      "project",
+      "hr",
+      "hr_attendance",
+      "calendar",
+      "survey"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "legal_law",
+    "title": "مؤسسات حقوقی و داوری",
+    "icon": "Scale",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "mail",
+      "crm",
+      "project",
+      "hr",
+      "calendar",
+      "survey",
+      "hr_holidays"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "manufacturing",
+    "title": "تولیدی و صنعتی",
+    "icon": "Factory",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "sale",
+      "crm",
+      "mail",
+      "project",
+      "hr",
+      "hr_attendance",
+      "calendar",
+      "survey"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "medical_pharma",
+    "title": "تجهیزات پزشکی و دارویی",
+    "icon": "Pill",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "sale",
+      "contacts",
+      "crm",
+      "project",
+      "mail",
+      "calendar",
+      "survey",
+      "hr_holidays",
+      "hr"
+    ],
+    "popular": false,
+    "is_active": true
+  },
+  {
+    "id": "real_estate",
+    "title": "املاک و مستغلات",
+    "icon": "Building",
+    "category": "صنف",
+    "description": "",
+    "mandatory_modules": [],
+    "default_modules": [
+      "contacts",
+      "sale",
+      "crm",
+      "hr",
+      "mass_mailing_sms",
+      "mail",
+      "calendar",
+      "survey",
+      "hr_holidays"
+    ],
+    "popular": false,
     "is_active": true
   },
   {
@@ -1032,23 +1010,19 @@ export const DEFAULT_PRESETS = [
     "title": "خدماتی، تأسیساتی و تعمیرات",
     "icon": "Wrench",
     "category": "صنف",
-    "description": "مناسب شرکت‌های تأسیساتی، تعمیرات تجهیزات، خدمات فنی و اعزام تکنسین",
-    "mandatory_modules": [
-      "account",
-      "hr"
-    ],
+    "description": "",
+    "mandatory_modules": [],
     "default_modules": [
-      "account",
-      "hr",
-      "helpdesk",
       "contacts",
-      "calendar",
+      "sale",
       "mail",
       "crm",
-      "sale",
       "project",
-      "hr_attendance"
+      "hr",
+      "calendar",
+      "survey"
     ],
+    "popular": false,
     "is_active": true
   }
 ];

@@ -18,7 +18,7 @@
     "express"
   ],
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "tsx watch --exclude \"vite.config.ts.timestamp*\" --exclude \"data/**\" server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs"
   },
@@ -28,6 +28,7 @@
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
+    "html2pdf.js": "^0.14.0",
     "js-cookie": "^3.0.8",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.468.0",

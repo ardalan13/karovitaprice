@@ -48,16 +48,54 @@ export function LegalInfoModal({ onClose, onSaved }) {
       .finally(() => setLoading(false));
   }, []);
 
+  const cleanDigits = (val) => {
+    if (!val) return '';
+    return String(val)
+      .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
+      .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+      .replace(/\D/g, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setError('');
     setSuccess('');
 
+    const cleanNationalId = cleanDigits(form.national_id);
+    const cleanEconomicCode = cleanDigits(form.economic_code);
+    const cleanPostalCode = cleanDigits(form.postal_code);
+
+    // Validation: کد ملی ۱۰ رقمی یا شناسه ملی ۱۱ رقمی
+    if (!cleanNationalId) {
+      return setError('لطفاً کد ملی یا شناسه ملی را وارد نمایید.');
+    }
+    if (cleanNationalId.length !== 10 && cleanNationalId.length !== 11) {
+      return setError('کد ملی باید دقیقاً ۱۰ رقم و شناسه ملی شرکت باید دقیقاً ۱۱ رقم باشد.');
+    }
+
+    // Validation: شماره اقتصادی ۱۱ رقمی (در صورت ورود)
+    if (cleanEconomicCode && cleanEconomicCode.length !== 11) {
+      return setError('شماره اقتصادی باید دقیقاً ۱۱ رقمی باشد.');
+    }
+
+    // Validation: کد پستی ۱۰ رقمی (در صورت ورود)
+    if (cleanPostalCode && cleanPostalCode.length !== 10) {
+      return setError('کد پستی باید دقیقاً ۱۰ رقمی باشد.');
+    }
+
+    setSaving(true);
+
     try {
+      const payload = {
+        ...form,
+        national_id: cleanNationalId,
+        economic_code: cleanEconomicCode,
+        postal_code: cleanPostalCode,
+      };
+
       await api('/user/company', {
         method: 'PUT',
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       setSuccess('مشخصات حقوقی و مالیاتی با موفقیت ذخیره شد. کلیه فاکتورهای جدید و قبلی با این مشخصات صادر می‌گردند.');
       setTimeout(() => {
@@ -168,27 +206,29 @@ export function LegalInfoModal({ onClose, onSaved }) {
 
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                شناسه ملی شرکت / کد ملی *
+                شناسه ملی شرکت (۱۱ رقم) / کد ملی (۱۰ رقم) *
               </label>
               <input
                 type="text"
                 required
                 value={form.national_id}
                 onChange={e => setForm({ ...form, national_id: e.target.value })}
-                placeholder="مثال: ۱۴۰۰۷۸۹۴۵۶۱"
+                placeholder="کد ملی ۱۰ رقمی یا شناسه ملی ۱۱ رقمی"
+                maxLength={11}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', direction: 'ltr', textAlign: 'right' }}
               />
             </div>
 
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                شماره اقتصادی (کد اقتصادی ۱۲ رقمی)
+                شماره اقتصادی (کد اقتصادی ۱۱ رقمی)
               </label>
               <input
                 type="text"
                 value={form.economic_code}
                 onChange={e => setForm({ ...form, economic_code: e.target.value })}
-                placeholder="مثال: ۴۱۱۶۵۸۹۴۷۵۲۳"
+                placeholder="مثال: ۴۱۱۶۵۸۹۴۷۵۲"
+                maxLength={11}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', direction: 'ltr', textAlign: 'right' }}
               />
             </div>
@@ -215,6 +255,7 @@ export function LegalInfoModal({ onClose, onSaved }) {
                 value={form.postal_code}
                 onChange={e => setForm({ ...form, postal_code: e.target.value })}
                 placeholder="مثال: ۱۹۹۷۹۸۵۶۱۴"
+                maxLength={10}
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '13px', direction: 'ltr', textAlign: 'right' }}
               />
             </div>

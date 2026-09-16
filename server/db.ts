@@ -5,13 +5,16 @@ import { ERPModule, IndustryPreset, Coupon, INITIAL_ERP_MODULES, INITIAL_PRESETS
 export interface User {
   id: number;
   mobile: string;
+  name?: string | null;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
   job_title: string | null;
+  national_code?: string | null;
   role: 'user' | 'admin' | 'support';
   status?: 'active' | 'inactive';
   is_active?: boolean;
+  can_renew_early?: boolean | number;
   onboarding_step: number;
   onboarding_completed_at: string | null;
   mobile_verified_at: string | null;
@@ -1155,6 +1158,7 @@ class Database {
       last_name: null,
       email: null,
       job_title: null,
+      national_code: null,
       role: isOwner ? 'admin' : role,
       onboarding_step: 1,
       onboarding_completed_at: null,
@@ -1293,18 +1297,18 @@ class Database {
   // ERP Configurator Methods
   calculateERPPrice(
     selectedModuleIds: string[],
-    userCount: number = 5,
+    userCount?: number,
     billingPeriod: string = '3_months',
     couponCode: string = ''
   ) {
     const modules = this.erpModules.filter(m => selectedModuleIds.includes(m.id) && (m.is_active !== false));
     const modulesTotal = modules.reduce((sum, m) => sum + (Number(m.price) || 0), 0);
 
-    const hasCrm = selectedModuleIds.includes('crm');
-    const baseLimit = this.configuratorSettings.base_user_limit || 1;
-    const extraUserPrice = this.configuratorSettings.extra_user_price || 800000;
-    // CRITICAL: Extra user cost applies ONLY to CRM module!
-    const extraUsersCount = hasCrm ? Math.max((Number(userCount) || 1) - baseLimit, 0) : 0;
+    const baseLimit = Number(this.configuratorSettings.base_user_limit) || 1;
+    const extraUserPrice = Number(this.configuratorSettings.extra_user_price) || 800000;
+    // Extra user cost applies universally across the ERP system for any users above base_user_limit
+    const finalUserCount = typeof userCount === 'number' && userCount > 0 ? userCount : baseLimit;
+    const extraUsersCount = Math.max(finalUserCount - baseLimit, 0);
     const extraUsersCost = extraUsersCount * extraUserPrice;
 
     const baseMonthlyTotal = modulesTotal + extraUsersCost;
@@ -1345,7 +1349,7 @@ class Database {
     return {
       selected_modules: modules,
       selected_module_ids: modules.map(m => m.id),
-      user_count: Number(userCount) || 5,
+      user_count: finalUserCount,
       billing_period: period,
       modules_total: modulesTotal,
       extra_users_count: extraUsersCount,
@@ -1363,12 +1367,14 @@ class Database {
   createERPOrder(
     userId: number,
     selectedModuleIds: string[],
-    userCount: number = 5,
+    userCount?: number,
     billingPeriod: string = '3_months',
     couponCode: string = '',
     subscriptionId?: number
   ): Order {
-    const calc = this.calculateERPPrice(selectedModuleIds, userCount, billingPeriod, couponCode);
+    const baseLimit = this.configuratorSettings.base_user_limit || 1;
+    const finalUserCount = typeof userCount === 'number' && userCount > 0 ? userCount : baseLimit;
+    const calc = this.calculateERPPrice(selectedModuleIds, finalUserCount, billingPeriod, couponCode);
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
     
@@ -1383,13 +1389,14 @@ class Database {
       user_count: calc.user_count,
       billing_period: (calc.billing_period as any) || '3_months',
       coupon_code: calc.coupon_code,
-      discount_amount: calc.discount_amount,
+      discount_amount: calc.discount_amount * calc.multiplier,
       breakdown: {
         modules_total: calc.modules_total,
+        extra_users_count: calc.extra_users_count,
         extra_users_cost: calc.extra_users_cost,
         base_monthly_total: calc.base_monthly_total,
         multiplier: calc.multiplier,
-        discount_amount: calc.discount_amount,
+        discount_amount: calc.discount_amount * calc.multiplier,
         final_amount: calc.final_amount,
       },
       created_at: new Date().toISOString(),
@@ -1444,10 +1451,11 @@ class Database {
     userId: number,
     orderId: number | null,
     moduleIds: string[],
-    userCount: number = 5,
+    userCount: number = 1,
     billingPeriod: string = '3_months',
     source: 'trial' | 'purchase' | 'admin' = 'purchase',
-    subscriptionId?: number
+    subscriptionId?: number,
+    isResourceUpgrade?: boolean
   ): Subscription {
     const userSubs = this.subscriptions.filter(s => s.user_id === userId);
     let targetSub: Subscription | undefined;
@@ -1475,17 +1483,21 @@ class Database {
       targetSub.title = `اشتراک سازمانی کارویتا (${mergedMods.length} ماژول)`;
       targetSub.status = 'active';
       if (orderId) targetSub.order_id = orderId;
-      if (userCount) targetSub.user_count = Math.max(targetSub.user_count || 5, userCount);
+      if (userCount) targetSub.user_count = Math.max(targetSub.user_count || 1, userCount);
       if (billingPeriod) targetSub.billing_period = (period as any);
       targetSub.source = source;
 
-      // Extend expiration time (add duration to existing unexpired time or now)
+      // Calculate expiration time (resource upgrades keep existing unexpired expiration date intact)
       const now = new Date();
       const currentExpires = targetSub.expires_at ? new Date(targetSub.expires_at) : null;
-      const baseTime = (currentExpires && currentExpires > now && targetSub.source !== 'trial')
-        ? currentExpires.getTime()
-        : now.getTime();
-      targetSub.expires_at = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      if (isResourceUpgrade && currentExpires && currentExpires > now) {
+        targetSub.expires_at = currentExpires.toISOString();
+      } else {
+        const baseTime = (currentExpires && currentExpires > now && targetSub.source !== 'trial')
+          ? currentExpires.getTime()
+          : now.getTime();
+        targetSub.expires_at = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      }
 
       this.saveToFile();
       return targetSub;
