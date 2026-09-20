@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import compression from 'compression';
 import { createServer as createViteServer } from 'vite';
 import apiRoutes from './server/routes';
 import { initServerLogger, logServerError } from './server/errorLogger';
@@ -13,6 +14,17 @@ async function startServer() {
 
   const app = express();
   const PORT = 3000;
+
+  // Gzip/Brotli compression for all responses (reduces payload size by ~70%)
+  app.use(compression({
+    level: 6,                   // balanced speed vs compression ratio
+    threshold: 1024,            // only compress responses > 1KB
+    filter: (req, res) => {
+      // Don't compress server-sent events
+      if (req.headers['accept'] === 'text/event-stream') return false;
+      return compression.filter(req, res);
+    },
+  }));
 
   // Apply enterprise security headers (CSP, X-Content-Type-Options, Permissions-Policy, etc.)
   app.use(applySecurityHeaders());
@@ -59,8 +71,23 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // Hashed assets (JS, CSS, images) — immutable cache for 1 year
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+      maxAge: '365d',
+      immutable: true,
+    }));
+    // Font files — cache for 30 days (they rarely change)
+    app.use('/fonts', express.static(path.join(distPath, 'fonts'), {
+      maxAge: '30d',
+    }));
+    // Remaining static files (manifest, icons, sw.js) — short cache with revalidation
+    app.use(express.static(distPath, {
+      maxAge: '1h',
+      etag: true,
+      lastModified: true,
+    }));
     app.get('*', (_req, res) => {
+      res.setHeader('Cache-Control', 'no-cache');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

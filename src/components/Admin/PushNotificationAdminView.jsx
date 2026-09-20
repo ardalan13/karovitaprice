@@ -23,16 +23,25 @@ import {
   HardDrive,
   CheckCheck,
   Search,
-  MessageSquare
+  MessageSquare,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import {
   getPushNotificationStatus,
   subscribeToPushNotifications,
   unsubscribeFromPushNotifications,
-  sendTestPushNotification
+  sendTestPushNotification,
+  unregisterAllServiceWorkers,
+  registerServiceWorker,
+  getPwaStatus
 } from '../../services/pwa';
+import { getAuthToken } from '../../services/authStorage';
 
 export default function PushNotificationAdminView({ token, currentUser }) {
+  const getActiveToken = () => token || getAuthToken() || localStorage.getItem('token');
+  const [pwaEnabled, setPwaEnabled] = useState(true);
+  const [isTogglingPwa, setIsTogglingPwa] = useState(false);
   const [localPushStatus, setLocalPushStatus] = useState({
     supported: true,
     permission: 'default',
@@ -66,17 +75,79 @@ export default function PushNotificationAdminView({ token, currentUser }) {
   const fetchSubscribers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/push/subscribers', {
-        headers: { Authorization: `Bearer ${token || localStorage.getItem('token')}` },
+      const activeToken = getActiveToken();
+      const res = await fetch(`/api/admin/push/subscribers?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          Authorization: activeToken ? `Bearer ${activeToken}` : '',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
       });
       if (res.ok) {
         const data = await res.json();
         setSubscribersData(data);
+        if (typeof data.enabled === 'boolean') {
+          setPwaEnabled(data.enabled);
+        } else if (data.pwaSettings?.enabled !== undefined) {
+          setPwaEnabled(data.pwaSettings.enabled);
+        }
       }
     } catch (err) {
       console.error('[Push Admin] Error fetching subscribers:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleTogglePwaMaster = async () => {
+    const willEnable = !pwaEnabled;
+    if (!willEnable) {
+      const confirmed = window.confirm(
+        'آیا از غیرفعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push) اطمینان دارید؟\n\n' +
+        'با این اقدام، سرویس‌ورکر، دریافت نوتیفیکیشن‌ها و ارسال پیام‌های همگانی برای تمامی کاربران و مدیران متوقف خواهد شد.'
+      );
+      if (!confirmed) return;
+    }
+
+    setIsTogglingPwa(true);
+    try {
+      const activeToken = getActiveToken();
+      const res = await fetch('/api/admin/pwa/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: activeToken ? `Bearer ${activeToken}` : '',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        },
+        body: JSON.stringify({ enabled: willEnable }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'خطا در تغییر وضعیت سرویس PWA');
+      }
+
+      const nextEnabled = typeof data.enabled === 'boolean' ? data.enabled : willEnable;
+      setPwaEnabled(nextEnabled);
+
+      showToast(
+        nextEnabled
+          ? 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت فعال گردید.'
+          : 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت غیرفعال شد.'
+      );
+
+      if (!nextEnabled) {
+        await unregisterAllServiceWorkers();
+      } else {
+        await registerServiceWorker();
+      }
+      await checkLocalStatus();
+      await fetchSubscribers();
+    } catch (err) {
+      showToast(err.message || 'خطا در تغییر وضعیت سرویس PWA', 'error');
+    } finally {
+      setIsTogglingPwa(false);
     }
   };
 
@@ -86,6 +157,11 @@ export default function PushNotificationAdminView({ token, currentUser }) {
   };
 
   useEffect(() => {
+    getPwaStatus().then((status) => {
+      if (status && typeof status.enabled === 'boolean') {
+        setPwaEnabled(status.enabled);
+      }
+    });
     checkLocalStatus();
     fetchSubscribers();
   }, [token]);
@@ -93,7 +169,7 @@ export default function PushNotificationAdminView({ token, currentUser }) {
   const handleToggleSubscription = async () => {
     setIsTogglingSub(true);
     try {
-      const activeToken = token || localStorage.getItem('token');
+      const activeToken = getActiveToken();
       if (localPushStatus.isSubscribed) {
         await unsubscribeFromPushNotifications(activeToken);
         showToast('اشتراک اعلان این دستگاه با موفقیت لغو شد.');
@@ -113,7 +189,7 @@ export default function PushNotificationAdminView({ token, currentUser }) {
   const handleSendTestPush = async () => {
     setIsTesting(true);
     try {
-      const activeToken = token || localStorage.getItem('token');
+      const activeToken = getActiveToken();
       const res = await sendTestPushNotification(
         activeToken,
         'کارویتا | تست موفق اعلان PWA',
@@ -136,12 +212,12 @@ export default function PushNotificationAdminView({ token, currentUser }) {
 
     setIsBroadcasting(true);
     try {
-      const activeToken = token || localStorage.getItem('token');
+      const activeToken = getActiveToken();
       const res = await fetch('/api/admin/push/broadcast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${activeToken}`,
+          Authorization: activeToken ? `Bearer ${activeToken}` : '',
         },
         body: JSON.stringify(broadcastForm),
       });
@@ -270,6 +346,28 @@ export default function PushNotificationAdminView({ token, currentUser }) {
                 }}>
                   PWA Engine v2.5.0
                 </span>
+                <span style={{
+                  background: pwaEnabled ? '#ecfdf5' : '#fef2f2',
+                  color: pwaEnabled ? '#059669' : '#dc2626',
+                  border: pwaEnabled ? '1px solid #a7f3d0' : '1px solid #fecaca',
+                  padding: '2px 9px',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: pwaEnabled ? '#10b981' : '#ef4444',
+                    display: 'inline-block',
+                    boxShadow: pwaEnabled ? '0 0 6px #10b981' : 'none'
+                  }} />
+                  {pwaEnabled ? 'سرویس آنلاین و فعال' : 'سرویس کاملاً غیرفعال'}
+                </span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
                 مرکز کنترل اپلیکیشن وب پیشرونده، دستگاه‌های مشترک، ارسال اعلان‌های همگانی بلادرنگ و پایش اتصال سرویس‌ورکر
@@ -279,6 +377,43 @@ export default function PushNotificationAdminView({ token, currentUser }) {
 
           {/* Top Quick Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* Master Service Toggle Button */}
+            <button
+              type="button"
+              id="toggle-pwa-master-btn"
+              onClick={handleTogglePwaMaster}
+              disabled={isTogglingPwa}
+              title={pwaEnabled ? 'کلیک جهت غیرفعال‌سازی کامل سرویس PWA و اعلان‌ها در سراسر سامانه' : 'کلیک جهت فعال‌سازی سراسری سرویس PWA و اعلان‌ها'}
+              style={{
+                background: pwaEnabled
+                  ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '9px 16px',
+                borderRadius: '9px',
+                fontSize: '12.5px',
+                fontWeight: 800,
+                cursor: isTogglingPwa ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: pwaEnabled
+                  ? '0 3px 12px rgba(16, 185, 129, 0.35)'
+                  : '0 3px 12px rgba(239, 68, 68, 0.35)',
+                transition: 'all 0.15s'
+              }}
+            >
+              {pwaEnabled ? <Power size={16} /> : <PowerOff size={16} />}
+              <span>
+                {isTogglingPwa
+                  ? 'در حال اعمال تغییر...'
+                  : pwaEnabled
+                  ? 'کل سرویس فعال است (کلیک جهت غیرفعال‌سازی)'
+                  : 'کل سرویس غیرفعال است (کلیک جهت فعال‌سازی)'}
+              </span>
+            </button>
+
             <button
               type="button"
               id="refresh-subscribers-btn"
@@ -311,22 +446,27 @@ export default function PushNotificationAdminView({ token, currentUser }) {
               type="button"
               id="toggle-local-push-btn"
               onClick={handleToggleSubscription}
-              disabled={isTogglingSub}
+              disabled={isTogglingSub || !pwaEnabled}
+              title={!pwaEnabled ? 'سرویس اعلان‌ها به صورت کلی غیرفعال است.' : ''}
               style={{
-                background: localPushStatus.isSubscribed
+                background: !pwaEnabled
+                  ? '#e2e8f0'
+                  : localPushStatus.isSubscribed
                   ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
                   : 'linear-gradient(135deg, #0870d1 0%, #0284c7 100%)',
-                color: '#ffffff',
+                color: !pwaEnabled ? '#94a3b8' : '#ffffff',
                 border: 'none',
                 padding: '9px 16px',
                 borderRadius: '9px',
                 fontSize: '12.5px',
                 fontWeight: 700,
-                cursor: isTogglingSub ? 'not-allowed' : 'pointer',
+                cursor: isTogglingSub || !pwaEnabled ? 'not-allowed' : 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                boxShadow: localPushStatus.isSubscribed
+                boxShadow: !pwaEnabled
+                  ? 'none'
+                  : localPushStatus.isSubscribed
                   ? '0 3px 10px rgba(16, 185, 129, 0.3)'
                   : '0 3px 10px rgba(8, 112, 209, 0.3)',
                 transition: 'all 0.15s'
@@ -336,6 +476,8 @@ export default function PushNotificationAdminView({ token, currentUser }) {
               <span>
                 {isTogglingSub
                   ? 'در حال پردازش...'
+                  : !pwaEnabled
+                  ? 'اعلان مرورگر (سرویس غیرفعال)'
                   : localPushStatus.isSubscribed
                   ? 'اعلان این مرورگر فعال است (کلیک جهت لغو)'
                   : 'فعال‌سازی دریافت اعلان در این مرورگر'}
@@ -344,6 +486,66 @@ export default function PushNotificationAdminView({ token, currentUser }) {
           </div>
         </div>
       </div>
+
+      {/* Warning Banner when Service is Globally Disabled */}
+      {!pwaEnabled && (
+        <div style={{
+          background: '#fff1f2',
+          border: '1px solid #fecdd3',
+          borderRadius: '14px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 4px 16px rgba(225, 29, 72, 0.08)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              background: '#ffe4e6',
+              color: '#e11d48',
+              padding: '8px',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <AlertTriangle size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#9f1239' }}>
+                سرویس PWA، سرویس‌ورکر و ارسال اعلان‌های وب (Web Push) در حال حاضر در سراسر سیستم متوقف و غیرفعال است.
+              </div>
+              <div style={{ fontSize: '12px', color: '#be123c', marginTop: '3px' }}>
+                تمامی عملکردهای نوتیفیکیشن، ارسال همگانی پیام‌ها و همگام‌سازی‌های محلی کلاینت‌ها موقتاً مسدود شده‌اند.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleTogglePwaMaster}
+            disabled={isTogglingPwa}
+            style={{
+              background: 'linear-gradient(135deg, #e11d48 0%, #be123c 100%)',
+              color: '#ffffff',
+              border: 'none',
+              padding: '8px 18px',
+              borderRadius: '8px',
+              fontSize: '12.5px',
+              fontWeight: 800,
+              cursor: isTogglingPwa ? 'not-allowed' : 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 3px 10px rgba(225, 29, 72, 0.35)'
+            }}
+          >
+            <Power size={15} />
+            <span>فعال‌سازی مجدد سرویس</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. Key Metric Cards (4 Bento Stats Grid) */}
       <div style={{
@@ -641,36 +843,59 @@ export default function PushNotificationAdminView({ token, currentUser }) {
                   <button
                     id="submit-broadcast-btn"
                     type="submit"
-                    disabled={isBroadcasting || subscribersData.total === 0}
+                    disabled={isBroadcasting || subscribersData.total === 0 || !pwaEnabled}
                     style={{
                       width: '100%',
                       padding: '11px 20px',
-                      background: 'linear-gradient(135deg, #0870d1 0%, #0284c7 100%)',
+                      background: (!pwaEnabled || subscribersData.total === 0)
+                        ? '#cbd5e1'
+                        : 'linear-gradient(135deg, #0870d1 0%, #0284c7 100%)',
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '13.5px',
                       fontWeight: 700,
-                      cursor: isBroadcasting || subscribersData.total === 0 ? 'not-allowed' : 'pointer',
-                      opacity: isBroadcasting || subscribersData.total === 0 ? 0.6 : 1,
+                      cursor: isBroadcasting || subscribersData.total === 0 || !pwaEnabled ? 'not-allowed' : 'pointer',
+                      opacity: isBroadcasting ? 0.7 : 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       gap: '8px',
-                      boxShadow: '0 3px 10px rgba(8, 112, 209, 0.25)',
+                      boxShadow: (!pwaEnabled || subscribersData.total === 0) ? 'none' : '0 3px 10px rgba(8, 112, 209, 0.25)',
                       height: '42px',
                       boxSizing: 'border-box'
                     }}
                   >
                     <Send size={16} className={isBroadcasting ? 'animate-bounce' : ''} />
                     <span>
-                      {isBroadcasting ? 'در حال ارسال به تمام کلاینت‌ها...' : 'ارسال فوری اعلان همگانی'}
+                      {isBroadcasting
+                        ? 'در حال ارسال به تمام کلاینت‌ها...'
+                        : !pwaEnabled
+                        ? 'ارسال همگانی (سرویس غیرفعال)'
+                        : 'ارسال فوری اعلان همگانی'}
                     </span>
                   </button>
                 </div>
               </div>
 
-              {subscribersData.total === 0 && (
+              {!pwaEnabled && (
+                <div style={{
+                  background: '#fff1f2',
+                  border: '1px solid #fecdd3',
+                  color: '#9f1239',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <AlertTriangle size={15} color="#e11d48" />
+                  <span>کل سرویس PWA و اعلان‌های وب غیرفعال است. جهت ارسال پیام، ابتدا سرویس را از بالای صفحه فعال نمایید.</span>
+                </div>
+              )}
+
+              {pwaEnabled && subscribersData.total === 0 && (
                 <div style={{
                   background: '#fffbeb',
                   border: '1px solid #fef3c7',
@@ -839,35 +1064,45 @@ export default function PushNotificationAdminView({ token, currentUser }) {
               id="test-push-notification-btn"
               type="button"
               onClick={handleSendTestPush}
-              disabled={isTesting || !localPushStatus.isSubscribed}
+              disabled={isTesting || !localPushStatus.isSubscribed || !pwaEnabled}
               style={{
-                background: localPushStatus.isSubscribed
+                background: (localPushStatus.isSubscribed && pwaEnabled)
                   ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
                   : '#e2e8f0',
-                color: localPushStatus.isSubscribed ? '#ffffff' : '#94a3b8',
+                color: (localPushStatus.isSubscribed && pwaEnabled) ? '#ffffff' : '#94a3b8',
                 border: 'none',
                 padding: '11px 16px',
                 borderRadius: '9px',
                 fontSize: '13px',
                 fontWeight: 800,
-                cursor: isTesting || !localPushStatus.isSubscribed ? 'not-allowed' : 'pointer',
+                cursor: isTesting || !localPushStatus.isSubscribed || !pwaEnabled ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
-                boxShadow: localPushStatus.isSubscribed ? '0 3px 10px rgba(217, 119, 6, 0.25)' : 'none',
+                boxShadow: (localPushStatus.isSubscribed && pwaEnabled) ? '0 3px 10px rgba(217, 119, 6, 0.25)' : 'none',
                 transition: 'all 0.15s'
               }}
             >
               <BellRing size={16} className={isTesting ? 'animate-bounce' : ''} />
-              <span>{isTesting ? 'در حال ارسال پیام تست...' : 'ارسال اعلان تست به این دستگاه'}</span>
+              <span>
+                {isTesting
+                  ? 'در حال ارسال پیام تست...'
+                  : !pwaEnabled
+                  ? 'ارسال اعلان تست (سرویس غیرفعال)'
+                  : 'ارسال اعلان تست به این دستگاه'}
+              </span>
             </button>
 
-            {!localPushStatus.isSubscribed && (
+            {!pwaEnabled ? (
+              <div style={{ fontSize: '11.5px', color: '#b91c1c', textAlign: 'center', background: '#fef2f2', padding: '6px', borderRadius: '6px' }}>
+                * به دلیل غیرفعال بودن سرویس سراسری PWA، ارسال اعلان آزمایشی مقدور نیست.
+              </div>
+            ) : !localPushStatus.isSubscribed ? (
               <div style={{ fontSize: '11.5px', color: '#b45309', textAlign: 'center', background: '#fffbeb', padding: '6px', borderRadius: '6px' }}>
                 * ابتدا با دکمه «فعال‌سازی دریافت اعلان در این مرورگر» در بالای صفحه، مجوز را فعال کنید.
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Technical Diagnostics & PWA Status */}
@@ -888,8 +1123,25 @@ export default function PushNotificationAdminView({ token, currentUser }) {
                   وضعیت سلامت فنی PWA و کش
                 </h3>
               </div>
-              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700, background: '#f0fdf4', padding: '2px 6px', borderRadius: '4px' }}>
-                سیستم آنلاین
+              <span style={{
+                fontSize: '11px',
+                color: pwaEnabled ? '#16a34a' : '#dc2626',
+                fontWeight: 700,
+                background: pwaEnabled ? '#f0fdf4' : '#fef2f2',
+                border: pwaEnabled ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: pwaEnabled ? '#16a34a' : '#dc2626'
+                }} />
+                {pwaEnabled ? 'سیستم آنلاین و فعال' : 'سرویس غیرفعال (متوقف)'}
               </span>
             </div>
 
@@ -897,8 +1149,15 @@ export default function PushNotificationAdminView({ token, currentUser }) {
               {/* Service Worker */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ color: '#64748b' }}>سرویس‌ورکر (Service Worker):</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#16a34a', fontWeight: 700 }}>
-                  <Check size={14} /> فعال در دامنه
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  color: pwaEnabled ? '#16a34a' : '#dc2626',
+                  fontWeight: 700
+                }}>
+                  {pwaEnabled ? <Check size={14} /> : <X size={14} />}
+                  {pwaEnabled ? 'فعال در دامنه' : 'غیرفعال در سامانه'}
                 </span>
               </div>
 

@@ -18,7 +18,7 @@ export function OnlinePaymentModal({ order, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [paymentSuccessData, setPaymentSuccessData] = useState(null);
-  const [gatewayInfo, setGatewayInfo] = useState({ sandbox: true, is_live: false });
+  const [gatewayInfo, setGatewayInfo] = useState({ sandbox: false, is_live: true });
 
   React.useEffect(() => {
     api('/payments/gateway-info')
@@ -40,18 +40,22 @@ export function OnlinePaymentModal({ order, onClose, onSuccess }) {
         method: 'POST'
       });
 
-      if (res && res.data) {
-        if (res.data.is_redirect && res.data.payment_url && !res.data.payment_url.includes('callback')) {
-          window.location.href = res.data.payment_url;
-          return;
-        }
+      const paymentUrl = res?.data?.payment_url || res?.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      }
+
+      // If no payment_url, only show direct settlement if explicitly successful and not a redirect
+      if (res && res.data && res.data.is_redirect === false && res.data.status === 'successful') {
         setPaymentSuccessData(res.data);
         if (onSuccess) onSuccess(res.data);
         window.dispatchEvent(new CustomEvent('payment-completed', { detail: res.data }));
         window.dispatchEvent(new CustomEvent('order-updated', { detail: res.data }));
-      } else {
-        throw new Error(res.message || 'خطا در انجام پرداخت');
+        return;
       }
+
+      throw new Error(res?.message || 'خطا در اتصال به درگاه پرداخت شاپرک');
     } catch (err) {
       setError(err.message || 'خطا در اتصال به درگاه پرداخت شاپرک');
     } finally {

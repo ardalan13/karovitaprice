@@ -120,7 +120,7 @@ function Auth({ defaultIntent }) {
         .then(res => {
           if (res && res.user && res.user.id > 0) {
             const role = res.user.role || getStoredRole();
-            if (role === 'admin' || res.user.mobile === '09111273476') {
+            if (role === 'admin' || role === 'support' || res.user.mobile === '09111273476') {
               nav('/admin', { replace: true });
             } else if (defaultIntent === 'trial' || queryIntent === 'trial') {
               if (!res.user.has_subscription && !res.user.has_used_trial) {
@@ -206,8 +206,9 @@ function Auth({ defaultIntent }) {
       localStorage.setItem('draft_mobile', cleanMobile);
       
       const isUserAdmin = r.user.role === 'admin' || r.user.mobile === '09111273476';
-      if (isUserAdmin) {
-        saveStoredRole('admin');
+      const isUserSupport = r.user.role === 'support';
+      if (isUserAdmin || isUserSupport) {
+        saveStoredRole(isUserAdmin ? 'admin' : 'support');
         return nav('/admin');
       }
 
@@ -1173,7 +1174,7 @@ const userNav = [
   ['profile', 'تنظیمات حساب', Settings],
 ];
 
-function Shell({ admin = false, tab, setTab, children, name }) {
+function Shell({ admin = false, tab, setTab, children, name, role }) {
   const [open, setOpen] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
   const [pendingPaymentsCount, setPendingPaymentsCount] = useState(0);
@@ -1213,18 +1214,34 @@ function Shell({ admin = false, tab, setTab, children, name }) {
     };
   }, [admin]);
 
-  const nav = admin ? [
-    ['overview', 'نمای کلی', LayoutDashboard],
-    ['users', 'کاربران و شرکت‌ها', Users],
-    ['packages', 'سیستم قیمت‌گذاری و تب‌ها', Package],
-    ['orders', 'خرید و تراکنش‌ها', CreditCard],
-    ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
-    ['tickets', 'تیکت‌های پشتیبانی', Headphones],
-    ['gateways', 'درگاه شاپرک و SMS.ir', MessageSquare],
-    ['audit', 'لاگ‌های امنیتی (Audit)', ShieldCheck],
-    ['push', 'مدیریت PWA و اعلان‌ها', BellRing],
-    ['errors', 'لاگ‌های خطای محلی (Errors)', Bug],
-  ] : userNav;
+  const userRole = role || getStoredRole();
+  const isSupport = userRole === 'support';
+
+  const nav = admin ? (
+    isSupport ? [
+      ['tickets', 'مدیریت تیکت‌های پشتیبانی', Headphones],
+      ['orders', 'خرید و تراکنش‌ها', CreditCard],
+      ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
+    ] : [
+      ['overview', 'نمای کلی', LayoutDashboard],
+      ['users', 'کاربران و شرکت‌ها', Users],
+      ['packages', 'سیستم قیمت‌گذاری و تب‌ها', Package],
+      ['orders', 'خرید و تراکنش‌ها', CreditCard],
+      ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
+      ['tickets', 'مدیریت تیکت‌های پشتیبانی', Headphones],
+      ['gateways', 'درگاه شاپرک و SMS.ir', MessageSquare],
+      ['audit', 'لاگ‌های امنیتی (Audit)', ShieldCheck],
+      ['push', 'مدیریت PWA و اعلان‌ها', BellRing],
+      ['errors', 'لاگ‌های خطای محلی (Errors)', Bug],
+    ]
+  ) : (
+    (isSupport || userRole === 'admin') ? [
+      ['support', 'مدیریت تیکت‌های پشتیبانی', Headphones],
+      ['overview', 'داشبورد', LayoutDashboard],
+      ['payments', 'پرداخت‌ها', Receipt],
+      ['profile', 'تنظیمات حساب', Settings],
+    ] : userNav
+  );
 
   return (
     <div className="app-shell">
@@ -1272,7 +1289,7 @@ function Shell({ admin = false, tab, setTab, children, name }) {
             <span>{name || 'کارویتا'}</span>
           </div>
           <div style={{ marginRight: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {getStoredRole() === 'admin' && (
+            {(getStoredRole() === 'admin' || getStoredRole() === 'support') && (
               admin ? (
                 <a href="/dashboard" className="btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '6px' }}>
                   <span>پنل کاربری</span>
@@ -1323,7 +1340,8 @@ function Dashboard() {
         }
         // Save verified role accurately
         const isUserAdmin = (r.user.role === 'admin' || r.user.mobile === '09111273476');
-        saveStoredRole(isUserAdmin ? 'admin' : 'user');
+        const isUserSupport = (r.user.role === 'support');
+        saveStoredRole(isUserAdmin ? 'admin' : (isUserSupport ? 'support' : 'user'));
 
         setD(r);
         setError(null);
@@ -1502,7 +1520,7 @@ function Dashboard() {
   const canRenewSubscription = isExpired || remainingDays <= 30 || isTrial(targetSub) || canRenewEarly;
 
   return (
-    <Shell tab={tab} setTab={setTab} name={currentUser.first_name || 'کاربر'}>
+    <Shell tab={tab} setTab={setTab} name={currentUser.first_name || 'کاربر'} role={currentUser?.role}>
       {tab !== 'support' && tab !== 'renew' && tab !== 'resources' && (
         <div className="page-head">
           <div>
@@ -2074,14 +2092,41 @@ class ErrorBoundary extends React.Component {
 }
 
 function Admin() {
-  const [tab, setTab] = useState('overview');
+  const [userRole, setUserRole] = useState(() => getStoredRole());
+  const isSupport = userRole === 'support';
+  const [tab, setTab] = useState(() => (getStoredRole() === 'support') ? 'tickets' : 'overview');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Keep role in sync
+  useEffect(() => {
+    const current = getStoredRole();
+    if (current && current !== userRole) {
+      setUserRole(current);
+      if (current === 'support' && tab === 'overview') {
+        setTab('tickets');
+      }
+    }
+  }, [userRole, tab]);
+
+  // Restrict support role to tickets, orders, and subscriptions tabs
+  useEffect(() => {
+    if (isSupport && tab !== 'tickets' && tab !== 'orders' && tab !== 'subscriptions') {
+      setTab('tickets');
+    }
+  }, [isSupport, tab]);
+
   async function load(currentTab = tab) {
+    if (isSupport && currentTab === 'overview') {
+      setTab('tickets');
+      setLoading(false);
+      setData({});
+      return;
+    }
     if (
       currentTab === 'tickets' || 
+      currentTab === 'subscriptions' ||
       currentTab === 'audit' || 
       currentTab === 'push' || 
       currentTab === 'errors' ||
@@ -2112,7 +2157,7 @@ function Admin() {
   }, [tab]);
 
   return (
-    <Shell admin tab={tab} setTab={setTab} name="مدیر سیستم">
+    <Shell admin tab={tab} setTab={setTab} name={isSupport ? 'کارشناس پشتیبانی' : 'مدیر سیستم'} role={isSupport ? 'support' : 'admin'}>
       {tab !== 'tickets' && tab !== 'audit' && tab !== 'push' && tab !== 'errors' && (
         <div className="page-head">
           <div>
@@ -2324,9 +2369,9 @@ function adminTitle(t) {
     overview: 'نمای کلی',
     users: 'کاربران و شرکت‌ها',
     packages: 'سیستم قیمت‌گذاری، ماژول‌ها و تب‌های پیش‌فرض ERP',
-    orders: 'خریدها و تراکنش‌ها',
+    orders: 'مدیریت خریدها و تراکنش‌ها',
     subscriptions: 'اشتراک‌ها و دوره‌های آزمایشی',
-    tickets: 'تیکت‌های پشتیبانی',
+    tickets: 'مدیریت تیکت‌های پشتیبانی',
     audit: 'لاگ‌های امنیتی و حسابرسی سامانه (Audit Logs)',
     push: 'مدیریت PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)',
     errors: 'مدیریت و ردگیری لاگ‌های خطای محلی سامانه (Error Logs)',
@@ -2355,7 +2400,10 @@ function Guard({ children }) {
 }
 
 function AdminGuard({ children }) {
-  const [isAdmin, setIsAdmin] = useState(() => getStoredRole() === 'admin');
+  const [isAdmin, setIsAdmin] = useState(() => {
+    const role = getStoredRole();
+    return (role === 'admin' || role === 'support') ? true : null;
+  });
   const nav = useNavigate();
 
   useEffect(() => {
@@ -2367,16 +2415,18 @@ function AdminGuard({ children }) {
     }
 
     const storedRole = getStoredRole();
-    if (storedRole === 'admin') {
+    if (storedRole === 'admin' || storedRole === 'support') {
       setIsAdmin(true);
     }
     
     // Verify live role with server before rendering admin panel
     api('/dashboard')
       .then(r => {
-        const isUserAdmin = r && r.user && (r.user.role === 'admin' || r.user.mobile === '09111273476');
-        if (isUserAdmin) {
-          saveStoredRole('admin');
+        const role = r?.user?.role;
+        const isAuthorized = r && r.user && (role === 'admin' || role === 'support' || r.user.mobile === '09111273476');
+        if (isAuthorized) {
+          const effectiveRole = (role === 'admin' || r.user.mobile === '09111273476') ? 'admin' : 'support';
+          saveStoredRole(effectiveRole);
           setIsAdmin(true);
         } else {
           saveStoredRole('user');
@@ -2391,16 +2441,19 @@ function AdminGuard({ children }) {
           clearAuthState();
           setIsAdmin(false);
           nav('/', { replace: true });
-        } else if (storedRole === 'admin') {
-          setIsAdmin(true);
         } else {
-          setIsAdmin(false);
-          nav('/dashboard', { replace: true });
+          const storedRole = getStoredRole();
+          if (storedRole === 'admin' || storedRole === 'support') {
+            setIsAdmin(true);
+          } else {
+            setIsAdmin(false);
+            nav('/dashboard', { replace: true });
+          }
         }
       });
   }, [nav]);
 
-  if (isAdmin === null) return <Loader message="در حال بررسی دسترسی مدیریت…" />;
+  if (isAdmin === null) return <Loader message="در حال بررسی دسترسی مدیریت و پشتیبانی…" />;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return children;
 }

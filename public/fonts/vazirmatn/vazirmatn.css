@@ -1,76 +1,13 @@
 /* ==============================================================================
-   🌟 فونت محلی وزیرمتن (Local Vazirmatn Font-Face - Offline First)
+   🌟 فونت محلی وزیرمتن (Local Vazirmatn Variable Font - Offline First)
+   از فایل Variable Font (یک فایل ~108KB بجای ۹ فایل ~450KB) استفاده می‌شود
    بدون وابستگی به هیچ‌گونه CDN خارجی یا اینترنت بین‌الملل
    ============================================================================== */
 
 @font-face {
   font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Thin.woff2') format('woff2');
-  font-weight: 100;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-ExtraLight.woff2') format('woff2');
-  font-weight: 200;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Light.woff2') format('woff2');
-  font-weight: 300;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-SemiBold.woff2') format('woff2');
-  font-weight: 600;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Bold.woff2') format('woff2');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-ExtraBold.woff2') format('woff2');
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Vazirmatn';
-  src: url('/fonts/vazirmatn/Vazirmatn-Black.woff2') format('woff2');
-  font-weight: 900;
+  src: url('/fonts/vazirmatn/Vazirmatn[wght].woff2') format('woff2-variations');
+  font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }

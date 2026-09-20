@@ -94,11 +94,28 @@ export function getSmsConfig() {
 }
 
 /**
+/**
+ * Helper to find template config by eventType supporting aliases
+ */
+export function findTemplateConfig(config: any, eventType: string): { id?: number | null; pattern?: string; title?: string; enabled?: boolean } | null {
+  if (!config?.templates) return null;
+  const tpls = config.templates;
+  if (eventType === 'sub_expiring_7days' || eventType === 'sub_expiry_7days') {
+    return tpls['sub_expiring_7days'] || tpls['sub_expiry_7days'] || null;
+  }
+  if (eventType === 'sub_expiring_3days' || eventType === 'sub_expiry_3days') {
+    return tpls['sub_expiring_3days'] || tpls['sub_expiry_3days'] || null;
+  }
+  return tpls[eventType] || null;
+}
+
+
+/**
  * Base SMS Dispatch via SMS.ir (Fast Send / Verify REST API)
  */
 export async function sendTemplateSms(options: {
   mobile: string;
-  eventType: 'otp' | 'invoice_issued' | 'sub_expiry_7days' | 'sub_expiry_3days' | 'ticket_created' | 'payment_success' | 'custom_test';
+  eventType: 'otp' | 'invoice_issued' | 'sub_expiry_7days' | 'sub_expiry_3days' | 'sub_expiring_7days' | 'sub_expiring_3days' | 'ticket_created' | 'payment_success' | 'custom_test';
   templateId?: number;
   templateTitle?: string;
   parameters: Record<string, string | number>;
@@ -106,11 +123,48 @@ export async function sendTemplateSms(options: {
 }): Promise<SmsSendResult> {
   const config = getSmsConfig();
   const apiKey = config.apiKey || process.env.SMS_IR_API_KEY || SMS_IR_DEFAULT_KEY;
-  const templateId = options.templateId || config.templates?.[options.eventType as keyof typeof config.templates]?.id || SMS_IR_DEFAULT_TEMPLATE;
+  const tpl = findTemplateConfig(config, options.eventType);
 
+  // 1. Global switch check
   if (config.enabled === false) {
     console.log(`[SMS Service] SMS Gateway is globally disabled. Skipping dispatch for ${options.mobile}`);
     return { success: false, error: 'سامانه پیامک در پنل مدیریت غیرفعال است.' };
+  }
+
+  // Resolve templateId: prioritize explicit option, otherwise read from template config
+  const templateId = options.templateId !== undefined && options.templateId !== null && Number(options.templateId) > 0
+    ? Number(options.templateId)
+    : (typeof tpl === 'object' && tpl !== null ? (Number(tpl.id) > 0 ? Number(tpl.id) : null) : (typeof tpl === 'number' && tpl > 0 ? tpl : null));
+
+  // 2. Strict Check: If template ID does not exist, do NOT send SMS!
+  if (!templateId || templateId <= 0) {
+    const errMsg = `شناسه قالب پیامک (Template ID) برای رویداد «${options.eventType}» ثبت نشده است. ارسال پیامک لغو شد.`;
+    console.log(`[SMS Service] ${errMsg}`);
+    return { success: false, error: errMsg };
+  }
+
+  // Resolve template pattern/text
+  const rawPattern = (typeof tpl === 'object' && tpl !== null ? (tpl.pattern || (tpl as any).text) : '') || '';
+
+  // 3. Strict Check: If message text/pattern is not set, do NOT send SMS!
+  if (!rawPattern || String(rawPattern).trim() === '') {
+    const errMsg = `متن پیامک برای رویداد «${options.eventType}» تنظیم نشده است. ارسال پیامک لغو شد.`;
+    console.log(`[SMS Service] ${errMsg}`);
+    return { success: false, error: errMsg };
+  }
+
+  // 4. If template is explicitly disabled in configuration
+  if (tpl && typeof tpl === 'object' && tpl.enabled === false) {
+    const errMsg = `ارسال پیامک برای رویداد «${options.eventType}» در تنظیمات غیرفعال شده است.`;
+    console.log(`[SMS Service] ${errMsg}`);
+    return { success: false, error: errMsg };
+  }
+
+  // Generate resolved message text by replacing parameter placeholders in pattern
+  let resolvedMessage = String(rawPattern);
+  for (const [k, v] of Object.entries(options.parameters || {})) {
+    const regex = new RegExp(`(#?${k}#?)`, 'gi');
+    resolvedMessage = resolvedMessage.replace(regex, String(v));
   }
 
   // Convert parameters map to SMS.ir format [{ name: 'PARAM', value: 'VALUE' }]
@@ -129,6 +183,7 @@ export async function sendTemplateSms(options: {
   console.log(`[SMS.IR DISPATCH: ${options.eventType.toUpperCase()}]`);
   console.log(`To: ${options.mobile} (${options.userName || 'کاربر'})`);
   console.log(`Template ID: ${templateId}`);
+  console.log(`Resolved Message: ${resolvedMessage}`);
   console.log(`Parameters:`, JSON.stringify(options.parameters));
   console.log(`Endpoint: POST https://api.sms.ir/v1/send/verify`);
   console.log(`Timestamp: ${new Date().toISOString()}`);
@@ -204,6 +259,8 @@ export async function sendTemplateSms(options: {
     cost: result.cost,
     error: result.error,
     user_name: options.userName,
+    message: resolvedMessage,
+
   };
 
   if (!db.smsLogs) db.smsLogs = [];
@@ -221,11 +278,16 @@ export async function sendOtpViaSmsIr(mobile: string, code: string): Promise<Sms
   const config = getSmsConfig();
   const otpTpl = config.templates?.otp;
 
+  if (!config.enabled || !otpTpl?.id || Number(otpTpl.id) <= 0 || !otpTpl?.pattern || String(otpTpl.pattern).trim() === '' || otpTpl?.enabled === false) {
+    console.log(`[SMS Service] OTP template ID or pattern is not configured. Skipping SMS dispatch for ${mobile}.`);
+    return { success: false, error: 'شناسه قالب یا متن پیامک کد ورود (OTP) تنظیم نشده است.' };
+  }
+
   return sendTemplateSms({
     mobile,
     eventType: 'otp',
-    templateId: otpTpl?.id || SMS_IR_DEFAULT_TEMPLATE,
-    templateTitle: otpTpl?.title || 'کد ورود OTP',
+    templateId: Number(otpTpl.id),
+    templateTitle: otpTpl.title || 'کد احراز هویت و ورود یکبار مصرف (OTP)',
     parameters: {
       CODE: code,
     },
@@ -246,7 +308,8 @@ export async function sendInvoiceIssuedSms(order: Order, user: User, clientOrigi
   const config = getSmsConfig();
   const tpl = config.templates?.invoice_issued;
 
-  if (!config.enabled || !tpl?.enabled || !user.mobile) {
+  if (!config.enabled || !tpl?.id || Number(tpl.id) <= 0 || !tpl?.pattern || String(tpl.pattern).trim() === '' || !tpl?.enabled || !user.mobile) {
+    console.log(`[SMS Service] Invoice Issued SMS skipped (template not configured or missing text).`);
     return null;
   }
 
@@ -256,7 +319,7 @@ export async function sendInvoiceIssuedSms(order: Order, user: User, clientOrigi
   return sendTemplateSms({
     mobile: user.mobile,
     eventType: 'invoice_issued',
-    templateId: tpl.id,
+    templateId: Number(tpl.id),
     templateTitle: tpl.title,
     userName: user.name || user.mobile,
     parameters: {
@@ -278,9 +341,10 @@ export async function sendSubscriptionExpirySms(
 ): Promise<SmsSendResult | null> {
   const config = getSmsConfig();
   const tplKey = daysRemaining === 7 ? 'sub_expiry_7days' : 'sub_expiry_3days';
-  const tpl = config.templates?.[tplKey];
+  const tpl = findTemplateConfig(config, tplKey);
 
-  if (!config.enabled || !tpl?.enabled || !user.mobile) {
+  if (!config.enabled || !tpl?.id || Number(tpl.id) <= 0 || !tpl?.pattern || String(tpl.pattern).trim() === '' || !tpl?.enabled || !user.mobile) {
+    console.log(`[SMS Service] Subscription Expiry SMS (${daysRemaining} days) skipped (template not configured or missing text).`);
     return null;
   }
 
@@ -289,7 +353,7 @@ export async function sendSubscriptionExpirySms(
   return sendTemplateSms({
     mobile: user.mobile,
     eventType: tplKey,
-    templateId: tpl.id,
+    templateId: Number(tpl.id),
     templateTitle: tpl.title,
     userName: user.name || user.mobile,
     parameters: {
@@ -307,14 +371,15 @@ export async function sendTicketCreatedSms(ticket: Ticket, user: User): Promise<
   const config = getSmsConfig();
   const tpl = config.templates?.ticket_created;
 
-  if (!config.enabled || !tpl?.enabled || !user.mobile) {
+  if (!config.enabled || !tpl?.id || Number(tpl.id) <= 0 || !tpl?.pattern || String(tpl.pattern).trim() === '' || !tpl?.enabled || !user.mobile) {
+    console.log(`[SMS Service] Ticket Created SMS skipped (template not configured or missing text).`);
     return null;
   }
 
   return sendTemplateSms({
     mobile: user.mobile,
     eventType: 'ticket_created',
-    templateId: tpl.id,
+    templateId: Number(tpl.id),
     templateTitle: tpl.title,
     userName: user.name || user.mobile,
     parameters: {
@@ -336,7 +401,8 @@ export async function sendPaymentSuccessSms(
   const config = getSmsConfig();
   const tpl = config.templates?.payment_success;
 
-  if (!config.enabled || !tpl?.enabled || !user.mobile) {
+  if (!config.enabled || !tpl?.id || Number(tpl.id) <= 0 || !tpl?.pattern || String(tpl.pattern).trim() === '' || !tpl?.enabled || !user.mobile) {
+    console.log(`[SMS Service] Payment Success SMS skipped (template not configured or missing text).`);
     return null;
   }
 
@@ -346,7 +412,7 @@ export async function sendPaymentSuccessSms(
   return sendTemplateSms({
     mobile: user.mobile,
     eventType: 'payment_success',
-    templateId: tpl.id,
+    templateId: Number(tpl.id),
     templateTitle: tpl.title,
     userName: user.name || user.mobile,
     parameters: {

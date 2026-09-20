@@ -38,9 +38,11 @@ export function Welcome() {
     // Check existing valid session and route automatically
     api('/dashboard')
       .then(res => {
-        if (res?.user?.role === 'admin' || res?.user?.mobile === '09111273476') {
+        if (res?.user?.role === 'admin' || res?.user?.role === 'support' || res?.user?.mobile === '09111273476') {
+          saveStoredRole(res?.user?.role === 'support' ? 'support' : 'admin');
           nav('/admin', { replace: true });
         } else {
+          saveStoredRole('user');
           nav('/dashboard', { replace: true });
         }
       })
@@ -53,7 +55,7 @@ export function Welcome() {
     const token = getAuthToken();
     if (token) {
       const role = getStoredRole();
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'support') {
         return nav('/admin');
       }
       return nav('/dashboard');

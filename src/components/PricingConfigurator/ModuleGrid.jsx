@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { Check, Lock, CheckSquare, ChevronDown, ChevronUp } from 'lucide-react';
 
 const toPersianDigits = (num) => String(num).replace(/[0-9]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]);
 
-export function ModuleGrid({
+export function ModuleGridInner({
   modules = [],
   selectedModuleIds = [],
   suggestedModuleIds = [],
@@ -126,4 +126,9 @@ export function ModuleGrid({
     </section>
   );
 }
+
+// Memo: the module grid is the heaviest user-panel render (~60 cards).
+// Only re-render when selection-relevant props change.
+export const ModuleGrid = memo(ModuleGridInner);
+export default ModuleGrid;
 

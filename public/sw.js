@@ -1,11 +1,13 @@
 // Karovita Progressive Web App (PWA) Service Worker
-// Version: 2.5.0
+// Version: 2.7.0
 
-const CACHE_NAME_STATIC = 'karovita-static-v2.5.0';
-const CACHE_NAME_RUNTIME = 'karovita-runtime-v2.5.0';
-const CACHE_NAME_API = 'karovita-api-v2.5.0';
+const CACHE_NAME_STATIC = 'karovita-static-v2.7.0';
+const CACHE_NAME_RUNTIME = 'karovita-runtime-v2.7.0';
+const CACHE_NAME_API = 'karovita-api-v2.7.0';
 
 // Essential assets to precache on install
+// Note: only the single variable font is precached (~108KB);
+// static weights were removed in favor of Vazirmatn[wght].woff2
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -15,17 +17,17 @@ const PRECACHE_ASSETS = [
   '/icon-512.svg',
   '/badge-72.svg',
   '/fonts/vazirmatn/vazirmatn.css',
-  '/fonts/vazirmatn/Vazirmatn-Regular.woff2',
-  '/fonts/vazirmatn/Vazirmatn-Medium.woff2',
-  '/fonts/vazirmatn/Vazirmatn-Bold.woff2'
+  '/fonts/vazirmatn/Vazirmatn[wght].woff2'
 ];
 
 // Core API endpoints safe to cache for offline fallback
+// Note: cacheable GET responses now carry X-Karovita-Cache headers from server
 const CACHEABLE_API_PREFIXES = [
+  '/api/configurator/data',
+  '/api/packages',
   '/api/pricing-config',
   '/api/rates',
-  '/api/health',
-  '/api/push/public-key'
+  '/api/health'
 ];
 
 // -------------------------------------------------------------
@@ -109,45 +111,64 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. API Requests: Network First -> Cache Fallback for GET requests
+  // B. API Requests
   if (url.pathname.startsWith('/api/')) {
-    if (request.method === 'GET') {
-      event.respondWith(
-        fetch(request)
-          .then((response) => {
-            if (response && response.status === 200) {
-              const copy = response.clone();
-              caches.open(CACHE_NAME_API).then((cache) => cache.put(request, copy));
-            }
-            return response;
-          })
-          .catch(async () => {
-            const cached = await caches.match(request);
-            if (cached) {
-              // Add a custom header indicating cached offline data
-              const newHeaders = new Headers(cached.headers);
-              newHeaders.set('X-Karovita-Offline-Cache', 'true');
-              return new Response(cached.body, {
-                status: cached.status,
-                statusText: cached.statusText,
-                headers: newHeaders
-              });
-            }
-            // If API is not cached and offline
-            return new Response(
-              JSON.stringify({
-                offline: true,
-                message: 'ارتباط با سرور برقرار نشد. شما در حالت آفلاین هستید.'
-              }),
-              {
-                status: 503,
-                headers: { 'Content-Type': 'application/json; charset=utf-8' }
-              }
-            );
-          })
-      );
+    // 1. NEVER cache admin, auth, push, PWA status, tickets or transactional routes
+    const isSensitiveApi = 
+      url.pathname.startsWith('/api/admin/') ||
+      url.pathname.startsWith('/api/pwa/') ||
+      url.pathname.startsWith('/api/push/') ||
+      url.pathname.startsWith('/api/auth/') ||
+      url.pathname.startsWith('/api/tickets') ||
+      url.pathname.startsWith('/api/orders') ||
+      url.pathname.startsWith('/api/users');
+
+    if (isSensitiveApi || request.method !== 'GET') {
+      // Direct network bypass - no service worker interception or caching
+      return;
     }
-    // Non-GET API calls (POST/PUT/DELETE) bypass service worker caching directly
+
+    // 2. Only cache safe public read-only endpoints explicitly listed in CACHEABLE_API_PREFIXES
+    const isCacheable = CACHEABLE_API_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+    if (!isCacheable) {
+      return;
+    }
+
+    // Network First -> Cache Fallback for safe public GET requests
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME_API).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) {
+            // Add a custom header indicating cached offline data
+            const newHeaders = new Headers(cached.headers);
+            newHeaders.set('X-Karovita-Offline-Cache', 'true');
+            return new Response(cached.body, {
+              status: cached.status,
+              statusText: cached.statusText,
+              headers: newHeaders
+            });
+          }
+          // If API is not cached and offline
+          return new Response(
+            JSON.stringify({
+              offline: true,
+              message: 'ارتباط با سرور برقرار نشد. شما در حالت آفلاین هستید.'
+            }),
+            {
+              status: 503,
+              headers: { 'Content-Type': 'application/json; charset=utf-8' }
+            }
+          );
+        })
+    );
     return;
   }
 

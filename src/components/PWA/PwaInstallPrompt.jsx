@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Download, X, Smartphone, Sparkles, Bell, Wifi } from 'lucide-react';
-import { onInstallPromptChange, promptPwaInstall } from '../../services/pwa';
+import { onInstallPromptChange, promptPwaInstall, getPwaStatus } from '../../services/pwa';
 
 export default function PwaInstallPrompt() {
   const [canInstall, setCanInstall] = useState(false);
@@ -13,6 +13,13 @@ export default function PwaInstallPrompt() {
     if (wasDismissed) {
       setDismissed(true);
     }
+
+    // Check if PWA service is globally enabled
+    getPwaStatus().then((status) => {
+      if (status && status.enabled === false) {
+        setDismissed(true);
+      }
+    });
 
     const unsubscribe = onInstallPromptChange((available) => {
       setCanInstall(available);

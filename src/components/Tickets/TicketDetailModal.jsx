@@ -22,6 +22,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { getStoredRole } from '../../services/authStorage';
 import { TicketStatusBadge, getStatusLabel } from './TicketStatusBadge';
 
 export function TicketDetailModal({ 
@@ -30,7 +31,10 @@ export function TicketDetailModal({
   onClose, 
   onTicketUpdated 
 }) {
+  const currentRole = getStoredRole();
   const [data, setData] = useState(null);
+  const isStaff = isAdmin || currentRole === 'admin' || currentRole === 'support' || Boolean(data?.ticket?.user_mobile && data?.ticket?.user_mobile !== '—');
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [replyText, setReplyText] = useState('');
@@ -67,11 +71,24 @@ export function TicketDetailModal({
 
   useEffect(() => {
     loadTicketDetails();
-    if (isAdmin) {
+    if (isStaff) {
       api('/admin/support-staff').then(res => setStaffList(res.data || [])).catch(() => {});
       api('/departments').then(res => setDeptList(res.data || [])).catch(() => {});
     }
-  }, [ticketId, isAdmin]);
+
+    // Auto-poll ticket details every 12 seconds
+    const interval = setInterval(() => {
+      api(`/tickets/${ticketId}`)
+        .then(res => {
+          setData(res);
+          setSelectedStaff(res.ticket.assigned_to || '');
+          setSelectedDept(res.ticket.department_id || '');
+        })
+        .catch(() => {});
+    }, 12000);
+
+    return () => clearInterval(interval);
+  }, [ticketId, isStaff]);
 
   useEffect(() => {
     if (data?.messages) {
@@ -264,7 +281,7 @@ export function TicketDetailModal({
             <h3 style={{ margin: '4px 0 0', fontSize: 17, color: 'var(--navy)' }}>
               {ticket?.subject}
             </h3>
-            {isAdmin && (
+            {isStaff && (
               <div style={{ display: 'flex', gap: 14, fontSize: 12.5, color: '#475569', marginTop: 4 }}>
                 <span><User size={14} style={{ verticalAlign: 'middle', marginLeft: 4 }} /> کاربر: <b>{ticket?.user_name}</b></span>
                 <span><Phone size={14} style={{ verticalAlign: 'middle', marginLeft: 4 }} /> {ticket?.user_mobile}</span>
@@ -276,7 +293,7 @@ export function TicketDetailModal({
           </div>
 
           <div className="ticket-detail-actions">
-            {isAdmin && (
+            {isStaff && (
               <>
                 {/* Assign to staff */}
                 <select 
@@ -502,7 +519,7 @@ export function TicketDetailModal({
               <form onSubmit={handleSendReply}>
                 <textarea 
                   rows={3}
-                  placeholder={isAdmin ? 'پاسخ پشتیبان به کاربر را اینجا بنویسید...' : 'پاسخ خود را اینجا بنویسید...'}
+                  placeholder={isStaff ? 'پاسخ پشتیبان به کاربر را اینجا بنویسید...' : 'پاسخ خود را اینجا بنویسید...'}
                   value={replyText}
                   onChange={e => setReplyText(e.target.value)}
                 />

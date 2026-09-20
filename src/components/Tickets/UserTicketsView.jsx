@@ -8,9 +8,11 @@ import {
   Layers, 
   Calendar, 
   CheckCircle2, 
-  RotateCw 
+  RotateCw,
+  User 
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { getStoredRole } from '../../services/authStorage';
 import { TicketTabs } from './TicketTabs';
 import { TicketStatusBadge } from './TicketStatusBadge';
 import { NewTicketModal } from './NewTicketModal';
@@ -179,6 +181,12 @@ export function UserTicketsView() {
                   <span className="ticket-number-tag">{item.ticket_number}</span>
                   <span className="ticket-dept-tag">{item.department_name}</span>
                   <span className="ticket-service-tag">{item.service_name}</span>
+                  {item.user_name && (
+                    <span style={{ fontSize: 12.5, color: '#334155', fontWeight: 600 }}>
+                      <User size={13} style={{ verticalAlign: 'middle', marginLeft: 3 }} />
+                      {item.user_name}
+                    </span>
+                  )}
                 </div>
                 <h3 className="ticket-subject">{item.subject}</h3>
                 <p className="ticket-snippet">{item.last_message || 'پیامی ثبت نشده است.'}</p>
@@ -225,7 +233,7 @@ export function UserTicketsView() {
       {selectedTicketId && (
         <TicketDetailModal 
           ticketId={selectedTicketId}
-          isAdmin={false}
+          isAdmin={getStoredRole() === 'support' || getStoredRole() === 'admin'}
           onClose={() => setSelectedTicketId(null)}
           onTicketUpdated={() => loadTickets(tab)}
         />

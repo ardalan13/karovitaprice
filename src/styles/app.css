@@ -2067,6 +2067,107 @@ button:disabled {
   color: #dc2626;
 }
 
+.erp-coupon-msg.warning {
+  color: #d97706;
+}
+
+/* Applied Coupon Box in Summary Sidebar */
+.erp-coupon-applied-box {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+
+.erp-coupon-applied-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.erp-coupon-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #15803d;
+}
+
+.erp-coupon-tag strong {
+  font-family: monospace;
+  letter-spacing: 0.5px;
+  background: #dcfce7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.erp-coupon-discount-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+}
+
+.btn-remove-coupon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid #fca5a5;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-remove-coupon:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+/* Empty Coupons in Admin */
+.erp-admin-empty-coupons {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.erp-admin-empty-coupons h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.erp-admin-empty-coupons p {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+.status-pill.clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.status-pill.clickable:hover {
+  filter: brightness(0.92);
+  transform: scale(1.02);
+}
+
 /* Action Buttons */
 .erp-actions-group {
   display: flex;

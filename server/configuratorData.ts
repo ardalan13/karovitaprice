@@ -37,31 +37,30 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "account",
     "title": "حسابداری",
-    "price": 300000,
     "category": "عمومی",
-    "description": "",
+    "price": 300000,
     "dependencies": [
       "mail",
       "contacts",
       "sale"
     ],
     "industries": [],
-    "is_active": false,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-14 05:54:49",
     "deleted_at": null
   },
   {
     "id": "activities",
-    "title": "اقدامات و پیگیریها",
-    "price": 90000,
+    "title": "اقدامات و پیگیری‌ها",
     "category": "عمومی",
-    "description": "",
+    "price": 90000,
     "dependencies": [
       "mail",
       "calendar",
@@ -73,12 +72,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "distribution_logistics",
       "immigration"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:47:07",
     "deleted_at": null
@@ -86,17 +86,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "ai_assistant",
     "title": "هوش مصنوعی",
-    "price": 250000,
     "category": "productivity",
-    "description": "نگارش هوشمند متون، تحلیل روند فروش و پیشبینی تقاضا",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "نگارش هوشمند متون، تحلیل روند فروش و پیش‌بینی تقاضا",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -104,9 +104,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "calendar",
     "title": "گاهشمار",
-    "price": 0,
     "category": "عمومی",
-    "description": "",
+    "price": 0,
     "dependencies": [
       "mail",
       "contacts"
@@ -128,12 +127,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "education_academy",
       "consulting_finance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:38:17",
     "deleted_at": null
@@ -141,9 +141,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "contacts",
     "title": "مخاطبان و اشخاص",
-    "price": 0,
     "category": "عمومی",
-    "description": "",
+    "price": 0,
     "dependencies": [],
     "industries": [
       "advertising_marketing",
@@ -162,12 +161,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:38:51",
     "deleted_at": null
@@ -175,9 +175,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "crm",
     "title": "مدیریت ارتباط با مشتری (CRM)",
-    "price": 350000,
     "category": "عمومی",
-    "description": "",
+    "price": 350000,
     "dependencies": [
       "mail",
       "calendar",
@@ -200,12 +199,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:40:18",
     "deleted_at": null
@@ -213,17 +213,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "helpdesk",
     "title": "پشتیبانی",
-    "price": 250000,
     "category": "management",
-    "description": "میز خدمت، پورتال تیکت مشتریان و زمانبندی پاسخگویی SLA",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "میز خدمت، پورتال تیکت مشتریان و زمان‌بندی پاسخگویی SLA",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-13 11:47:54",
     "deleted_at": null
@@ -231,9 +231,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr",
     "title": "کارمندان",
-    "price": 130000,
     "category": "عمومی",
-    "description": "",
+    "price": 130000,
     "dependencies": [
       "mail",
       "contacts",
@@ -255,12 +254,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:42:25",
     "deleted_at": null
@@ -268,9 +268,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr_attendance",
     "title": "حضور و غیاب پرسنل",
-    "price": 100000,
     "category": "عمومی",
-    "description": "",
+    "price": 100000,
     "dependencies": [
       "mail",
       "calendar",
@@ -284,12 +283,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "it_software",
       "manufacturing"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:42:48",
     "deleted_at": null
@@ -297,9 +297,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr_holidays",
     "title": "مرخصی و ماموریت",
-    "price": 50000,
     "category": "عمومی",
-    "description": "",
+    "price": 50000,
     "dependencies": [
       "hr",
       "contacts",
@@ -314,12 +313,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "immigration",
       "legal_law"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:47:33",
     "deleted_at": null
@@ -327,19 +327,19 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr_payroll",
     "title": "حقوق و دستمزد",
-    "price": 250000,
     "category": "hr",
-    "description": "محاسبه فیش حقوقی مطابق قانون کار، دیسکت بیمه و فایل بانکی",
+    "price": 250000,
     "dependencies": [
       "hr"
     ],
     "industries": [],
-    "is_active": false,
+    "description": "محاسبه فیش حقوقی مطابق قانون کار، دیسکت بیمه و فایل بانکی",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -347,9 +347,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr_recruitment",
     "title": "استخدام و جذب نیرو",
-    "price": 80000,
     "category": "عمومی",
-    "description": "",
+    "price": 80000,
     "dependencies": [
       "hr",
       "mail",
@@ -362,12 +361,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "contracting_projects",
       "consulting_finance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:47:19",
     "deleted_at": null
@@ -375,19 +375,19 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "hr_timesheet",
     "title": "برگه ساعت کارکرد",
-    "price": 250000,
     "category": "management",
-    "description": "ثبت کارکرد ساعتی پرسنل بر روی تسکها و کنترل راندمان",
+    "price": 250000,
     "dependencies": [
       "project"
     ],
     "industries": [],
-    "is_active": false,
+    "description": "ثبت کارکرد ساعتی پرسنل بر روی تسک‌ها و کنترل راندمان",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -395,17 +395,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "im_livechat",
     "title": "چت انلاین",
-    "price": 250000,
     "category": "marketing",
-    "description": "ابزارک گفتگوی زنده با کاربران و مشتریان روی وبسایت",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "ابزارک گفتگوی زنده با کاربران و مشتریان روی وب‌سایت",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -413,17 +413,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "knowledge",
     "title": "دانش",
-    "price": 250000,
     "category": "productivity",
-    "description": "پایگاه دانش سازمانی، راهنماهای آموزشی و ویکی مستندات تیمی",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "پایگاه دانش سازمانی، راهنماهای آموزشی و ویکی مستندات تیمی",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -431,19 +431,19 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "loyalty",
     "title": "باشگاه مشتریان",
-    "price": 250000,
     "category": "sales",
-    "description": "امتیاز خرید، بنهای هدیه، کوپن تخفیف و کارت وفاداری",
+    "price": 250000,
     "dependencies": [
       "sale"
     ],
     "industries": [],
-    "is_active": false,
+    "description": "امتیاز خرید، بن‌های هدیه، کوپن تخفیف و کارت وفاداری",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -451,9 +451,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "mail",
     "title": "گفتگو",
-    "price": 0,
     "category": "عمومی",
-    "description": "",
+    "price": 0,
     "dependencies": [
       "contacts"
     ],
@@ -474,12 +473,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:39:17",
     "deleted_at": null
@@ -487,17 +487,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "mass_mailing_sms",
     "title": "پیامک",
-    "price": 100000,
     "category": "marketing",
-    "description": "سامانه ارسال پیامک انبوه اطلاعرسانی، تخفیف و مناسبتی",
+    "price": 100000,
     "dependencies": [],
     "industries": [],
-    "is_active": true,
+    "description": "سامانه ارسال پیامک انبوه اطلاع‌رسانی، تخفیف و مناسبتی",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-13 11:49:35",
     "deleted_at": null
@@ -505,9 +505,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "project",
     "title": "پروژه",
-    "price": 150000,
     "category": "عمومی",
-    "description": "",
+    "price": 150000,
     "dependencies": [
       "mail",
       "contacts",
@@ -524,12 +523,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "medical_pharma",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-15 14:41:38",
     "deleted_at": null
@@ -537,9 +537,8 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "sale",
     "title": "فروش",
-    "price": 250000,
     "category": "عمومی",
-    "description": "",
+    "price": 250000,
     "dependencies": [
       "mail",
       "contacts",
@@ -560,12 +559,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-16 05:44:36",
     "deleted_at": null
@@ -573,30 +573,28 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "stock",
     "title": "انبار و کالا",
-    "price": 250000,
     "category": "logistics",
-    "description": "کاردکس کالا، کنترل موجودی چندانباره و نقطه سفارش خودکار",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "کاردکس کالا، کنترل موجودی چندانباره و نقطه سفارش خودکار",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
   },
   {
     "id": "survey",
-    "title": "فرمساز",
-    "price": 150000,
+    "title": "فرم‌ساز",
     "category": "عمومی",
-    "description": "",
+    "price": 150000,
     "dependencies": [
       "contacts",
-      "crm",
       "calendar",
       "mail"
     ],
@@ -617,12 +615,13 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
       "real_estate",
       "services_maintenance"
     ],
-    "is_active": true,
+    "description": "",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-16 05:44:43",
     "deleted_at": null
@@ -630,17 +629,17 @@ export const INITIAL_ERP_MODULES: ERPModule[] = [
   {
     "id": "survey_feedback",
     "title": "نظرسنجی ها",
-    "price": 250000,
     "category": "marketing",
-    "description": "پرسشنامههای آنلاین و سنجش سطح رضایت مشتریان و پرسنل",
+    "price": 250000,
     "dependencies": [],
     "industries": [],
-    "is_active": false,
+    "description": "پرسشنامه‌های آنلاین و سنجش سطح رضایت مشتریان و پرسنل",
     "is_core": false,
     "is_recommended": false,
     "icon": "Package",
     "badge": null,
     "status": "active",
+    "is_active": false,
     "created_at": "2026-09-10 06:10:07",
     "updated_at": "2026-09-10 06:10:07",
     "deleted_at": null
@@ -654,23 +653,27 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Megaphone",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
+    "mandatory_modules": [
+      "calendar",
       "contacts",
       "mail",
+      "crm"
+    ],
+    "default_modules": [
+      "contacts",
       "crm",
       "project",
       "sale",
-      "hr",
       "calendar",
-      "survey",
-      "hr_recruitment"
+      "activities",
+      "mass_mailing_sms",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:42:06",
+    "updated_at": "2026-09-16 10:16:02",
     "deleted_at": null
   },
   {
@@ -679,21 +682,28 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Ship",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "sale",
+      "activities",
+      "contacts",
+      "mail",
+      "calendar"
+    ],
     "default_modules": [
       "sale",
       "contacts",
       "crm",
-      "mail",
       "hr",
-      "calendar",
-      "survey"
+      "activities",
+      "mass_mailing_sms",
+      "mail",
+      "calendar"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:42:57",
+    "updated_at": "2026-09-16 10:15:12",
     "deleted_at": null
   },
   {
@@ -703,50 +713,59 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "icon": "BarChart3",
     "description": "",
     "mandatory_modules": [
-      "account",
-      "hr"
+      "activities",
+      "project",
+      "calendar",
+      "contacts",
+      "mail"
     ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
       "project",
       "calendar",
       "survey",
-      "hr_recruitment"
+      "hr",
+      "activities",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-15 14:47:19",
+    "updated_at": "2026-09-16 10:17:05",
     "deleted_at": null
   },
   {
     "id": "contracting_projects",
-    "title": "پیمانکاری و پروژهمحور",
+    "title": "پیمانکاری و پروژه‌محور",
     "category": "صنف",
     "icon": "Building2",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
+    "mandatory_modules": [
+      "project",
+      "activities",
       "contacts",
       "sale",
-      "crm",
+      "calendar",
+      "mail"
+    ],
+    "default_modules": [
       "project",
       "hr",
-      "mail",
       "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "contacts",
+      "sale",
       "calendar",
-      "survey",
-      "hr_recruitment"
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:00",
+    "updated_at": "2026-09-16 10:18:03",
     "deleted_at": null
   },
   {
@@ -755,48 +774,59 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Truck",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "activities",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "sale",
       "contacts",
-      "crm",
+      "activities",
+      "mass_mailing_sms",
       "hr",
-      "mail",
+      "hr_holidays",
+      "hr_attendance",
       "calendar",
-      "survey",
-      "activities"
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:04",
+    "updated_at": "2026-09-16 10:18:37",
     "deleted_at": null
   },
   {
     "id": "education_academy",
-    "title": "آموزشگاهها و مراکز علمی",
+    "title": "آموزشگاه‌ها و مراکز علمی",
     "category": "صنف",
     "icon": "GraduationCap",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "survey",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
       "hr",
-      "hr_attendance",
       "calendar",
       "survey",
       "activities",
-      "hr_recruitment"
+      "mass_mailing_sms",
+      "mail",
+      "project"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:09",
+    "updated_at": "2026-09-16 10:19:59",
     "deleted_at": null
   },
   {
@@ -805,22 +835,34 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Stethoscope",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "survey",
+      "calendar",
+      "activities",
+      "contacts",
+      "hr",
+      "hr_attendance",
+      "project",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
-      "crm",
       "hr",
       "hr_attendance",
       "calendar",
       "survey",
+      "mass_mailing_sms",
+      "activities",
+      "project",
+      "mail",
+      "hr_recruitment",
       "hr_holidays"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:17",
+    "updated_at": "2026-09-16 10:21:04",
     "deleted_at": null
   },
   {
@@ -829,75 +871,89 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Plane",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
-      "project",
-      "hr",
       "calendar",
       "survey",
       "activities",
-      "hr_holidays"
+      "mass_mailing_sms",
+      "mail",
+      "project"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:13",
+    "updated_at": "2026-09-16 10:27:26",
     "deleted_at": null
   },
   {
     "id": "insurance_agency",
-    "title": "بیمه و نمایندگیها",
+    "title": "بیمه و نمایندگی‌ها",
     "category": "صنف",
     "icon": "ShieldCheck",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "mail",
+    "mandatory_modules": [
       "crm",
       "sale",
-      "hr",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "sale",
       "calendar",
       "survey",
-      "hr_holidays"
+      "activities",
+      "mass_mailing_sms",
+      "project",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:34",
+    "updated_at": "2026-09-16 10:24:07",
     "deleted_at": null
   },
   {
     "id": "it_software",
-    "title": "فناوری اطلاعات و نرمافزار",
+    "title": "فناوری اطلاعات و نرم‌افزار",
     "category": "صنف",
     "icon": "Laptop",
     "description": "",
     "mandatory_modules": [
-      "calendar"
+      "project",
+      "activities",
+      "mail",
+      "calendar",
+      "contacts"
     ],
     "default_modules": [
-      "contacts",
       "mail",
-      "sale",
       "crm",
       "project",
       "hr",
-      "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "hr_recruitment",
       "calendar",
-      "survey"
+      "contacts"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 06:33:14",
+    "updated_at": "2026-09-16 10:25:19",
     "deleted_at": null
   },
   {
@@ -906,22 +962,28 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Scale",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "mail",
+    "mandatory_modules": [
       "crm",
-      "project",
-      "hr",
       "calendar",
       "survey",
-      "hr_holidays"
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "project",
+      "survey",
+      "activities",
+      "calendar",
+      "mass_mailing_sms",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:23",
+    "updated_at": "2026-09-16 10:26:54",
     "deleted_at": null
   },
   {
@@ -930,23 +992,30 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Factory",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "sale",
+      "activities",
+      "contacts",
+      "project",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
       "sale",
-      "crm",
-      "mail",
-      "project",
       "hr",
       "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "project",
       "calendar",
-      "survey"
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:28",
+    "updated_at": "2026-09-16 10:28:07",
     "deleted_at": null
   },
   {
@@ -955,23 +1024,29 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Pill",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "sale",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "sale",
       "contacts",
       "crm",
-      "project",
-      "mail",
-      "calendar",
-      "survey",
       "hr_holidays",
-      "hr"
+      "activities",
+      "mass_mailing_sms",
+      "project",
+      "calendar",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:43:59",
+    "updated_at": "2026-09-16 10:30:52",
     "deleted_at": null
   },
   {
@@ -980,23 +1055,28 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Building",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "sale",
+    "mandatory_modules": [
       "crm",
-      "hr",
-      "mass_mailing_sms",
-      "mail",
       "calendar",
       "survey",
-      "hr_holidays"
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "mass_mailing_sms",
+      "calendar",
+      "survey",
+      "activities",
+      "project",
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:44:03",
+    "updated_at": "2026-09-16 10:31:29",
     "deleted_at": null
   },
   {
@@ -1005,22 +1085,30 @@ export const INITIAL_PRESETS: IndustryPreset[] = [
     "category": "صنف",
     "icon": "Wrench",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "activities",
+      "project",
+      "sale",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "sale",
-      "mail",
-      "crm",
       "project",
       "hr",
+      "activities",
+      "mass_mailing_sms",
+      "sale",
+      "hr_attendance",
       "calendar",
-      "survey"
+      "mail"
     ],
     "popular": false,
-    "is_active": true,
     "status": "active",
+    "is_active": true,
     "created_at": "2026-09-10 06:10:07",
-    "updated_at": "2026-09-16 05:44:07",
+    "updated_at": "2026-09-16 10:33:41",
     "deleted_at": null
   }
 ];

@@ -1,5 +1,1314 @@
 [
   {
+    "id": "err_srv_1789894875577_j89j2",
+    "timestamp": "2026-09-20T09:01:15.577Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789894840102_52o8t",
+    "timestamp": "2026-09-20T09:00:40.102Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789891580538_w7e5l",
+    "timestamp": "2026-09-20T08:06:20.538Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789891536259_l466p",
+    "timestamp": "2026-09-20T08:05:36.259Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789890389270_2rp2k",
+    "timestamp": "2026-09-20T07:46:29.270Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789890342193_9mlqq",
+    "timestamp": "2026-09-20T07:45:42.193Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789887783872_q0kl9",
+    "timestamp": "2026-09-20T07:03:03.872Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789887557117_q33q5",
+    "timestamp": "2026-09-20T06:59:17.117Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789884528346_fbl97",
+    "timestamp": "2026-09-20T06:08:48.346Z",
+    "level": "fatal",
+    "source": "unhandled",
+    "message": "listen EADDRINUSE: address already in use 0.0.0.0:3000",
+    "name": "Error",
+    "stack": "Error: listen EADDRINUSE: address already in use 0.0.0.0:3000\n    at Server.setupListenHandle [as _listen2] (node:net:2324:16)\n    at listenInCluster (node:net:2433:12)\n    at node:net:2662:7\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "uncaughtException"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789881975916_f9b1q",
+    "timestamp": "2026-09-20T05:26:15.916Z",
+    "level": "fatal",
+    "source": "unhandled",
+    "message": "check is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: check is not defined\n    at <anonymous> (D:\\karovitaprice-main\\karovitaprice-main\\scripts\\verify-trial-cleanup-on-purchase.ts:168:3)\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "uncaughtException"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789881899036_olrc9",
+    "timestamp": "2026-09-20T05:24:59.036Z",
+    "level": "fatal",
+    "source": "unhandled",
+    "message": "check is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: check is not defined\n    at <anonymous> (D:\\karovitaprice-main\\karovitaprice-main\\scripts\\verify-trial-cleanup-on-purchase.ts:172:3)\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "uncaughtException"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789825219046_fcwe7",
+    "timestamp": "2026-09-19T13:40:19.046Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789825204596_svj5q",
+    "timestamp": "2026-09-19T13:40:04.596Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789820282469_atgxs",
+    "timestamp": "2026-09-19T12:18:02.469Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789820247462_di28o",
+    "timestamp": "2026-09-19T12:17:27.462Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789818522571_vpcrv",
+    "timestamp": "2026-09-19T11:48:42.571Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789818510896_gv3vi",
+    "timestamp": "2026-09-19T11:48:30.896Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\icon-192.zip'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\icon-192.zip'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\icon-192.zip",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\icon-192.zip"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789818469891_21px5",
+    "timestamp": "2026-09-19T11:47:49.891Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818288342_tdaeh",
+    "timestamp": "2026-09-19T11:44:48.342Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at ",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1736:18)\n    at Dashboard (http://localhost:3000/src/main.jsx?t=1789818064887:1957:15)\n    at Guard (http://localhost:3000/src/main.jsx?t=1789818064887:3713:18)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx?t=1789818064887:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818288337_299p1",
+    "timestamp": "2026-09-19T11:44:48.337Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx?t=1789818064887",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818216058_zdwd0",
+    "timestamp": "2026-09-19T11:43:36.058Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at ",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1736:18)\n    at Dashboard (http://localhost:3000/src/main.jsx?t=1789818064887:1957:15)\n    at Guard (http://localhost:3000/src/main.jsx?t=1789818064887:3713:18)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx?t=1789818064887:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818216029_yvjt4",
+    "timestamp": "2026-09-19T11:43:36.029Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx?t=1789818064887",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818125630_3m0in",
+    "timestamp": "2026-09-19T11:42:05.630Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at ",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1736:18)\n    at Dashboard (http://localhost:3000/src/main.jsx?t=1789818064887:1957:15)\n    at Guard (http://localhost:3000/src/main.jsx?t=1789818064887:3713:18)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx?t=1789818064887:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789818125611_kmz8i",
+    "timestamp": "2026-09-19T11:42:05.611Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx?t=1789818064887:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx?t=1789818064887",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817954114_hidcr",
+    "timestamp": "2026-09-19T11:39:14.114Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at performConcurren",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx:1736:18)\n    at Dashboard (http://localhost:3000/src/main.jsx:1957:15)\n    at Guard (http://localhost:3000/src/main.jsx:3713:18)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817954098_ooibn",
+    "timestamp": "2026-09-19T11:39:14.098Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:1919",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817639683_pynyr",
+    "timestamp": "2026-09-19T11:33:59.683Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at performConcurren",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx:1736:18)\n    at Dashboard (http://localhost:3000/src/main.jsx:1957:15)\n    at Guard (http://localhost:3000/src/main.jsx:3713:18)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817639676_99gml",
+    "timestamp": "2026-09-19T11:33:59.676Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:1919",
+    "url": "http://localhost:3000/dashboard?trial=activated",
+    "user_id": 20,
+    "user_mobile": "09352913139",
+    "user_role": "user",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817590503_u6wcs",
+    "timestamp": "2026-09-19T11:33:10.503Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at performSyncWorkO",
+    "url": "http://localhost:3000/admin",
+    "user_id": 1,
+    "user_mobile": "09111273476",
+    "user_role": "admin",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx:1736:18)\n    at Admin (http://localhost:3000/src/main.jsx:3249:35)\n    at AdminGuard (http://localhost:3000/src/main.jsx:3721:23)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817590496_9tnn1",
+    "timestamp": "2026-09-19T11:33:10.496Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:1919",
+    "url": "http://localhost:3000/admin",
+    "user_id": 1,
+    "user_mobile": "09111273476",
+    "user_role": "admin",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817586674_isfez",
+    "timestamp": "2026-09-19T11:33:06.674Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19753:22)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19198:20)\n    at workLoopSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19137:13)\n    at renderRootSync (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19116:15)\n    at recoverFromConcurrentError (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:18736:28)\n    at performConcurren",
+    "url": "http://localhost:3000/admin",
+    "user_id": 1,
+    "user_mobile": "09111273476",
+    "user_role": "admin",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "componentStack": "\n    at Shell (http://localhost:3000/src/main.jsx:1736:18)\n    at Admin (http://localhost:3000/src/main.jsx:3249:35)\n    at AdminGuard (http://localhost:3000/src/main.jsx:3721:23)\n    at RenderedRoute (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4112:5)\n    at Routes (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4582:5)\n    at Router (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:4525:15)\n    at BrowserRouter (http://localhost:3000/node_modules/.vite/deps/react-router-dom.js?v=6604a5ac:5263:5)\n    at App\n    at ErrorBoundary (http://localhost:3000/src/main.jsx:3156:5)"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_cli_1789817586650_x7opl",
+    "timestamp": "2026-09-19T11:33:06.650Z",
+    "level": "error",
+    "source": "client",
+    "message": "role is not defined",
+    "name": "ReferenceError",
+    "stack": "ReferenceError: role is not defined\n    at Shell (http://localhost:3000/src/main.jsx:1767:20)\n    at renderWithHooks (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:11548:26)\n    at mountIndeterminateComponent (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:14926:21)\n    at beginWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:15914:22)\n    at HTMLUnknownElement.callCallback2 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3674:22)\n    at Object.invokeGuardedCallbackDev (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3699:24)\n    at invokeGuardedCallback (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:3733:39)\n    at beginWork$1 (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:19765:15)\n    at performUnitOfWork (http://localhost:3000/node_modules/.vite/deps/chunk-NUMECXU6.js?v=6604a5ac:1919",
+    "url": "http://localhost:3000/admin",
+    "user_id": 1,
+    "user_mobile": "09111273476",
+    "user_role": "admin",
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+    "context": {
+      "source": "window.onerror",
+      "filename": "http://localhost:3000/src/main.jsx",
+      "lineno": 1767,
+      "colno": 20
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789808537125_2r1s7",
+    "timestamp": "2026-09-19T09:02:17.125Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789808523829_tkmpq",
+    "timestamp": "2026-09-19T09:02:03.829Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (file:///D:/karovitaprice-main/karovitaprice-main/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789807844495_vu4qm",
+    "timestamp": "2026-09-19T08:50:44.495Z",
+    "level": "fatal",
+    "source": "unhandled",
+    "message": "listen EADDRINUSE: address already in use 0.0.0.0:3000",
+    "name": "Error",
+    "stack": "Error: listen EADDRINUSE: address already in use 0.0.0.0:3000\n    at Server.setupListenHandle [as _listen2] (node:net:2324:16)\n    at listenInCluster (node:net:2433:12)\n    at node:net:2662:7\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "uncaughtException"
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789800553989_38nxz",
+    "timestamp": "2026-09-19T06:49:13.989Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789800529237_5hi10",
+    "timestamp": "2026-09-19T06:48:49.237Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789799018518_nbj5a",
+    "timestamp": "2026-09-19T06:23:38.518Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789798998793_9rvl4",
+    "timestamp": "2026-09-19T06:23:18.793Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789798969718_htgu8",
+    "timestamp": "2026-09-19T06:22:49.718Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789797569304_cuse8",
+    "timestamp": "2026-09-19T05:59:29.304Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789797556524_u660z",
+    "timestamp": "2026-09-19T05:59:16.524Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789796787057_b0vq2",
+    "timestamp": "2026-09-19T05:46:27.057Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789796763869_e435o",
+    "timestamp": "2026-09-19T05:46:03.868Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789795554140_ll9oj",
+    "timestamp": "2026-09-19T05:25:54.140Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789795521421_gjaub",
+    "timestamp": "2026-09-19T05:25:21.420Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789591698880_rgxsj",
+    "timestamp": "2026-09-16T20:48:18.880Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789591643603_hgh9y",
+    "timestamp": "2026-09-16T20:47:23.603Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789589295251_3noyy",
+    "timestamp": "2026-09-16T20:08:15.251Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789589274977_3961w",
+    "timestamp": "2026-09-16T20:07:54.977Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789588420503_c08mc",
+    "timestamp": "2026-09-16T19:53:40.503Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789588393591_f7ffe",
+    "timestamp": "2026-09-16T19:53:13.591Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789585652234_f5ndo",
+    "timestamp": "2026-09-16T19:07:32.234Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789585572312_8k4e9",
+    "timestamp": "2026-09-16T19:06:12.312Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789564341084_oljxl",
+    "timestamp": "2026-09-16T13:12:21.084Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\backend\\backend.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
+    "id": "err_srv_1789564296006_o6r4c",
+    "timestamp": "2026-09-16T13:11:36.006Z",
+    "level": "error",
+    "source": "unhandled",
+    "message": "EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'",
+    "name": "Error",
+    "stack": "Error: EBUSY: resource busy or locked, watch 'D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar'\n    at FSWatcher.<computed> (node:internal/fs/watchers:323:19)\n    at Object.watch (node:fs:2609:36)\n    at createFsWatchInstance (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42780:17)\n    at setFsWatchListener (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42827:15)\n    at NodeFsHandler._watchWithNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:42982:14)\n    at NodeFsHandler._handleFile (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43046:23)\n    at NodeFsHandler._addToNodeFs (D:\\karovitaprice-main\\karovitaprice-main\\node_modules\\vite\\dist\\node\\chunks\\dep-BK3b2jBa.js:43288:21)",
+    "user_id": null,
+    "user_mobile": null,
+    "user_role": null,
+    "ip_address": "localhost",
+    "user_agent": "Server-Internal",
+    "context": {
+      "type": "unhandledRejection",
+      "raw": {
+        "errno": -4082,
+        "syscall": "watch",
+        "code": "***REDACTED***",
+        "path": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar",
+        "filename": "D:\\karovitaprice-main\\karovitaprice-main\\dist\\dist.rar"
+      }
+    },
+    "resolved": false
+  },
+  {
     "id": "err_srv_1789558805245_6knwh",
     "timestamp": "2026-09-16T11:40:05.245Z",
     "level": "error",

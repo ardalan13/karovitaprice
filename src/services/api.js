@@ -7,9 +7,50 @@ const BASE = '/api';
 const inFlightRequests = new Map();
 
 // Client-side request concurrency limiter (prevents HTTP request flooding and host firewall blocks)
-const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_CONCURRENT_REQUESTS = 6;
 let activeRequestsCount = 0;
 const requestQueue = [];
+
+// Lightweight GET response cache (avoids redundant round-trips for
+// frequently-polled endpoints like badges, counts, configurator data)
+const responseCache = new Map();
+const CACHE_TTL_MS = 15000; // 15s client-side TTL
+const CACHEABLE_GET_PREFIXES = [
+  '/configurator/data',
+  '/payments/pending-count',
+  '/tickets/badge',
+  '/tickets/unread-count',
+  '/push/public-key',
+  '/packages',
+];
+
+// Serve from cache for the same token+URL if fresh, otherwise refetch
+function getCachedResponse(cacheKey) {
+  const entry = responseCache.get(cacheKey);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  if (entry) responseCache.delete(cacheKey);
+  return null;
+}
+
+function setCachedResponse(cacheKey, data) {
+  // Keep cache small - LRU-style eviction
+  if (responseCache.size > 100) {
+    const oldestKey = responseCache.keys().next().value;
+    responseCache.delete(oldestKey);
+  }
+  responseCache.set(cacheKey, { data, timestamp: Date.now() });
+}
+
+// Invalidate cache entries matching a URL prefix (call after mutations)
+export function invalidateApiCache(prefix) {
+  for (const key of responseCache.keys()) {
+    if (!prefix || key.includes(prefix)) {
+      responseCache.delete(key);
+    }
+  }
+}
 
 function dequeueNext() {
   if (activeRequestsCount >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
@@ -47,9 +88,22 @@ export async function api(path, options = {}) {
   const cleanPath = path.startsWith('/') ? path : '/' + path;
   const fullUrl = BASE + cleanPath;
 
-  // Deduplicate identical in-flight GET requests
   const isGet = method === 'GET' && !options.body;
-  const dedupeKey = isGet ? `${fullUrl}:${token || ''}` : null;
+  const cacheKey = isGet ? `${fullUrl}:${token || ''}` : null;
+
+  // Mutations invalidate overlapping cached reads so lists stay fresh
+  if (method !== 'GET') {
+    invalidateApiCache(cleanPath.split('?')[0]);
+  }
+
+  // Serve fresh client-side cache for cacheable GETs
+  if (isGet && CACHEABLE_GET_PREFIXES.some(p => cleanPath.startsWith(p))) {
+    const cached = cacheKey ? getCachedResponse(cacheKey) : null;
+    if (cached) return cached;
+  }
+
+  // Deduplicate identical in-flight GET requests
+  const dedupeKey = isGet ? cacheKey : null;
 
   if (dedupeKey && inFlightRequests.has(dedupeKey)) {
     return inFlightRequests.get(dedupeKey);
@@ -112,7 +166,15 @@ export async function api(path, options = {}) {
           window.location.replace('/');
         }
       }
-      throw new Error(d.message || `خطا در پردازش درخواست (${r.status})`);
+      const apiErr = new Error(d.message || `خطا در پردازش درخواست (${r.status})`);
+      apiErr.data = d;
+      apiErr.status = r.status;
+      throw apiErr;
+    }
+
+    // Populate GET cache for cacheable prefixes
+    if (isGet && CACHEABLE_GET_PREFIXES.some(p => cleanPath.startsWith(p))) {
+      setCachedResponse(cacheKey, d);
     }
 
     return d;

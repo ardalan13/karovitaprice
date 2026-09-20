@@ -194,9 +194,6 @@ export function initPerformanceMonitoring(options = {}) {
   }
 }
 
-/**
- * Gathers current device / network metadata
- */
 function getSystemContext() {
   const context = {
     connection: {},

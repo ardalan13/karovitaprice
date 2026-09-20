@@ -35,12 +35,86 @@ const onlineListeners = new Set();
 const pushStatusListeners = new Set();
 
 /**
+ * Get Master PWA & Web Push Service Status
+ */
+export async function getPwaStatus() {
+  try {
+    const res = await fetch('/api/pwa/status?_t=' + Date.now(), {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return data;
+    }
+  } catch (e) {
+    console.warn('[PWA] Error checking master PWA status:', e);
+  }
+  return { success: true, enabled: true };
+}
+
+/**
+ * Unregister all active Service Workers in browser and clear caches
+ */
+export async function unregisterAllServiceWorkers() {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return false;
+  }
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const reg of registrations) {
+      try {
+        if (reg.pushManager) {
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await sub.unsubscribe().catch(() => {});
+          }
+        }
+      } catch (subErr) {
+        console.warn('[PWA] Error unsubscribing worker:', subErr);
+      }
+      await reg.unregister();
+    }
+
+    if ('caches' in window) {
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (cacheErr) {
+        console.warn('[PWA] Error clearing caches:', cacheErr);
+      }
+    }
+
+    console.log('[PWA] All service worker registrations and caches cleaned up successfully.');
+    return true;
+  } catch (err) {
+    console.warn('[PWA] Error unregistering service workers:', err);
+    return false;
+  }
+}
+
+/**
  * Register Service Worker
  */
 export async function registerServiceWorker() {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
     console.log('[PWA] Service Worker not supported in this browser environment.');
     return null;
+  }
+
+  // Check if PWA service is globally enabled by administrator
+  try {
+    const status = await getPwaStatus();
+    if (status && status.enabled === false) {
+      console.log('[PWA] PWA service is globally disabled by admin. Cleaning up active workers.');
+      await unregisterAllServiceWorkers();
+      return null;
+    }
+  } catch {
+    // Proceed if status check fails
   }
 
   try {
@@ -140,10 +214,18 @@ export async function getPushNotificationStatus() {
     return { supported: false, permission: 'unsupported', isSubscribed: false };
   }
 
-  const permission = Notification.permission;
+  const permission = typeof Notification !== 'undefined' ? Notification.permission : 'default';
 
   try {
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) {
+      return {
+        supported: true,
+        permission,
+        isSubscribed: false,
+        subscription: null,
+      };
+    }
     const subscription = await registration.pushManager.getSubscription();
     return {
       supported: true,
@@ -169,6 +251,12 @@ export async function subscribeToPushNotifications(token = null) {
     throw new Error('مرورگر شما از اعلان‌های وب (Push Notifications) پشتیبانی نمی‌کند.');
   }
 
+  // Check if PWA service is globally enabled
+  const pwaStatus = await getPwaStatus();
+  if (pwaStatus && pwaStatus.enabled === false) {
+    throw new Error('سرویس PWA و ارسال اعلان‌های وب توسط مدیریت سامانه غیرفعال شده است.');
+  }
+
   // Request notification permission from user
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') {
@@ -178,7 +266,7 @@ export async function subscribeToPushNotifications(token = null) {
   // Fetch VAPID public key from backend (with safe fallback)
   let publicKey = DEFAULT_VAPID_PUBLIC_KEY;
   try {
-    const resKey = await fetch('/api/push/public-key');
+    const resKey = await fetch('/api/push/public-key?_t=' + Date.now(), { cache: 'no-store' });
     if (resKey.ok) {
       const data = await resKey.json().catch(() => ({}));
       if (data && typeof data.publicKey === 'string' && data.publicKey.trim().length > 10) {
@@ -190,7 +278,25 @@ export async function subscribeToPushNotifications(token = null) {
   }
 
   const convertedVapidKey = urlBase64ToUint8Array(publicKey);
-  const registration = await navigator.serviceWorker.ready;
+
+  let registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) {
+    registration = await registerServiceWorker();
+  }
+  if (!registration) {
+    throw new Error('سرویس‌ورکر فعال برای ثبت اشتراک در دسترس نیست.');
+  }
+
+  // Wait if it's currently installing
+  if (registration.installing) {
+    await new Promise((resolve) => {
+      const worker = registration.installing;
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'activated' || worker.state === 'installed') resolve();
+      });
+      setTimeout(resolve, 1500);
+    });
+  }
 
   // Subscribe via browser PushManager
   const subscription = await registration.pushManager.subscribe({

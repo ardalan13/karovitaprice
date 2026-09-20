@@ -935,32 +935,91 @@ export function AdminUsersManagement({ data = [], reload }) {
                         )}
                       </td>
 
-                      {/* Subscriptions Count (Non-clickable) */}
+                      {/* Subscriptions Count (Shows Active & Total Subscriptions) */}
                       <td style={{ padding: '14px 16px', color: '#475569' }}>
-                        <div
-                          style={{
-                            background: user.subscriptions_count > 0 ? '#eff6ff' : '#f8fafc',
-                            color: user.subscriptions_count > 0 ? '#1d4ed8' : '#64748b',
-                            border: `1px solid ${user.subscriptions_count > 0 ? '#bfdbfe' : '#e2e8f0'}`,
-                            padding: '5px 10px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: 700,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            userSelect: 'none',
-                            width: 'fit-content'
-                          }}
-                          title={`تعداد کل اشتراک‌های ثبت‌شده برای این کاربر: ${(user.subscriptions_count || 0).toLocaleString('fa-IR')}`}
-                        >
-                          <Package size={13} color={user.subscriptions_count > 0 ? '#2563eb' : '#94a3b8'} />
-                          <span>
-                            {(user.subscriptions_count || 0) > 0 
-                              ? `${Number(user.subscriptions_count).toLocaleString('fa-IR')} اشتراک` 
-                              : 'بدون اشتراک'}
-                          </span>
-                        </div>
+                        {(() => {
+                          const activeCount = Number(user.active_subs_count || 0);
+                          const totalCount = Number(user.subscriptions_count ?? user.active_subs_count ?? 0);
+                          const hasActive = activeCount > 0;
+                          const hasAny = totalCount > 0;
+
+                          if (hasActive) {
+                            return (
+                              <div
+                                style={{
+                                  background: '#eff6ff',
+                                  color: '#1d4ed8',
+                                  border: '1px solid #bfdbfe',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  userSelect: 'none',
+                                  width: 'fit-content'
+                                }}
+                                title={`اشتراک فعال: ${activeCount.toLocaleString('fa-IR')} (کل اشتراک‌ها: ${totalCount.toLocaleString('fa-IR')})`}
+                              >
+                                <Package size={13} color="#2563eb" />
+                                <span>
+                                  {`${activeCount.toLocaleString('fa-IR')} اشتراک فعال`}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          if (hasAny) {
+                            return (
+                              <div
+                                style={{
+                                  background: '#fffbeb',
+                                  color: '#b45309',
+                                  border: '1px solid #fde68a',
+                                  padding: '5px 10px',
+                                  borderRadius: '6px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  userSelect: 'none',
+                                  width: 'fit-content'
+                                }}
+                                title={`اشتراک‌های این کاربر منقضی یا غیرفعال شده است (کل: ${totalCount.toLocaleString('fa-IR')})`}
+                              >
+                                <Package size={13} color="#b45309" />
+                                <span>
+                                  {`${totalCount.toLocaleString('fa-IR')} اشتراک منقضی`}
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div
+                              style={{
+                                background: '#f8fafc',
+                                color: '#64748b',
+                                border: '1px solid #e2e8f0',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                userSelect: 'none',
+                                width: 'fit-content'
+                              }}
+                              title="این کاربر تا کنون هیچ اشتراکی دریافت نکرده است"
+                            >
+                              <Package size={13} color="#94a3b8" />
+                              <span>بدون اشتراک</span>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Actions */}

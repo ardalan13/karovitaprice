@@ -22,6 +22,11 @@
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=()" />
     
+    <!-- Preconnect & DNS-prefetch for faster first paint -->
+    <link rel="preconnect" href="/fonts/vazirmatn/Vazirmatn%5Bwght%5D.woff2" crossorigin />
+    <!-- Preload critical variable font (~108KB single file, replaces 9 static weights) -->
+    <link rel="preload" href="/fonts/vazirmatn/Vazirmatn%5Bwght%5D.woff2" as="font" type="font/woff2" crossorigin />
+    
     <title>کارویتا | مدیریت یکپارچه کسب‌وکار</title>
     <link rel="icon" type="image/svg+xml" href="/karovita-logo.svg" />
     <!-- Local Fonts - Zero External CDN Dependencies -->

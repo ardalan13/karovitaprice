@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import {
   Factory,
   Ship,
@@ -54,7 +54,7 @@ const THEME_MAP = {
   services_maintenance: { bg: '#f1f5f9', color: '#475569', selectedBg: '#475569', selectedColor: '#ffffff' },
 };
 
-export function IndustryPresets({
+export function IndustryPresetsInner({
   presets = [],
   activePresetId = 'manufacturing',
   activePreset = null,
@@ -108,4 +108,9 @@ export function IndustryPresets({
     </section>
   );
 }
+
+// Memo: skip re-render unless presets list, active id, or handler changes
+// (prevents 15-industry-card re-render on every module toggle)
+export const IndustryPresets = memo(IndustryPresetsInner);
+export default IndustryPresets;
 

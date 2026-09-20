@@ -21,6 +21,7 @@ import {
 import { api } from '../../services/api';
 import { DEFAULT_MODULES } from '../PricingConfigurator/configuratorData';
 import { getModulePersianTitle } from './SubscriptionDetailsModal';
+import { calculateSubscriptionMonths } from '../../utils/subscriptionPeriod';
 
 function formatDate(d) {
   if (!d) return 'نامشخص';
@@ -167,7 +168,19 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
     return availableNewModules.filter(m => selectedNewModuleIds.includes(m.id));
   }, [availableNewModules, selectedNewModuleIds]);
 
-  // Pricing calculations
+  // Calculate remaining duration until main subscription expires
+  const remainingDays = useMemo(() => {
+    if (!subscription?.expires_at) return 30;
+    const diff = new Date(subscription.expires_at).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [subscription?.expires_at]);
+
+  // Real calendar month calculation: DAYS_IN_MONTH = 365 / 12 with smart calendar rounding
+  const remainingMonths = useMemo(() => {
+    return calculateSubscriptionMonths(remainingDays);
+  }, [remainingDays]);
+
+  // Pricing calculations based on remaining duration
   const newModulesMonthlySum = useMemo(() => {
     return selectedModulesObjects.reduce((acc, m) => {
       const p = Number(m.price);
@@ -177,7 +190,6 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
 
   const extraUserPrice = configSettings.extra_user_price || 800000;
   const newlyAddedUserSeats = Math.max(targetUserCount - initialUserCount, 0);
-  // Extra user seats cost applies universally across the ERP system
   const newlyAddedUsersMonthlyCost = newlyAddedUserSeats * extraUserPrice;
 
   // Normalized billing period of current subscription
@@ -191,10 +203,16 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
   }, [subscription?.billing_period]);
 
   const currentPeriodConfig = PERIOD_CONFIG[subPeriod] || PERIOD_CONFIG['yearly'];
-  const periodMultiplier = currentPeriodConfig.multiplier;
 
-  const additionMonthlyBase = newModulesMonthlySum + newlyAddedUsersMonthlyCost;
-  const finalCalculatedAmount = Math.round(additionMonthlyBase * periodMultiplier);
+  // Base price of newly added modules and users for the remaining duration
+  const modulesPeriodTotal = newModulesMonthlySum * remainingMonths;
+  const usersPeriodTotal = newlyAddedUsersMonthlyCost * remainingMonths;
+  const subtotalBeforeVat = modulesPeriodTotal + usersPeriodTotal;
+
+  // Standard 10% VAT
+  const vatRate = 0.10;
+  const vatAmount = Math.round(subtotalBeforeVat * vatRate);
+  const finalCalculatedAmount = subtotalBeforeVat + vatAmount;
 
   const hasChanges = selectedNewModuleIds.length > 0 || newlyAddedUserSeats > 0;
 
@@ -228,19 +246,21 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
           billing_period: subPeriod,
           amount: finalCalculatedAmount,
           final_amount: finalCalculatedAmount,
-          subtotal: additionMonthlyBase,
+          subtotal: subtotalBeforeVat,
+          vat_amount: vatAmount,
+          remaining_months: remainingMonths,
+          remaining_days: remainingDays,
           order_type: 'resource_upgrade',
           is_resource_addon: true,
           subscription_id: subscription.id
         })
       });
 
-      if (res && res.payment_url) {
-        window.location.href = res.payment_url;
-      } else if (res && (res.order_id || res.id)) {
-        window.location.href = `/api/payments/zibal/callback?orderId=${res.order_id || res.id}&success=1&status=2`;
+      const paymentUrl = res?.data?.payment_url || res?.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
-        throw new Error(res.message || 'خطا در ایجاد پیش‌فاکتور پرداخت.');
+        throw new Error(res?.message || 'خطا در ایجاد پیش‌فاکتور و اتصال به درگاه شاپرک.');
       }
     } catch (err) {
       setErrorBanner(err.message || 'خطا در برقراری ارتباط با درگاه پرداخت.');
@@ -275,11 +295,31 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
       </div>
 
       {errorBanner && (
-        <div className="erp-sub-alert-banner error" style={{ marginBottom: '20px' }}>
+        <div className="erp-sub-alert-banner error" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertCircle size={18} />
             <span>{errorBanner}</span>
           </div>
+          {(errorBanner.includes('پرداخت‌نشده') || errorBanner.includes('پیش‌فاکتور')) && (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/dashboard?tab=payments';
+              }}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #f87171',
+                color: '#b91c1c',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              مدیریت و لغو پیش‌فاکتور
+            </button>
+          )}
         </div>
       )}
 
@@ -290,9 +330,9 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
           border: '1px solid #bae6fd', 
           borderRadius: '16px', 
           padding: '20px', 
-          marginBottom: '24px',
+          marginBottom: '16px',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
           gap: '16px'
         }}
       >
@@ -330,9 +370,44 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
               {formatDate(subscription.expires_at)}
             </strong>
             <span style={{ fontSize: '11px', color: '#059669', display: 'block', marginTop: '2px' }}>
-              (حفظ تاریخ انقضا و دوره زمانی فعلی)
+              (عدم تغییر تاریخ انقضای اصلی)
             </span>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+            <Sparkles size={22} />
+          </div>
+          <div>
+            <span style={{ fontSize: '12px', color: '#4f46e5' }}>مدت باقیمانده اشتراک:</span>
+            <strong style={{ display: 'block', fontSize: '15px', color: '#0f172a' }}>
+              {remainingDays.toLocaleString('fa-IR')} روز باقیمانده
+            </strong>
+            <span style={{ fontSize: '11px', color: '#4338ca', display: 'block', marginTop: '2px' }}>
+              (محاسبه: {remainingMonths.toLocaleString('fa-IR')} ماه گرد به سقف)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Rules Notice Banner */}
+      <div style={{
+        background: '#ecfdf5',
+        border: '1px solid #a7f3d0',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        fontSize: '12.5px',
+        color: '#065f46',
+        lineHeight: 1.6
+      }}>
+        <ShieldCheck size={20} color="#059669" style={{ flexShrink: 0 }} />
+        <div>
+          <strong>قوانین خرید ماژول افزودنی:</strong> تاریخ انقضای اشتراک اصلی شما (<strong>{formatDate(subscription.expires_at)}</strong>) تغییر نخواهد کرد. ماژول‌های خریداری‌شده فقط برای مدت باقیمانده از اشتراک شما (<strong>{remainingMonths.toLocaleString('fa-IR')} ماه گردشده به بالا</strong> بر اساس {remainingDays.toLocaleString('fa-IR')} روز باقیمانده) محاسبه و فعال می‌شوند و ۱۰٪ مالیات بر ارزش افزوده در فاکتور نهایی لحاظ می‌گردد.
         </div>
       </div>
 
@@ -526,10 +601,10 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
                   <span> + <strong>{newlyAddedUserSeats.toLocaleString('fa-IR')} کاربر اضافی ({newlyAddedUsersMonthlyCost.toLocaleString('fa-IR')} ت/ماه)</strong></span>
                 )}
               </span>
-              <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#64748b' }}>
-                مبلغ محاسبه‌شده دوره جاری ({currentPeriodConfig.label}): <strong style={{ color: '#16a34a', fontSize: '16px' }}>{finalCalculatedAmount.toLocaleString('fa-IR')} تومان</strong>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
+                مبلغ نهایی با احتساب ۱۰٪ مالیات ({remainingMonths.toLocaleString('fa-IR')} ماه باقیمانده): <strong style={{ color: '#16a34a', fontSize: '16px' }}>{finalCalculatedAmount.toLocaleString('fa-IR')} تومان</strong>
                 <span style={{ fontSize: '11.5px', color: '#64748b', marginRight: '6px' }}>
-                  ({additionMonthlyBase.toLocaleString('fa-IR')} ت ماهانه × ضریب {periodMultiplier.toLocaleString('fa-IR')})
+                  (پایه: {subtotalBeforeVat.toLocaleString('fa-IR')} ت + ارزش افزوده ۱۰٪: {vatAmount.toLocaleString('fa-IR')} ت)
                 </span>
               </p>
             </div>
@@ -569,35 +644,70 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
             </div>
 
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
+              {/* Co-Terming Expiration Note */}
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '10px 12px', marginBottom: '14px', fontSize: '12px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={16} color="#2563eb" style={{ flexShrink: 0 }} />
+                <span>
+                  <strong>عدم تغییر تاریخ اشتراک اصلی:</strong> تاریخ انقضای اشتراک شما (<strong>{formatDate(subscription.expires_at)}</strong>) بدون تغییر می‌ماند و ماژول‌ها برای <strong>{remainingMonths.toLocaleString('fa-IR')} ماه باقیمانده</strong> (گردشده به بالا) فعال می‌شوند.
+                </span>
+              </div>
+
               {selectedModulesObjects.length > 0 && (
                 <div style={{ marginBottom: '12px' }}>
                   <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '6px' }}>ماژول‌های جدید اضافه شونده:</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {selectedModulesObjects.map(m => (
-                      <span key={m.id} style={{ background: '#ffffff', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', color: '#0f172a', fontWeight: 600 }}>
-                        ✓ {getModulePersianTitle(m.id, m.title)} ({Number(m.price || 0).toLocaleString('fa-IR')} ت)
-                      </span>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {selectedModulesObjects.map(m => {
+                      const mPrice = Number(m.price || 0);
+                      const mTotal = mPrice * remainingMonths;
+                      return (
+                        <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffffff', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', color: '#0f172a' }}>
+                          <span>
+                            <strong>✓ {getModulePersianTitle(m.id, m.title)}</strong>
+                            <span style={{ color: '#64748b', fontSize: '11px', marginRight: '6px' }}>
+                              ({mPrice.toLocaleString('fa-IR')} ت/ماه × {remainingMonths.toLocaleString('fa-IR')} ماه)
+                            </span>
+                          </span>
+                          <strong>{mTotal.toLocaleString('fa-IR')} تومان</strong>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
               {newlyAddedUserSeats > 0 && (
-                <div style={{ marginBottom: '12px', fontSize: '13px', color: '#334155' }}>
-                  <span>ظرفیت کاربران جدید:</span>
-                  <strong style={{ marginRight: '6px', color: '#0f172a' }}>
-                    +{newlyAddedUserSeats.toLocaleString('fa-IR')} کاربر مازاد ({newlyAddedUsersMonthlyCost.toLocaleString('fa-IR')} تومان ماهانه)
-                  </strong>
+                <div style={{ marginBottom: '12px', background: '#ffffff', border: '1px solid #cbd5e1', padding: '6px 12px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px', color: '#0f172a' }}>
+                  <span>
+                    <strong>ظرفیت کاربران جدید (+{newlyAddedUserSeats.toLocaleString('fa-IR')} صندلی):</strong>
+                    <span style={{ color: '#64748b', fontSize: '11px', marginRight: '6px' }}>
+                      ({newlyAddedUsersMonthlyCost.toLocaleString('fa-IR')} ت/ماه × {remainingMonths.toLocaleString('fa-IR')} ماه)
+                    </span>
+                  </span>
+                  <strong>{usersPeriodTotal.toLocaleString('fa-IR')} تومان</strong>
                 </div>
               )}
 
-              <div style={{ height: '1px', background: '#e2e8f0', margin: '12px 0' }} />
+              <div style={{ height: '1px', background: '#e2e8f0', margin: '14px 0' }} />
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>مبلغ کل قابل پرداخت نهایی:</span>
-                <span style={{ fontSize: '20px', fontWeight: 900, color: '#16a34a' }}>
-                  {finalCalculatedAmount.toLocaleString('fa-IR')} تومان
-                </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                  <span>مجموع مبلغ خالص ماژول‌ها و منابع (پایه):</span>
+                  <strong>{subtotalBeforeVat.toLocaleString('fa-IR')} تومان</strong>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#0284c7', fontWeight: 700 }}>
+                  <span>مالیات بر ارزش افزوده (۱۰٪ قانونی):</span>
+                  <span>+{vatAmount.toLocaleString('fa-IR')} تومان</span>
+                </div>
+
+                <div style={{ height: '1px', background: '#cbd5e1', margin: '6px 0' }} />
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdf4', padding: '10px 14px', borderRadius: '10px', border: '1px solid #bbf7d0' }}>
+                  <span style={{ fontSize: '15px', fontWeight: 900, color: '#14532d' }}>مبلغ کل قابل پرداخت نهایی:</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: '#16a34a' }}>
+                    {finalCalculatedAmount.toLocaleString('fa-IR')} تومان
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -627,7 +737,7 @@ export function SubscriptionResourcesView({ subscription, user, onBack, onUpdate
                 ) : (
                   <>
                     <CreditCard size={16} />
-                    <span>پرداخت آنلاین</span>
+                    <span>پرداخت آنلاین شاپرک ({finalCalculatedAmount.toLocaleString('fa-IR')} تومان)</span>
                   </>
                 )}
               </button>

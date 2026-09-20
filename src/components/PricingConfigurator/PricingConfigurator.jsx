@@ -9,7 +9,7 @@ import {
   resolveAllDependencies,
   getLockedDependenciesMap,
 } from './configuratorData';
-import { ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Sparkles, CheckCircle2, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
 
 export function PricingConfigurator({
@@ -39,6 +39,19 @@ export function PricingConfigurator({
     semiannual_multiplier: 6,
     quarterly_multiplier: 3,
   });
+  const [hasPendingInvoice, setHasPendingInvoice] = useState(false);
+
+  useEffect(() => {
+    api('/payments/pending-count')
+      .then(res => {
+        if ((res?.count ?? res?.pending_count ?? 0) > 0) {
+          setHasPendingInvoice(true);
+        } else {
+          setHasPendingInvoice(false);
+        }
+      })
+      .catch(() => {});
+  }, [user]);
 
   // Helper to match preset ID or Title against a preset list
   const matchPresetId = (val, presetList) => {
@@ -186,19 +199,21 @@ export function PricingConfigurator({
         }
         if (data.presets && Array.isArray(data.presets) && data.presets.length > 0) {
           setPresets(data.presets);
-          if (resolvedInitialPreset) {
-            const matchedId = matchPresetId(resolvedInitialPreset, data.presets);
-            if (matchedId) {
-              setSelectedIndustryId(matchedId);
-              if (!resolvedInitialModuleIds) {
-                const pObj = data.presets.find(p => p.id === matchedId);
-                if (pObj) {
-                  const pMand = Array.isArray(pObj.mandatory_modules) ? pObj.mandatory_modules : [];
-                  const pDefs = Array.isArray(pObj.default_modules) ? pObj.default_modules : [];
-                  const merged = Array.from(new Set([...pMand, ...pDefs]));
-                  setSelectedModuleIds(resolveAllDependencies(merged, data.modules || modules));
-                }
-              }
+          const targetPresetId = (resolvedInitialPreset && matchPresetId(resolvedInitialPreset, data.presets))
+            || selectedIndustryId
+            || data.presets[0]?.id
+            || 'manufacturing';
+
+          setSelectedIndustryId(targetPresetId);
+
+          if (!resolvedInitialModuleIds || resolvedInitialModuleIds.length === 0) {
+            const pObj = data.presets.find(p => p.id === targetPresetId) || data.presets[0];
+            if (pObj) {
+              const pMand = Array.isArray(pObj.mandatory_modules) ? pObj.mandatory_modules : [];
+              const pDefs = Array.isArray(pObj.default_modules) ? pObj.default_modules : [];
+              const merged = Array.from(new Set([...pMand, ...pDefs]));
+              const activeModulesList = (data.modules && data.modules.length > 0) ? data.modules : modules;
+              setSelectedModuleIds(resolveAllDependencies(merged, activeModulesList));
             }
           }
         }
@@ -231,6 +246,27 @@ export function PricingConfigurator({
       })
       .catch(() => {});
   }, []);
+  // Reactive synchronization if resolvedInitialPreset arrives or changes asynchronously
+  const prevResolvedPresetRef = useRef(resolvedInitialPreset);
+  useEffect(() => {
+    if (resolvedInitialPreset && resolvedInitialPreset !== prevResolvedPresetRef.current && presets.length > 0) {
+      prevResolvedPresetRef.current = resolvedInitialPreset;
+      const matchedId = matchPresetId(resolvedInitialPreset, presets);
+      if (matchedId && matchedId !== selectedIndustryId) {
+        setSelectedIndustryId(matchedId);
+        if (!resolvedInitialModuleIds || resolvedInitialModuleIds.length === 0) {
+          const pObj = presets.find(p => p.id === matchedId);
+          if (pObj) {
+            const pMand = Array.isArray(pObj.mandatory_modules) ? pObj.mandatory_modules : [];
+            const pDefs = Array.isArray(pObj.default_modules) ? pObj.default_modules : [];
+            const merged = Array.from(new Set([...pMand, ...pDefs]));
+            setSelectedModuleIds(resolveAllDependencies(merged, modules));
+          }
+        }
+      }
+    }
+  }, [resolvedInitialPreset, presets, modules, selectedIndustryId, resolvedInitialModuleIds]);
+
 
   // Locked dependencies map (modules that cannot be unchecked because another selected module requires them)
   const lockedDependenciesMap = useMemo(() => {
@@ -316,39 +352,59 @@ export function PricingConfigurator({
     const extraUsersCost = extraUsersCount * extraPrice;
     const baseMonthlyTotal = modulesTotal + extraUsersCost;
 
-    let discountAmount = 0;
-    if (couponInfo) {
-      if (couponInfo.discount_type === 'percent') {
-        discountAmount = Math.round((baseMonthlyTotal * couponInfo.discount_value) / 100);
-        if (couponInfo.max_discount_amount) {
-          discountAmount = Math.min(discountAmount, couponInfo.max_discount_amount);
-        }
-      } else if (couponInfo.discount_type === 'fixed') {
-        discountAmount = couponInfo.discount_value;
-      }
-    }
-
-    const discountedBase = Math.max(baseMonthlyTotal - discountAmount, 0);
     const multiplier = 
       billingPeriod === 'yearly' ? (settings.yearly_multiplier || 10) :
       billingPeriod === '6_months' ? (settings.semiannual_multiplier || 6) :
       billingPeriod === '3_months' ? (settings.quarterly_multiplier || 3) : 3;
-    const finalAmount = Math.round(discountedBase * multiplier);
+
+    const orderTotalBeforeDiscount = baseMonthlyTotal * multiplier;
+
+    let discountAmount = 0;
+    let minOrderMet = true;
+
+    if (couponInfo) {
+      if (couponInfo.min_order_amount && orderTotalBeforeDiscount < couponInfo.min_order_amount) {
+        minOrderMet = false;
+      } else {
+        if (couponInfo.discount_type === 'percent') {
+          let disc = Math.round((baseMonthlyTotal * couponInfo.discount_value) / 100);
+          if (couponInfo.max_discount_amount) {
+            disc = Math.min(disc, Math.round(couponInfo.max_discount_amount / multiplier));
+          }
+          discountAmount = disc;
+        } else if (couponInfo.discount_type === 'fixed') {
+          discountAmount = Math.min(Math.round(couponInfo.discount_value / multiplier), baseMonthlyTotal);
+        }
+      }
+    }
+
+    const discountedBase = Math.max(baseMonthlyTotal - discountAmount, 0);
+    const subtotal = Math.round(discountedBase * multiplier);
+    const vatRate = 0.10;
+    const vatAmount = Math.round(subtotal * vatRate);
+    const finalAmount = subtotal + vatAmount;
 
     return {
       modulesTotal,
       extraUsersCount,
       extraUsersCost,
       baseMonthlyTotal,
+      orderTotalBeforeDiscount,
       discountAmount,
+      minOrderMet,
       multiplier,
+      subtotal,
+      vatRate,
+      vatAmount,
       finalAmount,
     };
   }, [selectedModules, selectedModuleIds, userCount, billingPeriod, couponInfo, settings]);
 
   // Validate coupon
   async function handleApplyCoupon(code) {
-    if (!code || !code.trim()) {
+    const cleanCode = (code || '').trim().toUpperCase();
+    if (!cleanCode) {
+      setCouponCode('');
       setCouponInfo(null);
       setCouponSuccess(false);
       setCouponMessage('لطفاً کد تخفیف را وارد نمایید.');
@@ -362,13 +418,15 @@ export function PricingConfigurator({
     try {
       const res = await api('/coupons/validate', {
         method: 'POST',
-        body: JSON.stringify({ code: code.trim() }),
+        body: JSON.stringify({ code: cleanCode }),
       });
-      if (res.data) {
-        setCouponCode(code.trim());
+      if (res && res.data) {
+        setCouponCode(cleanCode);
         setCouponInfo(res.data);
         setCouponSuccess(true);
-        setCouponMessage(`کد تخفیف «${code.trim()}» با موفقیت اعمال شد.`);
+        const info = res.data;
+        const discountLabel = info.discount_type === 'percent' ? `${info.discount_value}٪` : `${Number(info.discount_value).toLocaleString('fa-IR')} تومان`;
+        setCouponMessage(`کد تخفیف «${cleanCode}» (${discountLabel}) با موفقیت اعمال شد.`);
       } else {
         setCouponInfo(null);
         setCouponSuccess(false);
@@ -383,10 +441,22 @@ export function PricingConfigurator({
     }
   }
 
+  function handleRemoveCoupon() {
+    setCouponCode('');
+    setCouponInfo(null);
+    setCouponSuccess(false);
+    setCouponMessage(null);
+  }
+
   // Handle Order Submit
   async function handleSubmitOrder() {
     if (selectedModuleIds.length === 0) {
       setServerError('لطفاً حداقل یک ماژول انتخاب کنید.');
+      return;
+    }
+
+    if (hasPendingInvoice) {
+      setServerError('شما یک پیش‌فاکتور پرداخت‌نشده در انتظار دارید. لطفاً ابتدا نسبت به پرداخت یا لغو آن اقدام نمایید.');
       return;
     }
 
@@ -410,10 +480,11 @@ export function PricingConfigurator({
         body: JSON.stringify(payload),
       });
 
-      if (res.payment_url) {
-        window.location.href = res.payment_url;
+      const paymentUrl = res?.data?.payment_url || res?.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
-        setServerError('خطا در انتقال به درگاه پرداخت.');
+        setServerError('خطا در انتقال به درگاه پرداخت شاپرک.');
       }
     } catch (err) {
       setServerError(err.message || 'خطای غیرمنتظره ارتباط با سرور.');
@@ -533,9 +604,77 @@ export function PricingConfigurator({
         </div>
       )}
 
+      {hasPendingInvoice && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1px solid #fde68a',
+          borderRadius: '12px',
+          padding: '14px 18px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ background: '#f59e0b', color: '#ffffff', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <AlertCircle size={18} />
+            </div>
+            <div>
+              <strong style={{ fontSize: '14px', color: '#92400e', display: 'block' }}>
+                شما یک پیش‌فاکتور پرداخت‌نشده در انتظار دارید
+              </strong>
+              <small style={{ color: '#b45309', fontSize: '12px' }}>
+                با توجه به قوانین سامانه، برای صدور پیش‌فاکتور جدید، ابتدا باید پیش‌فاکتور قبلی را پرداخت نموده یا آن را لغو نمایید.
+              </small>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => nav('/dashboard?tab=payments')}
+            style={{
+              background: '#0870d1',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 16px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>مدیریت و لغو پیش‌فاکتور</span>
+            <ArrowRight size={14} style={{ transform: 'rotate(180deg)' }} />
+          </button>
+        </div>
+      )}
+
       {serverError && (
-        <div className="erp-global-alert-error">
+        <div className="erp-global-alert-error" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <span>{serverError}</span>
+          {(serverError.includes('پرداخت‌نشده') || serverError.includes('پیش‌فاکتور') || hasPendingInvoice) && (
+            <button
+              type="button"
+              onClick={() => nav('/dashboard?tab=payments')}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #f87171',
+                color: '#b91c1c',
+                borderRadius: '6px',
+                padding: '4px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              مشاهده و لغو پیش‌فاکتور
+            </button>
+          )}
         </div>
       )}
 
@@ -575,16 +714,23 @@ export function PricingConfigurator({
             extraUsersCost={calculations.extraUsersCost}
             modulesTotal={calculations.modulesTotal}
             discountAmount={calculations.discountAmount}
+            subtotal={calculations.subtotal}
+            vatAmount={calculations.vatAmount}
             finalAmount={calculations.finalAmount}
             couponCode={couponCode}
+            couponInfo={couponInfo}
             onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
             isApplyingCoupon={isApplyingCoupon}
             couponMessage={couponMessage}
             couponSuccess={couponSuccess}
+            minOrderMet={calculations.minOrderMet}
+            orderTotalBeforeDiscount={calculations.orderTotalBeforeDiscount}
             onSubmitOrder={handleSubmitOrder}
             onActivateTrial={hasTrialAllowed ? handleActivateTrialForModules : null}
             isSubmitting={isSubmitting}
             hasTrialAvailable={hasTrialAllowed}
+            hasPendingInvoice={hasPendingInvoice}
           />
         </div>
       </div>

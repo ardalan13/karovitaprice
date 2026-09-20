@@ -15,7 +15,6 @@ import {
   Clock,
   FileText,
   Key,
-  Globe,
   Radio,
   ExternalLink,
   ChevronDown,
@@ -25,6 +24,190 @@ import {
   X
 } from 'lucide-react';
 import { api } from '../../services/api';
+
+const SMS_FASTSEND_TEMPLATES = [
+  {
+    key: 'otp',
+    label: 'کد ورود و اعتبارسنجی (OTP)',
+    variables: ['CODE'],
+    placeholderText: 'مثال: کد ورود شما به پنل کارویتا: #CODE#'
+  },
+  {
+    key: 'invoice_issued',
+    label: 'صدور پیش‌فاکتور جدید',
+    variables: ['CUSTOMER', 'ORDER', 'AMOUNT', 'LINK'],
+    placeholderText: 'مثال: کاربر گرامی #CUSTOMER#، پیش‌فاکتور سفارش ##ORDER# به مبلغ #AMOUNT# تومان صادر شد. لینک پرداخت: #LINK#'
+  },
+  {
+    key: 'sub_expiring_7days',
+    label: 'یادآوری ۷ روز مانده به انقضا',
+    variables: ['CUSTOMER', 'DAYS', 'TITLE', 'LINK'],
+    placeholderText: 'مثال: کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.'
+  },
+  {
+    key: 'sub_expiring_3days',
+    label: 'یادآوری ۳ روز مانده به انقضا',
+    variables: ['CUSTOMER', 'DAYS', 'TITLE', 'LINK'],
+    placeholderText: 'مثال: هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.'
+  },
+  {
+    key: 'ticket_created',
+    label: 'ثبت تیکت پشتیبانی جدید',
+    variables: ['TICKET', 'SUBJECT', 'CUSTOMER'],
+    placeholderText: 'مثال: کاربر گرامی #CUSTOMER#، تیکت پشتیبانی شما با شماره #TICKET# و موضوع «#SUBJECT#» با موفقیت ثبت شد.'
+  },
+  {
+    key: 'payment_success',
+    label: 'تایید پرداخت و تسویه فاکتور',
+    variables: ['CUSTOMER', 'ORDER', 'AMOUNT', 'REF'],
+    placeholderText: 'مثال: کاربر گرامی #CUSTOMER#، پرداخت فاکتور ##ORDER# به مبلغ #AMOUNT# تومان با شماره پیگیری #REF# با موفقیت تایید شد.'
+  },
+];
+
+function FastSendTemplateCard({ tmpl, smsForm, setSmsForm }) {
+  const hasId = !!smsForm.templates[tmpl.key] && Number(smsForm.templates[tmpl.key]) > 0;
+  const hasText = !!smsForm.templateTexts?.[tmpl.key] && String(smsForm.templateTexts[tmpl.key]).trim() !== '';
+  const isActive = hasId && hasText;
+
+  const handleAppendVar = (v) => {
+    const cur = smsForm.templateTexts?.[tmpl.key] || '';
+    const tag = `#${v}#`;
+    setSmsForm({
+      ...smsForm,
+      templateTexts: {
+        ...smsForm.templateTexts,
+        [tmpl.key]: cur ? `${cur} ${tag}` : tag
+      }
+    });
+  };
+
+  return (
+    <div
+      style={{
+        background: '#f8fafc',
+        padding: '14px 16px',
+        borderRadius: '12px',
+        border: isActive ? '1.5px solid #0870d1' : '1px solid #e2e8f0',
+        boxShadow: isActive ? '0 2px 8px rgba(8, 112, 209, 0.08)' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+        <strong style={{ fontSize: '13px', color: '#0f172a' }}>{tmpl.label}</strong>
+        <span
+          style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '2px 8px',
+            borderRadius: '16px',
+            background: isActive ? '#dcfce7' : '#fef3c7',
+            color: isActive ? '#15803d' : '#b45309',
+            border: isActive ? '1px solid #bbf7d0' : '1px solid #fde68a'
+          }}
+        >
+          {isActive ? '✓ فعال و آماده ارسال' : '✕ غیرفعال (عدم ارسال پیامک)'}
+        </span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 140px) 1fr', gap: '10px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+            شناسه قالب:
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={smsForm.templates[tmpl.key] ?? ''}
+            onChange={e => {
+              const cleanDigits = e.target.value.replace(/\D/g, '');
+              setSmsForm({
+                ...smsForm,
+                templates: { ...smsForm.templates, [tmpl.key]: cleanDigits }
+              });
+            }}
+            dir="ltr"
+            placeholder="Template ID"
+            style={{
+              width: '100%',
+              padding: '7px 10px',
+              borderRadius: '7px',
+              border: '1px solid #cbd5e1',
+              fontSize: '13px',
+              fontFamily: 'monospace',
+              background: '#ffffff',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: '11.5px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+            متن پیامک این قالب:
+          </label>
+          <textarea
+            rows={2}
+            value={smsForm.templateTexts?.[tmpl.key] ?? ''}
+            onChange={e => {
+              setSmsForm({
+                ...smsForm,
+                templateTexts: { ...smsForm.templateTexts, [tmpl.key]: e.target.value }
+              });
+            }}
+            dir="rtl"
+            placeholder={tmpl.placeholderText}
+            style={{
+              width: '100%',
+              padding: '7px 10px',
+              borderRadius: '7px',
+              border: '1px solid #cbd5e1',
+              fontSize: '12px',
+              lineHeight: '1.55',
+              background: '#ffffff',
+              boxSizing: 'border-box',
+              resize: 'vertical',
+              fontFamily: 'inherit'
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '10.5px', color: '#64748b' }}>متغیرها:</span>
+          {tmpl.variables.map(v => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => handleAppendVar(v)}
+              title={`افزودن متغیر #${v}# به متن پیامک`}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '4px',
+                padding: '1px 5px',
+                fontSize: '10px',
+                fontFamily: 'monospace',
+                color: '#0870d1',
+                cursor: 'pointer'
+              }}
+            >
+              +{v}
+            </button>
+          ))}
+        </div>
+        <small style={{ color: isActive ? '#64748b' : '#b45309', fontSize: '10.5px' }}>
+          {isActive
+            ? 'قالب و متن فعال است و هنگام رخداد این رویداد پیامک ارسال می‌شود.'
+            : 'در صورت خالی بودن شناسه قالب یا متن، هیچ پیامکی برای این رویداد ارسال نخواهد شد.'}
+        </small>
+      </div>
+    </div>
+  );
+}
+
+
 
 export function GatewayAndSmsAdminView() {
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'zibal' | 'sms' | 'logs'
@@ -36,11 +219,12 @@ export function GatewayAndSmsAdminView() {
   const [testLoading, setTestLoading] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [zibalTestResult, setZibalTestResult] = useState(null);
 
   // Form states
   const [zibalForm, setZibalForm] = useState({
-    merchant: 'zibal',
-    sandbox: true,
+    merchant: '',
+    sandbox: false,
     enabled: true,
   });
 
@@ -50,6 +234,14 @@ export function GatewayAndSmsAdminView() {
     sandbox: true,
     enabled: true,
     templates: {
+      otp: '',
+      invoice_issued: '',
+      sub_expiring_7days: '',
+      sub_expiring_3days: '',
+      ticket_created: '',
+      payment_success: '',
+    },
+    templateTexts: {
       otp: '',
       invoice_issued: '',
       sub_expiring_7days: '',
@@ -69,6 +261,17 @@ export function GatewayAndSmsAdminView() {
     }
     const num = Number(target);
     return num > 0 ? String(num) : '';
+  };
+
+  // Helper to extract template message text
+  const extractTplText = (val, altVal, defaultText = '') => {
+    const target = (val !== undefined && val !== null) ? val : altVal;
+    if (target === undefined || target === null) return defaultText;
+    if (typeof target === 'object' && target !== null) {
+      return target.pattern || target.text || defaultText;
+    }
+    const str = String(target).trim();
+    return str !== '' ? str : defaultText;
   };
 
   // Helper to extract verification code & message details for SMS logs
@@ -148,25 +351,36 @@ export function GatewayAndSmsAdminView() {
         setSettings(settingsRes.data);
         if (settingsRes.data.zibal) {
           setZibalForm({
-            merchant: settingsRes.data.zibal.merchant || 'zibal',
-            sandbox: !!settingsRes.data.zibal.sandbox,
+            merchant: settingsRes.data.zibal.merchant || '',
+            sandbox: Boolean(settingsRes.data.zibal.sandbox),
             enabled: settingsRes.data.zibal.enabled !== false,
           });
         }
         if (settingsRes.data.sms) {
           const rawTpls = settingsRes.data.sms.templates || {};
+          const rawTexts = settingsRes.data.sms.template_texts || settingsRes.data.sms.patterns || {};
+          const rawDetails = settingsRes.data.sms.template_details || {};
+
           setSmsForm({
             apiKey: settingsRes.data.sms.apiKey || '',
             lineNumber: settingsRes.data.sms.lineNumber || '30007732',
             sandbox: !!settingsRes.data.sms.sandbox,
             enabled: settingsRes.data.sms.enabled !== false,
             templates: {
-              otp: extractTplValue(rawTpls.otp),
-              invoice_issued: extractTplValue(rawTpls.invoice_issued),
-              sub_expiring_7days: extractTplValue(rawTpls.sub_expiring_7days, rawTpls.sub_expiry_7days),
-              sub_expiring_3days: extractTplValue(rawTpls.sub_expiring_3days, rawTpls.sub_expiry_3days),
-              ticket_created: extractTplValue(rawTpls.ticket_created),
-              payment_success: extractTplValue(rawTpls.payment_success),
+              otp: extractTplValue(rawTpls.otp, rawDetails.otp),
+              invoice_issued: extractTplValue(rawTpls.invoice_issued, rawDetails.invoice_issued),
+              sub_expiring_7days: extractTplValue(rawTpls.sub_expiring_7days, rawTpls.sub_expiry_7days || rawDetails.sub_expiring_7days),
+              sub_expiring_3days: extractTplValue(rawTpls.sub_expiring_3days, rawTpls.sub_expiry_3days || rawDetails.sub_expiring_3days),
+              ticket_created: extractTplValue(rawTpls.ticket_created, rawDetails.ticket_created),
+              payment_success: extractTplValue(rawTpls.payment_success, rawDetails.payment_success),
+            },
+            templateTexts: {
+              otp: extractTplText(rawTexts.otp, rawDetails.otp?.pattern, 'کد ورود شما به پنل کارویتا: #CODE#'),
+              invoice_issued: extractTplText(rawTexts.invoice_issued, rawDetails.invoice_issued?.pattern, 'کاربر گرامی #CUSTOMER#، پیش‌فاکتور سفارش ##ORDER# به مبلغ #AMOUNT# تومان صادر شد. لینک پرداخت: #LINK#'),
+              sub_expiring_7days: extractTplText(rawTexts.sub_expiring_7days, rawTexts.sub_expiry_7days || rawDetails.sub_expiring_7days?.pattern, 'کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.'),
+              sub_expiring_3days: extractTplText(rawTexts.sub_expiring_3days, rawTexts.sub_expiry_3days || rawDetails.sub_expiring_3days?.pattern, 'هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.'),
+              ticket_created: extractTplText(rawTexts.ticket_created, rawDetails.ticket_created?.pattern, 'کاربر گرامی #CUSTOMER#، تیکت پشتیبانی شما با شماره #TICKET# و موضوع «#SUBJECT#» با موفقیت ثبت شد.'),
+              payment_success: extractTplText(rawTexts.payment_success, rawDetails.payment_success?.pattern, 'کاربر گرامی #CUSTOMER#، پرداخت فاکتور ##ORDER# به مبلغ #AMOUNT# تومان با شماره پیگیری #REF# با موفقیت تایید شد.'),
             }
           });
         }
@@ -190,9 +404,13 @@ export function GatewayAndSmsAdminView() {
     try {
       // Normalize templates: empty strings or 0 explicitly become null
       const cleanedTemplates = {};
+      const cleanedTexts = {};
       Object.keys(smsForm.templates).forEach(k => {
         const v = smsForm.templates[k];
         cleanedTemplates[k] = (v && String(v).trim() !== '' && Number(v) > 0) ? Number(v) : null;
+        cleanedTexts[k] = (smsForm.templateTexts && smsForm.templateTexts[k] !== undefined)
+          ? String(smsForm.templateTexts[k]).trim()
+          : '';
       });
 
       const res = await api('/admin/gateways/settings', {
@@ -201,7 +419,8 @@ export function GatewayAndSmsAdminView() {
           zibal: zibalForm,
           sms: {
             ...smsForm,
-            templates: cleanedTemplates
+            templates: cleanedTemplates,
+            template_texts: cleanedTexts,
           },
         })
       });
@@ -216,15 +435,27 @@ export function GatewayAndSmsAdminView() {
 
   const handleTestZibal = async () => {
     setTestLoading(true);
+    setZibalTestResult(null);
     try {
       const res = await api('/admin/gateways/zibal/test', {
         method: 'POST',
         body: JSON.stringify({ amount: 10000 })
       });
       showToast(res.message || 'تست درگاه پرداخت شاپرک زیبال موفقیت‌آمیز بود.');
-      setTestResult({ type: 'zibal', data: res.data });
+      setZibalTestResult({
+        success: true,
+        message: res.message,
+        data: res.data,
+      });
+      await loadData();
     } catch (err) {
-      showToast(err.message || 'خطا در تست زیبال', 'error');
+      const errMsg = err.message || 'خطا در ارتباط با وب‌سرویس زیبال';
+      showToast(errMsg, 'error');
+      setZibalTestResult({
+        success: false,
+        message: errMsg,
+        data: err.data?.data || err.data,
+      });
     } finally {
       setTestLoading(false);
     }
@@ -237,6 +468,13 @@ export function GatewayAndSmsAdminView() {
       return;
     }
 
+    const tplId = smsForm.templates[testEventType];
+    const tplText = smsForm.templateTexts?.[testEventType];
+    if (!tplId || Number(tplId) <= 0 || !tplText || String(tplText).trim() === '') {
+      showToast('شناسه قالب یا متن پیامک برای رویداد انتخابی ثبت نشده است. ابتدا در تب تنظیمات قالب و متن را ثبت و ذخیره فرمایید.', 'error');
+      return;
+    }
+
     setTestLoading(true);
     try {
       const res = await api('/admin/gateways/sms/test', {
@@ -244,7 +482,7 @@ export function GatewayAndSmsAdminView() {
         body: JSON.stringify({
           mobile: testMobile.replace(/\D/g, ''),
           event_type: testEventType,
-          template_id: smsForm.templates[testEventType] || undefined,
+          template_id: tplId,
         })
       });
       showToast(res.message || 'پیامک تست ارسال شد.');
@@ -254,6 +492,7 @@ export function GatewayAndSmsAdminView() {
       if (logsRes && logsRes.data) setSmsLogs(logsRes.data);
     } catch (err) {
       showToast(err.message || 'خطا در ارسال پیامک تست', 'error');
+      setTestResult({ type: 'sms', data: { error: err.message, details: err.data } });
     } finally {
       setTestLoading(false);
     }
@@ -493,7 +732,7 @@ export function GatewayAndSmsAdminView() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px dashed #f1f5f9', paddingBottom: '6px' }}>
                   <span>کد مرچنت:</span>
-                  <strong style={{ fontFamily: 'monospace' }}>{zibalForm.merchant}</strong>
+                  <strong style={{ fontFamily: 'monospace' }}>{zibalForm.merchant || '(تنظیم نشده)'}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span>کال‌بک تأیید تراکنش:</span>
@@ -501,21 +740,21 @@ export function GatewayAndSmsAdminView() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', gap: '8px' }}>
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <button
                   type="button"
                   onClick={handleTestZibal}
                   disabled={testLoading}
                   style={{
-                    flex: 1,
-                    background: '#f8fafc',
+                    width: '100%',
+                    background: testLoading ? '#f1f5f9' : '#f8fafc',
                     border: '1px solid #cbd5e1',
                     color: '#334155',
                     padding: '8px 12px',
                     borderRadius: '8px',
                     fontSize: '12.5px',
                     fontWeight: 700,
-                    cursor: 'pointer',
+                    cursor: testLoading ? 'wait' : 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -523,8 +762,32 @@ export function GatewayAndSmsAdminView() {
                   }}
                 >
                   <Sparkles size={14} color="#0870d1" />
-                  <span>تست اتصال درگاه</span>
+                  <span>{testLoading ? 'در حال برقراری ارتباط با درگاه زیبال…' : 'تست اتصال درگاه'}</span>
                 </button>
+
+                {zibalTestResult && (
+                  <div style={{
+                    padding: '12px',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    lineHeight: '1.6',
+                    background: zibalTestResult.success ? '#f0fdf4' : '#fff1f2',
+                    border: `1px solid ${zibalTestResult.success ? '#bbf7d0' : '#fecdd3'}`,
+                    color: zibalTestResult.success ? '#166534' : '#9f1239',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      {zibalTestResult.success ? <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: '2px' }} /> : <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 800 }}>{zibalTestResult.message}</div>
+                        {zibalTestResult.data?.trackId && (
+                          <div style={{ marginTop: '4px', fontFamily: 'monospace' }}>
+                            شناسه رهگیری شاپرک: <strong>{zibalTestResult.data.trackId}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -666,20 +929,33 @@ export function GatewayAndSmsAdminView() {
                   <option value="ticket_created">ثبت تیکت پشتیبانی جدید</option>
                   <option value="payment_success">تراکنش و پرداخت موفق</option>
                 </select>
+                {(() => {
+                  const tId = smsForm.templates[testEventType];
+                  const tText = smsForm.templateTexts?.[testEventType];
+                  const isOk = !!tId && Number(tId) > 0 && !!tText && String(tText).trim() !== '';
+                  return (
+                    <div style={{ marginTop: '4px', fontSize: '11px', color: isOk ? '#166534' : '#b45309' }}>
+                      {isOk
+                        ? `✓ شناسه: ${tId} | متن پیامک آماده ارسال`
+                        : `✕ شناسه یا متن تنظیم نیست (عدم ارسال)`}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button
                 type="submit"
-                disabled={testLoading}
+                disabled={testLoading || !smsForm.templates[testEventType] || Number(smsForm.templates[testEventType]) <= 0 || !smsForm.templateTexts?.[testEventType] || String(smsForm.templateTexts[testEventType]).trim() === ''}
+                title={(!smsForm.templates[testEventType] || Number(smsForm.templates[testEventType]) <= 0 || !smsForm.templateTexts?.[testEventType] || String(smsForm.templateTexts[testEventType]).trim() === '') ? 'شناسه قالب یا متن پیامک ست نشده است' : 'ارسال پیامک آزمایشی'}
                 style={{
-                  background: '#0870d1',
+                  background: (!smsForm.templates[testEventType] || Number(smsForm.templates[testEventType]) <= 0 || !smsForm.templateTexts?.[testEventType] || String(smsForm.templateTexts[testEventType]).trim() === '') ? '#94a3b8' : '#0870d1',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
                   padding: '9px 20px',
                   fontSize: '13px',
                   fontWeight: 800,
-                  cursor: 'pointer',
+                  cursor: (!smsForm.templates[testEventType] || Number(smsForm.templates[testEventType]) <= 0 || !smsForm.templateTexts?.[testEventType] || String(smsForm.templateTexts[testEventType]).trim() === '') ? 'not-allowed' : 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -755,7 +1031,7 @@ export function GatewayAndSmsAdminView() {
               </label>
               <input
                 type="text"
-                placeholder="zibal یا کد اختصاصی دریافتی از پنل زیبال"
+                placeholder="کد مرچنت اختصاصی دریافتی از پنل زیبال"
                 value={zibalForm.merchant}
                 onChange={e => setZibalForm({ ...zibalForm, merchant: e.target.value })}
                 dir="ltr"
@@ -770,11 +1046,11 @@ export function GatewayAndSmsAdminView() {
                 }}
               />
               <small style={{ color: '#64748b', fontSize: '11.5px', display: 'block', marginTop: '4px' }}>
-                برای تست سندباکس مقدار <code>zibal</code> را قرار دهید. برای اتصال واقعی، مرچنت کد ۳۲ کاراکتری خود را وارد نمایید.
+                کد مرچنت اختصاصی دریافتی از پنل درگاه پرداخت زیبال را وارد نمایید.
               </small>
             </div>
 
-            <div style={{ marginTop: '10px' }}>
+            <div style={{ marginTop: '14px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               <button
                 type="button"
                 onClick={handleSaveSettings}
@@ -792,7 +1068,54 @@ export function GatewayAndSmsAdminView() {
               >
                 {saving ? 'در حال ذخیره‌سازی…' : 'ذخیره تنظیمات درگاه زیبال'}
               </button>
+
+              <button
+                type="button"
+                onClick={handleTestZibal}
+                disabled={testLoading}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  color: '#334155',
+                  padding: '10px 20px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: testLoading ? 'wait' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Sparkles size={16} color="#0870d1" />
+                <span>{testLoading ? 'در حال برقراری ارتباط با زیبال…' : 'تست اتصال زنده درگاه زیبال'}</span>
+              </button>
             </div>
+
+            {zibalTestResult && (
+              <div style={{
+                marginTop: '16px',
+                padding: '16px',
+                borderRadius: '10px',
+                fontSize: '13px',
+                lineHeight: '1.6',
+                background: zibalTestResult.success ? '#f0fdf4' : '#fff1f2',
+                border: `1px solid ${zibalTestResult.success ? '#86efac' : '#fecdd3'}`,
+                color: zibalTestResult.success ? '#166534' : '#9f1239',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  {zibalTestResult.success ? <CheckCircle2 size={20} style={{ flexShrink: 0, marginTop: '2px' }} /> : <AlertCircle size={20} style={{ flexShrink: 0, marginTop: '2px' }} />}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 800, fontSize: '14px' }}>{zibalTestResult.message}</div>
+                    {zibalTestResult.data?.trackId && (
+                      <div style={{ marginTop: '8px', fontFamily: 'monospace', fontSize: '13px' }}>
+                        شناسه رهگیری شاپرک (Track ID): <strong>{zibalTestResult.data.trackId}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -861,53 +1184,23 @@ export function GatewayAndSmsAdminView() {
             </div>
 
             <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-              <h4 style={{ margin: '0 0 12px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                شناسه‌های قالب FastSend تأییدشده در پنل SMS.ir:
-              </h4>
+              <div style={{ marginBottom: '14px' }}>
+                <h4 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                  شناسه‌های قالب FastSend و متن الگوهای تأییدشده در SMS.ir:
+                </h4>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                  برای هر رویداد، شناسه قالب FastSend و متن پیامک آن را مشخص فرمایید. در صورت خالی بودن شناسه یا متن هر باکس، ارسال پیامک برای آن رویداد غیرفعال خواهد بود.
+                </p>
+              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
-                {[
-                  { key: 'otp', label: 'کد ورود و اعتبارسنجی (OTP)', desc: 'متغیر: CODE' },
-                  { key: 'invoice_issued', label: 'صدور پیش‌فاکتور جدید', desc: 'متغیرها: CUSTOMER, ORDER, AMOUNT, LINK' },
-                  { key: 'sub_expiring_7days', label: 'یادآوری ۷ روز مانده به انقضا', desc: 'متغیرها: CUSTOMER, DAYS, TITLE, LINK' },
-                  { key: 'sub_expiring_3days', label: 'یادآوری ۳ روز مانده به انقضا', desc: 'متغیرها: CUSTOMER, DAYS, TITLE, LINK' },
-                  { key: 'ticket_created', label: 'ثبت تیکت پشتیبانی جدید', desc: 'متغیرها: TICKET, SUBJECT, CUSTOMER' },
-                  { key: 'payment_success', label: 'تایید پرداخت و تسویه فاکتور', desc: 'متغیرها: CUSTOMER, ORDER, AMOUNT, REF' },
-                ].map(tmpl => (
-                  <div key={tmpl.key} style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                      {tmpl.label}
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={smsForm.templates[tmpl.key] ?? ''}
-                      onChange={e => {
-                        const cleanDigits = e.target.value.replace(/\D/g, '');
-                        setSmsForm({
-                          ...smsForm,
-                          templates: {
-                            ...smsForm.templates,
-                            [tmpl.key]: cleanDigits
-                          }
-                        });
-                      }}
-                      dir="ltr"
-                      placeholder="Template ID"
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '13px',
-                        fontFamily: 'monospace',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                    <small style={{ color: '#64748b', fontSize: '11px', display: 'block', marginTop: '4px' }}>
-                      {tmpl.desc}
-                    </small>
-                  </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '14px' }}>
+                {SMS_FASTSEND_TEMPLATES.map(tmpl => (
+                  <FastSendTemplateCard
+                    key={tmpl.key}
+                    tmpl={tmpl}
+                    smsForm={smsForm}
+                    setSmsForm={setSmsForm}
+                  />
                 ))}
               </div>
             </div>

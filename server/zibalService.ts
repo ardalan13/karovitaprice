@@ -7,6 +7,7 @@ export interface ZibalRequestResult {
   paymentUrl?: string;
   resultCode?: number;
   message?: string;
+  simulated?: boolean;
   rawResponse?: any;
 }
 
@@ -27,14 +28,48 @@ export interface ZibalVerifyResult {
  */
 export function getZibalConfig() {
   const settings = db.gatewaySettings?.zibal || {
-    merchant: process.env.ZIBAL_MERCHANT || 'zibal',
-    sandbox: process.env.ZIBAL_SANDBOX !== 'false',
+    merchant: process.env.ZIBAL_MERCHANT || '',
+    sandbox: process.env.ZIBAL_SANDBOX === 'true' || process.env.ZIBAL_SANDBOX === '1',
     callback_url: '/api/payments/zibal/callback',
     enabled: true,
     description_prefix: 'سامانه ابری کارویتا - سفارش #',
     auto_verify: true,
   };
   return settings;
+}
+
+/**
+ * Standard Zibal API error codes mapping in Persian with detailed guidance
+ */
+export function getZibalErrorMessage(code: number, rawMessage?: string): string {
+  switch (code) {
+    case 100:
+      return 'با موفقیت انجام شد';
+    case 102:
+      return 'شناسه مرچنت (merchant) در سیستم زیبال یافت نشد. لطفاً کد مرچنت را در پنل مدیریت بررسی و اصلاح نمایید.';
+    case 103:
+      return 'درگاه/مرچنت زیبال غیرفعال است. جهت فعال‌سازی، وضعیت درگاه را در پنل زیبال بررسی نمایید.';
+    case 104:
+      return 'شناسه مرچنت نامعتبر است.';
+    case 105:
+      return 'مبلغ پرداخت باید حداقل ۱٬۰۰۰ ریال (۱۰۰ تومان) باشد.';
+    case 106:
+      return 'آدرس بازگشت (callbackUrl) نامعتبر است (باید با http:// یا https:// شروع شود).';
+    case 113:
+      return 'مبلغ تراکنش بیش از سقف مجاز روزانه درگاه است.';
+    case 114:
+      return 'شماره کارت غیرمجاز است.';
+    case 115:
+      return 'آی‌پی سرور در پنل زیبال ثبت نشده است (کد ۱۱۵). لطفاً درگاه خود را در پنل کاربری زیبال بررسی کرده و آی‌پی سرور را ثبت نمایید یا محدودیت آی‌پی را بردارید.';
+    case 201:
+      return 'تراکنش قبلاً با موفقیت تایید شده است.';
+    case 202:
+      return 'سفارش پرداخت نشده یا توسط کاربر لغو شده است.';
+    case 203:
+      return 'شناسه پیگیری (trackId) در زیبال نامعتبر است.';
+    default:
+      return rawMessage || `خطای درگاه زیبال (کد وضعیت: ${code})`;
+  }
 }
 
 /**
@@ -46,8 +81,17 @@ export async function initiateZibalPayment(
   clientOrigin: string
 ): Promise<ZibalRequestResult> {
   const config = getZibalConfig();
-  const merchant = config.merchant || 'zibal';
-  const isSandbox = config.sandbox || merchant === 'zibal';
+  const merchant = (config.merchant || '').trim();
+  const isSandbox = Boolean(config.sandbox);
+
+  if (!merchant) {
+    return {
+      success: false,
+      resultCode: 102,
+      message: 'کد مرچنت زیبال در تنظیمات درگاه وارد نشده است. لطفاً از پنل مدیریت (بخش درگاه شاپرک)، کد مرچنت را ثبت و ذخیره نمایید.',
+      simulated: false,
+    };
+  }
 
   // Iranian gateways accept amount in RIALS (KaroVita stores in TOMANS)
   const amountRials = Math.max(10000, (order.amount || 0) * 10);
@@ -80,7 +124,7 @@ export async function initiateZibalPayment(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
+    const timeoutId = setTimeout(() => controller.abort(), 7500);
 
     const response = await fetch('https://gateway.zibal.ir/v1/request', {
       method: 'POST',
@@ -106,51 +150,30 @@ export async function initiateZibalPayment(
         trackId: trackId,
         paymentUrl: paymentUrl,
         resultCode: resJson.result,
-        message: resJson.message || 'درخواست تراکنش با موفقیت ثبت شد',
+        message: resJson.message || 'درخواست تراکنش با موفقیت در زیبال ثبت شد',
+        simulated: false,
         rawResponse: resJson,
       };
     } else {
-      const errorMsg = getZibalErrorMessage(resJson.result) || resJson.message || 'خطا در برقراری ارتباط با درگاه شاپرک زیبال';
+      const errorMsg = getZibalErrorMessage(resJson.result, resJson.message);
       console.warn(`[ZIBAL REQUEST ERROR] Code ${resJson.result}: ${errorMsg}`);
 
-      // If in sandbox mode or test mode, provide an internal fallback so testing flows don't halt
-      if (isSandbox) {
-        const simulatedTrackId = 'sim-' + Date.now().toString().slice(-8) + Math.random().toString(36).substring(2, 6);
-        return {
-          success: true,
-          trackId: simulatedTrackId,
-          paymentUrl: `/api/payments/zibal/callback?trackId=${simulatedTrackId}&success=1&status=2&orderId=${order.id}`,
-          resultCode: 100,
-          message: 'سندباکس شبیه‌ساز پرداخت زیبال (حالت تستی فعال)',
-          rawResponse: { simulated: true, originalError: errorMsg },
-        };
-      }
-
+      // In real/production mode, NEVER fake success! Always report real gateway error
       return {
         success: false,
         resultCode: resJson.result,
         message: errorMsg,
+        simulated: false,
         rawResponse: resJson,
       };
     }
   } catch (err: any) {
     console.error('[ZIBAL REQUEST EXCEPTION]', err.message);
 
-    if (isSandbox) {
-      const simulatedTrackId = 'sim-' + Date.now().toString().slice(-8) + Math.random().toString(36).substring(2, 6);
-      return {
-        success: true,
-        trackId: simulatedTrackId,
-        paymentUrl: `/api/payments/zibal/callback?trackId=${simulatedTrackId}&success=1&status=2&orderId=${order.id}`,
-        resultCode: 100,
-        message: 'شبیه‌ساز پرداخت زیبال (سندباکس توسعه محلی)',
-        rawResponse: { simulated: true, error: err.message },
-      };
-    }
-
     return {
       success: false,
-      message: `خطای ارتباطی با سرورهای درگاه شاپرک: ${err.message}`,
+      message: `خطای ارتباطی با سرورهای درگاه شاپرک زیبال: ${err.message}`,
+      simulated: false,
     };
   }
 }
@@ -160,7 +183,7 @@ export async function initiateZibalPayment(
  */
 export async function verifyZibalPayment(trackId: string): Promise<ZibalVerifyResult> {
   const config = getZibalConfig();
-  const merchant = config.merchant || 'zibal';
+  const merchant = (config.merchant || '').trim();
 
   // Check if simulated
   if (trackId.startsWith('sim-') || trackId.startsWith('sandbox-')) {
@@ -174,6 +197,14 @@ export async function verifyZibalPayment(trackId: string): Promise<ZibalVerifyRe
       paidAt: new Date().toISOString(),
       status: 1,
       rawResponse: { simulated: true },
+    };
+  }
+
+  if (!merchant) {
+    return {
+      success: false,
+      resultCode: 102,
+      message: 'شناسه مرچنت زیبال در تنظیمات سیستم یافت نشد.',
     };
   }
 
@@ -243,7 +274,7 @@ export async function verifyZibalPayment(trackId: string): Promise<ZibalVerifyRe
  */
 export async function inquiryZibalTransaction(trackId: string): Promise<any> {
   const config = getZibalConfig();
-  const merchant = config.merchant || 'zibal';
+  const merchant = (config.merchant || '').trim();
 
   try {
     const response = await fetch('https://gateway.zibal.ir/v1/inquiry', {
@@ -257,32 +288,4 @@ export async function inquiryZibalTransaction(trackId: string): Promise<any> {
   }
 }
 
-/**
- * Standard Zibal API error codes mapping in Persian
- */
-export function getZibalErrorMessage(code: number): string {
-  switch (code) {
-    case 100:
-      return 'با موفقیت انجام شد';
-    case 102:
-      return 'شناسه مرچنت (merchant) در سیستم زیبال یافت نشد';
-    case 103:
-      return 'شناسه مرچنت زیبال غیرفعال است';
-    case 104:
-      return 'شناسه مرچنت نامعتبر است';
-    case 105:
-      return 'مبلغ پرداخت باید حداقل ۱٬۰۰۰ ریال (۱۰۰ تومان) باشد';
-    case 106:
-      return 'آدرس بازگشت (callbackUrl) نامعتبر است';
-    case 113:
-      return 'مبلغ تراکنش بیش از سقف مجاز روزانه درگاه است';
-    case 201:
-      return 'تراکنش قبلاً با موفقیت تایید شده است';
-    case 202:
-      return 'سفارش پرداخت نشده یا توسط کاربر لغو شده است';
-    case 203:
-      return 'شناسه پیگیری (trackId) در زیبال نامعتبر است';
-    default:
-      return `خطای درگاه زیبال (کد وضعیت: ${code})`;
-  }
-}
+

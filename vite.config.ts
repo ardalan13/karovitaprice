@@ -14,7 +14,7 @@ export default defineConfig({
     cssMinify: true,
     target: 'es2020',
     sourcemap: false,
-    chunkSizeWarningLimit: 1500,
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
       output: {
         entryFileNames: 'assets/js/[name]-[hash].js',
@@ -31,6 +31,25 @@ export default defineConfig({
             return 'assets/fonts/[name]-[hash][extname]';
           }
           return 'assets/[name]-[hash][extname]';
+        },
+        // Code-splitting: vendor libraries into separate cacheable chunks
+        manualChunks(id) {
+          // React core runtime
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+          // Router
+          if (id.includes('node_modules/react-router')) {
+            return 'vendor-router';
+          }
+          // Recharts (heavy charting library - only needed in dashboard)
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+            return 'vendor-charts';
+          }
+          // Lucide icons
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
         },
       },
     },

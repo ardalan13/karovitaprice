@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Minus, Plus, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Minus, Plus, Sparkles, AlertCircle, CheckCircle2, Tag, X } from 'lucide-react';
 import { formatPrice, toPersianDigits } from './configuratorData';
 
 export function SummarySidebar({
@@ -14,19 +14,30 @@ export function SummarySidebar({
   extraUsersCost = 0,
   modulesTotal = 0,
   discountAmount = 0,
+  subtotal,
+  vatAmount,
   finalAmount = 0,
   couponCode = '',
+  couponInfo = null,
   onApplyCoupon,
+  onRemoveCoupon,
   isApplyingCoupon = false,
   couponMessage = null,
   couponSuccess = false,
+  minOrderMet = true,
+  orderTotalBeforeDiscount = 0,
   onSubmitOrder,
   onActivateTrial,
   isSubmitting = false,
   hasTrialAvailable = true,
+  hasPendingInvoice = false,
 }) {
   const [couponInput, setCouponInput] = useState(couponCode || '');
   const minLimit = baseUserLimit || 1;
+
+  useEffect(() => {
+    setCouponInput(couponCode || '');
+  }, [couponCode]);
 
   function handleDecrement() {
     if (userCount > minLimit && onChangeUserCount) {
@@ -196,77 +207,178 @@ export function SummarySidebar({
         </div>
 
         {/* 4. Cost Breakdown */}
-        <div className="erp-summary-breakdown">
-          <div className="erp-breakdown-row">
-            <span className="erp-breakdown-label">
-              مجموع ماژول‌ها ({periodShortLabelMap[billingPeriod] || 'دوره'}):
-            </span>
-            <span className="erp-breakdown-value">{formatPrice(modulesTotal * multiplier)}</span>
-          </div>
+        {(() => {
+          const calculatedSubtotal = subtotal !== undefined && subtotal > 0 
+            ? subtotal 
+            : Math.max((modulesTotal + extraUsersCost - discountAmount) * multiplier, 0);
+          const calculatedVat = vatAmount !== undefined && vatAmount > 0 
+            ? vatAmount 
+            : Math.round(calculatedSubtotal * 0.10);
+          const finalPayableAmount = finalAmount !== undefined && finalAmount > 0 
+            ? finalAmount 
+            : (calculatedSubtotal + calculatedVat);
 
-          <div className="erp-breakdown-row">
-            <span className="erp-breakdown-label">
-              {extraUsersCount === 0 
-                ? `کاربران پایه (${toPersianDigits(baseUserLimit)} کاربر):` 
-                : `${toPersianDigits(extraUsersCount)} کاربر مازاد (${periodShortLabelMap[billingPeriod] || 'دوره'}):`}
-            </span>
-            <span className={`erp-breakdown-value ${extraUsersCount === 0 ? 'erp-text-free' : ''}`}>
-              {extraUsersCount === 0 ? 'رایگان' : formatPrice(extraUsersCost * multiplier)}
-            </span>
-          </div>
+          return (
+            <>
+              <div className="erp-summary-breakdown">
+                <div className="erp-breakdown-row">
+                  <span className="erp-breakdown-label">
+                    مجموع ماژول‌ها ({periodShortLabelMap[billingPeriod] || 'دوره'}):
+                  </span>
+                  <span className="erp-breakdown-value">{formatPrice(modulesTotal * multiplier)}</span>
+                </div>
 
-          {discountAmount > 0 && (
-            <div className="erp-breakdown-row erp-text-green">
-              <span className="erp-breakdown-label">کد تخفیف:</span>
-              <span className="erp-breakdown-value">- {formatPrice(discountAmount * multiplier)}</span>
+                <div className="erp-breakdown-row">
+                  <span className="erp-breakdown-label">
+                    {extraUsersCount === 0 
+                      ? `کاربران پایه (${toPersianDigits(baseUserLimit)} کاربر):` 
+                      : `${toPersianDigits(extraUsersCount)} کاربر مازاد (${periodShortLabelMap[billingPeriod] || 'دوره'}):`}
+                  </span>
+                  <span className={`erp-breakdown-value ${extraUsersCount === 0 ? 'erp-text-free' : ''}`}>
+                    {extraUsersCount === 0 ? 'رایگان' : formatPrice(extraUsersCost * multiplier)}
+                  </span>
+                </div>
+
+                {discountAmount > 0 && (
+                  <div className="erp-breakdown-row erp-text-green">
+                    <span className="erp-breakdown-label">کد تخفیف:</span>
+                    <span className="erp-breakdown-value">- {formatPrice(discountAmount * multiplier)}</span>
+                  </div>
+                )}
+
+                <div className="erp-breakdown-row" style={{ borderTop: '1px dashed #e2e8f0', paddingTop: '8px', marginTop: '6px' }}>
+                  <span className="erp-breakdown-label" style={{ fontWeight: 700, color: '#334155' }}>
+                    مبلغ پایه مشمول مالیات:
+                  </span>
+                  <span className="erp-breakdown-value" style={{ fontWeight: 700, color: '#0f172a' }}>
+                    {formatPrice(calculatedSubtotal)}
+                  </span>
+                </div>
+
+                <div className="erp-breakdown-row" style={{ color: '#0284c7' }}>
+                  <span className="erp-breakdown-label" style={{ fontWeight: 700 }}>
+                    مالیات بر ارزش افزوده (۱۰٪):
+                  </span>
+                  <span className="erp-breakdown-value" style={{ fontWeight: 700 }}>
+                    +{formatPrice(calculatedVat)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 5. Highlighted Blue Payable Box with 10% VAT */}
+              <div className="erp-payable-box">
+                <div className="erp-payable-header">
+                  مبلغ کل قابل پرداخت ({periodLabelMap[billingPeriod] || '۱ ساله'})
+                </div>
+                <div className="erp-payable-amount">
+                  {formatPrice(finalPayableAmount)}
+                </div>
+                <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 600, marginTop: '2px' }}>
+                  (با احتساب ۱۰٪ مالیات بر ارزش افزوده قانونی)
+                </div>
+                {billingPeriod === 'yearly' && (
+                  <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '4px' }}>
+                    ✓ محاسبه بر پایه ۱۰ ماه هزینه (۲ ماه هدیه رایگان کارویتا)
+                  </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
+
+        {/* 6. Coupon Section */}
+        {couponCode && couponSuccess && couponInfo ? (
+          <div className="erp-coupon-applied-box">
+            <div className="erp-coupon-applied-info">
+              <div className="erp-coupon-tag">
+                <Tag size={15} color="#15803d" />
+                <strong>{couponCode}</strong>
+                <span className="erp-coupon-discount-badge">
+                  {couponInfo.discount_type === 'percent'
+                    ? `(${couponInfo.discount_value}٪ تخفیف)`
+                    : `(${formatPrice(couponInfo.discount_value)} تخفیف)`}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn-remove-coupon"
+                onClick={() => {
+                  setCouponInput('');
+                  if (onRemoveCoupon) onRemoveCoupon();
+                }}
+                title="حذف کد تخفیف"
+              >
+                <X size={13} />
+                <span>حذف</span>
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* 5. Highlighted Blue Payable Box */}
-        <div className="erp-payable-box">
-          <div className="erp-payable-header">
-            مبلغ کل قابل پرداخت ({periodLabelMap[billingPeriod] || '۱ ساله'})
+            {!minOrderMet ? (
+              <div className="erp-coupon-msg warning" style={{ marginTop: '8px' }}>
+                <AlertCircle size={14} />
+                <span>
+                  حداقل مبلغ سفارش برای این کد {formatPrice(couponInfo.min_order_amount)} است (مبلغ فعلی: {formatPrice(orderTotalBeforeDiscount)}).
+                </span>
+              </div>
+            ) : (
+              couponMessage && (
+                <div className="erp-coupon-msg success" style={{ marginTop: '8px' }}>
+                  <CheckCircle2 size={14} />
+                  <span>{couponMessage}</span>
+                </div>
+              )
+            )}
           </div>
-          <div className="erp-payable-amount">
-            {formatPrice(finalAmount)}
-          </div>
-          {billingPeriod === 'yearly' && (
-            <div style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, marginTop: '4px' }}>
-              ✓ محاسبه بر پایه ۱۰ ماه هزینه (۲ ماه هدیه رایگان کارویتا)
+        ) : (
+          <form onSubmit={handleCouponSubmit} className="erp-coupon-form">
+            <div className="erp-coupon-input-group">
+              <input
+                type="text"
+                className="erp-coupon-input"
+                placeholder="کد تخفیف را وارد کنید"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                disabled={isApplyingCoupon}
+              />
+              <button
+                type="submit"
+                className="erp-coupon-btn"
+                disabled={isApplyingCoupon || !couponInput.trim()}
+              >
+                {isApplyingCoupon ? '...' : 'اعمال'}
+              </button>
             </div>
-          )}
-        </div>
-
-        {/* 6. Coupon Form */}
-        <form onSubmit={handleCouponSubmit} className="erp-coupon-form">
-          <div className="erp-coupon-input-group">
-            <input
-              type="text"
-              className="erp-coupon-input"
-              placeholder="کد تخفیف را وارد کنید"
-              value={couponInput}
-              onChange={(e) => setCouponInput(e.target.value)}
-              disabled={isApplyingCoupon}
-            />
-            <button
-              type="submit"
-              className="erp-coupon-btn"
-              disabled={isApplyingCoupon || !couponInput.trim()}
-            >
-              {isApplyingCoupon ? '...' : 'اعمال'}
-            </button>
-          </div>
-          {couponMessage && (
-            <div className={`erp-coupon-msg ${couponSuccess ? 'success' : 'error'}`}>
-              {couponSuccess ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-              <span>{couponMessage}</span>
-            </div>
-          )}
-        </form>
+            {couponMessage && (
+              <div className={`erp-coupon-msg ${couponSuccess ? 'success' : 'error'}`}>
+                {couponSuccess ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+                <span>{couponMessage}</span>
+              </div>
+            )}
+          </form>
+        )}
 
         {/* 7. Action Buttons */}
         <div className="erp-actions-group">
+          {hasPendingInvoice && (
+            <div style={{
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: '8px',
+              padding: '10px 12px',
+              marginBottom: '10px',
+              fontSize: '11.5px',
+              color: '#92400e',
+              lineHeight: 1.5,
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '6px'
+            }}>
+              <AlertCircle size={15} color="#d97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <span>
+                شما یک پیش‌فاکتور پرداخت‌نشده دارید. ابتدا باید فاکتور قبلی را پرداخت نموده یا آن را لغو کنید.
+              </span>
+            </div>
+          )}
+
           <button
             type="button"
             className="erp-submit-order-btn"
@@ -276,6 +388,8 @@ export function SummarySidebar({
           >
             {isSubmitting ? (
               <span className="erp-spinner-text">در حال انتقال به پرداخت...</span>
+            ) : hasPendingInvoice ? (
+              <span>ثبت سفارش (دارای پیش‌فاکتور معوق)</span>
             ) : (
               <span>ثبت درخواست و ادامه خرید</span>
             )}

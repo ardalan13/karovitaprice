@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { ERPModule, IndustryPreset, Coupon, INITIAL_ERP_MODULES, INITIAL_PRESETS, INITIAL_COUPONS } from './configuratorData';
+import { calculateSubscriptionMonths, DAYS_IN_MONTH } from './subscriptionPeriod';
 
 export interface User {
   id: number;
@@ -67,20 +68,34 @@ export interface Order {
   package_id?: number;
   order_number: string;
   amount: number;
+  subtotal?: number;
+  final_amount?: number;
   status: 'pending' | 'paid' | 'failed' | 'cancelled';
   is_active?: boolean;
   module_ids?: string[];
   user_count?: number;
-  billing_period?: 'monthly' | 'yearly';
+  billing_period?: 'monthly' | 'yearly' | string;
   coupon_code?: string | null;
   discount_amount?: number;
+  order_type?: string;
+  is_resource_addon?: boolean;
+  description?: string;
   breakdown?: {
-    modules_total: number;
-    extra_users_cost: number;
-    base_monthly_total: number;
-    multiplier: number;
-    discount_amount: number;
-    final_amount: number;
+    modules_total?: number;
+    extra_users_count?: number;
+    extra_users_cost?: number;
+    base_monthly_total?: number;
+    multiplier?: number;
+    discount_amount?: number;
+    subtotal?: number;
+    vat_rate?: number;
+    vat_amount?: number;
+    final_amount?: number;
+    remaining_days?: number;
+    remaining_months?: number;
+    modules_monthly_sum?: number;
+    is_resource_addon?: boolean;
+    [key: string]: any;
   };
   subscription_id?: number;
   created_at: string;
@@ -216,6 +231,8 @@ export interface SmsLogEntry {
   cost?: number;
   error?: string;
   user_name?: string;
+  message?: string;
+
 }
 
 export interface ZibalGatewayConfig {
@@ -261,6 +278,12 @@ export interface SystemGatewaySettings {
     sent_at: string;
     mobile: string;
   }[];
+}
+
+export interface PwaSettings {
+  enabled: boolean;
+  updated_at?: string;
+  updated_by?: string | number;
 }
 
 export interface TicketHistory {
@@ -438,8 +461,8 @@ class Database {
 
   public gatewaySettings: SystemGatewaySettings = {
     zibal: {
-      merchant: process.env.ZIBAL_MERCHANT || 'zibal',
-      sandbox: process.env.ZIBAL_SANDBOX !== 'false',
+      merchant: process.env.ZIBAL_MERCHANT || '',
+      sandbox: process.env.ZIBAL_SANDBOX === 'true' || process.env.ZIBAL_SANDBOX === '1',
       callback_url: '/api/payments/zibal/callback',
       enabled: true,
       description_prefix: 'سامانه ابری کارویتا - سفارش #',
@@ -506,6 +529,13 @@ class Database {
   };
 
   public smsLogs: SmsLogEntry[] = [];
+  public pwaSettings: PwaSettings = {
+    enabled: true,
+  };
+
+  public isPwaEnabled(): boolean {
+    return this.pwaSettings?.enabled !== false;
+  }
 
   public auditLogs: AuditLog[] = [
     {
@@ -616,6 +646,7 @@ class Database {
         coupons: this.coupons,
         configuratorSettings: this.configuratorSettings,
         gatewaySettings: this.gatewaySettings,
+        pwaSettings: this.pwaSettings,
         smsLogs: this.smsLogs,
       };
       fs.writeFileSync(DB_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
@@ -706,6 +737,9 @@ class Database {
                 }
               }
             };
+          }
+          if (data.pwaSettings) {
+            this.pwaSettings = { ...this.pwaSettings, ...data.pwaSettings };
           }
           if (data.smsLogs && Array.isArray(data.smsLogs)) this.smsLogs = data.smsLogs;
 
@@ -1313,24 +1347,6 @@ class Database {
 
     const baseMonthlyTotal = modulesTotal + extraUsersCost;
 
-    let discountAmount = 0;
-    const cleanCoupon = String(couponCode || '').trim().toUpperCase();
-    if (cleanCoupon) {
-      const coupon = this.coupons.find(c => c.code.toUpperCase() === cleanCoupon && c.is_active);
-      if (coupon) {
-        if (coupon.discount_type === 'percent') {
-          discountAmount = Math.round((baseMonthlyTotal * coupon.discount_value) / 100);
-          if (coupon.max_discount_amount) {
-            discountAmount = Math.min(discountAmount, coupon.max_discount_amount);
-          }
-        } else if (coupon.discount_type === 'fixed') {
-          discountAmount = coupon.discount_value;
-        }
-      }
-    }
-
-    const discountedBase = Math.max(baseMonthlyTotal - discountAmount, 0);
-
     // Multiplier for 3 options: 3_months (quarterly), 6_months (semiannual), yearly
     let multiplier = 3;
     const period = String(billingPeriod).toLowerCase();
@@ -1344,7 +1360,34 @@ class Database {
       multiplier = 1;
     }
 
-    const finalAmount = discountedBase * multiplier;
+    const orderTotalBeforeDiscount = baseMonthlyTotal * multiplier;
+
+    let discountAmount = 0;
+    const cleanCoupon = String(couponCode || '').trim().toUpperCase();
+    if (cleanCoupon) {
+      const coupon = this.coupons.find(c => c.code.toUpperCase() === cleanCoupon && (c.is_active !== false));
+      if (coupon) {
+        const notExpired = !coupon.expires_at || new Date(coupon.expires_at).getTime() > Date.now();
+        const meetsMin = !coupon.min_order_amount || orderTotalBeforeDiscount >= coupon.min_order_amount;
+        if (notExpired && meetsMin) {
+          if (coupon.discount_type === 'percent') {
+            let disc = Math.round((baseMonthlyTotal * coupon.discount_value) / 100);
+            if (coupon.max_discount_amount) {
+              disc = Math.min(disc, Math.round(coupon.max_discount_amount / multiplier));
+            }
+            discountAmount = disc;
+          } else if (coupon.discount_type === 'fixed') {
+            discountAmount = Math.min(Math.round(coupon.discount_value / multiplier), baseMonthlyTotal);
+          }
+        }
+      }
+    }
+
+    const discountedBase = Math.max(baseMonthlyTotal - discountAmount, 0);
+    const subtotal = Math.round(discountedBase * multiplier);
+    const vatRate = 0.10;
+    const vatAmount = Math.round(subtotal * vatRate);
+    const finalAmount = subtotal + vatAmount;
 
     return {
       selected_modules: modules,
@@ -1355,13 +1398,161 @@ class Database {
       extra_users_count: extraUsersCount,
       extra_users_cost: extraUsersCost,
       base_monthly_total: baseMonthlyTotal,
+      order_total_before_discount: orderTotalBeforeDiscount,
       discount_amount: discountAmount,
       discounted_base: discountedBase,
       multiplier,
+      subtotal,
+      vat_rate: vatRate,
+      vat_amount: vatAmount,
       final_amount: finalAmount,
       coupon_applied: !!cleanCoupon && discountAmount > 0,
       coupon_code: cleanCoupon || null,
     };
+  }
+
+  calculateResourceAddonPrice(
+    sub: Subscription,
+    selectedModuleIds: string[],
+    targetUserCount?: number,
+    couponCode: string = ''
+  ) {
+    const now = new Date();
+    const expDate = sub.expires_at ? new Date(sub.expires_at) : null;
+    let remainingDays = 0;
+    let remainingMonths = 1;
+
+    if (expDate && expDate.getTime() > now.getTime()) {
+      remainingDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      // Real calendar month calculation: DAYS_IN_MONTH = 365 / 12 with smart calendar rounding
+      remainingMonths = calculateSubscriptionMonths(remainingDays);
+    }
+
+    const existingIds = sub.module_ids || [];
+    // Charge for newly added modules
+    const addedIds = selectedModuleIds.filter(id => !existingIds.includes(id));
+    const modules = this.erpModules.filter(m => addedIds.includes(m.id) && m.is_active !== false);
+    const modulesMonthlySum = modules.reduce((sum, m) => sum + (Number(m.price) || 0), 0);
+    const modulesTotal = modulesMonthlySum * remainingMonths;
+
+    // Extra user seats (if increased beyond current subscription's user count)
+    const currentSeats = sub.user_count || 1;
+    const targetSeats = targetUserCount && targetUserCount > currentSeats ? targetUserCount : currentSeats;
+    const extraSeatsCount = Math.max(targetSeats - currentSeats, 0);
+    const extraUserPrice = this.configuratorSettings.extra_user_price || 800000;
+    const extraUsersMonthlyCost = extraSeatsCount * extraUserPrice;
+    const extraUsersCost = extraUsersMonthlyCost * remainingMonths;
+
+    const baseMonthlyTotal = modulesMonthlySum + extraUsersMonthlyCost;
+    const orderTotalBeforeDiscount = modulesTotal + extraUsersCost;
+
+    let discountAmount = 0;
+    const cleanCoupon = String(couponCode || '').trim().toUpperCase();
+    if (cleanCoupon) {
+      const coupon = this.coupons.find(c => c.code.toUpperCase() === cleanCoupon && (c.is_active !== false));
+      if (coupon) {
+        const notExpired = !coupon.expires_at || new Date(coupon.expires_at).getTime() > Date.now();
+        const meetsMin = !coupon.min_order_amount || orderTotalBeforeDiscount >= coupon.min_order_amount;
+        if (notExpired && meetsMin) {
+          if (coupon.discount_type === 'percent') {
+            let disc = Math.round((orderTotalBeforeDiscount * coupon.discount_value) / 100);
+            if (coupon.max_discount_amount) {
+              disc = Math.min(disc, coupon.max_discount_amount);
+            }
+            discountAmount = disc;
+          } else if (coupon.discount_type === 'fixed') {
+            discountAmount = Math.min(coupon.discount_value, orderTotalBeforeDiscount);
+          }
+        }
+      }
+    }
+
+    const subtotal = Math.max(orderTotalBeforeDiscount - discountAmount, 0);
+    const vatRate = 0.10;
+    const vatAmount = Math.round(subtotal * vatRate);
+    const finalAmount = subtotal + vatAmount;
+
+    return {
+      subscription_id: sub.id,
+      expires_at: sub.expires_at,
+      remaining_days: remainingDays,
+      remaining_months: remainingMonths,
+      new_modules: modules,
+      new_module_ids: addedIds,
+      modules_monthly_sum: modulesMonthlySum,
+      modules_total: modulesTotal,
+      current_user_count: currentSeats,
+      target_user_count: targetSeats,
+      extra_users_count: extraSeatsCount,
+      extra_users_cost: extraUsersCost,
+      base_monthly_total: baseMonthlyTotal,
+      order_total_before_discount: orderTotalBeforeDiscount,
+      discount_amount: discountAmount,
+      subtotal,
+      vat_rate: vatRate,
+      vat_amount: vatAmount,
+      final_amount: finalAmount,
+      coupon_applied: !!cleanCoupon && discountAmount > 0,
+      coupon_code: cleanCoupon || null,
+    };
+  }
+
+
+  createResourceAddonOrder(
+    userId: number,
+    subscriptionId: number,
+    selectedModuleIds: string[],
+    targetUserCount?: number,
+    couponCode: string = ''
+  ): Order {
+    const sub = this.subscriptions.find(s => s.id === Number(subscriptionId));
+    if (!sub) {
+      throw new Error(`اشتراک فعال با شناسه #${subscriptionId} یافت نشد.`);
+    }
+
+    const calc = this.calculateResourceAddonPrice(sub, selectedModuleIds, targetUserCount, couponCode);
+    const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    const order: Order = {
+      id: this.nextOrderId++,
+      user_id: userId,
+      order_number: `ORD-${dateStr}-${rand}`,
+      amount: calc.final_amount,
+      subtotal: calc.subtotal,
+      final_amount: calc.final_amount,
+      status: 'pending',
+      subscription_id: sub.id,
+      module_ids: calc.new_module_ids,
+      user_count: calc.target_user_count,
+      billing_period: (sub.billing_period as any) || 'yearly',
+      order_type: 'resource_upgrade',
+      is_resource_addon: true,
+      coupon_code: calc.coupon_code,
+      discount_amount: calc.discount_amount,
+      description: `افزودن ماژول و منابع به اشتراک #${sub.id} (مدت باقیمانده: ${calc.remaining_months} ماه گردشده به بالا)`,
+      breakdown: {
+        is_resource_addon: true,
+        remaining_days: calc.remaining_days,
+        remaining_months: calc.remaining_months,
+        modules_monthly_sum: calc.modules_monthly_sum,
+        modules_total: calc.modules_total,
+        extra_users_count: calc.extra_users_count,
+        extra_users_cost: calc.extra_users_cost,
+        base_monthly_total: calc.base_monthly_total,
+        multiplier: calc.remaining_months,
+        discount_amount: calc.discount_amount,
+        subtotal: calc.subtotal,
+        vat_rate: calc.vat_rate,
+        vat_amount: calc.vat_amount,
+        final_amount: calc.final_amount,
+      },
+      created_at: new Date().toISOString(),
+    };
+
+    this.orders.push(order);
+    this.saveToFile();
+    return order;
   }
 
   createERPOrder(
@@ -1383,6 +1574,8 @@ class Database {
       user_id: userId,
       order_number: `ORD-${dateStr}-${rand}`,
       amount: calc.final_amount,
+      subtotal: calc.subtotal,
+      final_amount: calc.final_amount,
       status: 'pending',
       subscription_id: subscriptionId ? Number(subscriptionId) : undefined,
       module_ids: calc.selected_module_ids,
@@ -1397,6 +1590,9 @@ class Database {
         base_monthly_total: calc.base_monthly_total,
         multiplier: calc.multiplier,
         discount_amount: calc.discount_amount * calc.multiplier,
+        subtotal: calc.subtotal,
+        vat_rate: calc.vat_rate,
+        vat_amount: calc.vat_amount,
         final_amount: calc.final_amount,
       },
       created_at: new Date().toISOString(),
@@ -1447,6 +1643,29 @@ class Database {
     return sub;
   }
 
+  removeUserTrialSubscriptions(userId: number): number {
+    const trialSubs = this.subscriptions.filter(
+      s => s.user_id === userId && (s.source === 'trial' || s.package_name?.includes('آزمایشی') || s.title?.includes('آزمایشی'))
+    );
+    if (trialSubs.length === 0) return 0;
+    const count = trialSubs.length;
+    const trialSubIds = new Set(trialSubs.map(s => s.id));
+    this.orders.forEach(o => {
+      if (o.subscription_id && trialSubIds.has(o.subscription_id)) {
+        o.subscription_id = undefined;
+      }
+    });
+    this.subscriptions = this.subscriptions.filter(
+      s => !(s.user_id === userId && (s.source === 'trial' || s.package_name?.includes('آزمایشی') || s.title?.includes('آزمایشی')))
+    );
+    const u = this.getUserById(userId);
+    if (u) {
+      u.has_used_trial = true;
+    }
+    this.saveToFile();
+    return count;
+  }
+
   activateOrMergeERPSubscription(
     userId: number,
     orderId: number | null,
@@ -1457,7 +1676,20 @@ class Database {
     subscriptionId?: number,
     isResourceUpgrade?: boolean
   ): Subscription {
-    const userSubs = this.subscriptions.filter(s => s.user_id === userId);
+    // When purchasing, permanently remove any existing trial subscription (active or inactive)
+    if (source === 'purchase') {
+      this.removeUserTrialSubscriptions(userId);
+    }
+
+    const order = orderId ? this.orders.find(o => o.id === orderId) : undefined;
+    const isExplicitRenewal = Boolean(
+      (order as any)?.is_renewal === true ||
+      order?.order_type === 'renewal'
+    );
+
+    const userSubs = this.subscriptions.filter(
+      s => s.user_id === userId && s.source !== 'trial' && !s.title?.includes('آزمایشی') && !s.package_name?.includes('آزمایشی')
+    );
     let targetSub: Subscription | undefined;
     if (subscriptionId) {
       targetSub = userSubs.find(s => s.id === Number(subscriptionId) && s.status !== 'cancelled');
@@ -1465,9 +1697,18 @@ class Database {
     if (!targetSub) {
       targetSub = userSubs.find(s => s.status === 'active' && (!s.expires_at || new Date(s.expires_at) > new Date()));
     }
-    if (!targetSub) {
-      targetSub = userSubs.find(s => s.status === 'active' || (s.source === 'trial' && s.status !== 'cancelled'));
-    }
+
+    // Determine if this operation is an addon / module purchase / resource upgrade
+    const isAddonUpgrade = Boolean(
+      isResourceUpgrade ||
+      order?.is_resource_addon ||
+      order?.order_type === 'resource_upgrade' ||
+      order?.order_type === 'addon' ||
+      order?.order_type === 'module_addon' ||
+      order?.order_type === 'module' ||
+      order?.breakdown?.is_resource_addon ||
+      (targetSub && !isExplicitRenewal)
+    );
 
     const period = String(billingPeriod).toLowerCase();
     const durationDays = (
@@ -1478,20 +1719,33 @@ class Database {
 
     if (targetSub) {
       const existingMods = targetSub.module_ids || [];
-      const mergedMods = Array.from(new Set([...existingMods, ...moduleIds]));
+      // STRICT RULE: when adding modules to an existing subscription (non-renewal), purchased modules are merged into existing modules
+      const mergedMods = (isAddonUpgrade || !isExplicitRenewal)
+        ? Array.from(new Set([...existingMods, ...moduleIds]))
+        : Array.from(new Set([...moduleIds]));
       targetSub.module_ids = mergedMods;
       targetSub.title = `اشتراک سازمانی کارویتا (${mergedMods.length} ماژول)`;
       targetSub.status = 'active';
       if (orderId) targetSub.order_id = orderId;
       if (userCount) targetSub.user_count = Math.max(targetSub.user_count || 1, userCount);
-      if (billingPeriod) targetSub.billing_period = (period as any);
+      if (!isAddonUpgrade && isExplicitRenewal && billingPeriod) {
+        targetSub.billing_period = (period as any);
+      }
       targetSub.source = source;
 
-      // Calculate expiration time (resource upgrades keep existing unexpired expiration date intact)
+      // Calculate expiration time
       const now = new Date();
       const currentExpires = targetSub.expires_at ? new Date(targetSub.expires_at) : null;
-      if (isResourceUpgrade && currentExpires && currentExpires > now) {
-        targetSub.expires_at = currentExpires.toISOString();
+      if (isAddonUpgrade && currentExpires && currentExpires > now) {
+        // STRICT BUSINESS RULE: Purchasing or adding new modules to an existing subscription MUST NEVER extend or increase expires_at!
+        // The original expiration date remains strictly unchanged.
+        targetSub.expires_at = targetSub.expires_at;
+      } else if (isExplicitRenewal) {
+        // Renewal: extend expiration date by durationDays from current expiration (or now)
+        const baseTime = (currentExpires && currentExpires > now && targetSub.source !== 'trial')
+          ? currentExpires.getTime()
+          : now.getTime();
+        targetSub.expires_at = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
       } else {
         const baseTime = (currentExpires && currentExpires > now && targetSub.source !== 'trial')
           ? currentExpires.getTime()
@@ -1499,24 +1753,47 @@ class Database {
         targetSub.expires_at = new Date(baseTime + durationDays * 24 * 60 * 60 * 1000).toISOString();
       }
 
+      if (orderId) {
+        const ord = this.orders.find(o => o.id === orderId);
+        if (ord) ord.subscription_id = targetSub.id;
+      }
+
       this.saveToFile();
       return targetSub;
     }
 
-    return this.createERPSubscription(userId, orderId, moduleIds, userCount, period, source);
+    const newSub = this.createERPSubscription(userId, orderId, moduleIds, userCount, period, source);
+    if (orderId) {
+      const ord = this.orders.find(o => o.id === orderId);
+      if (ord) ord.subscription_id = newSub.id;
+    }
+    return newSub;
   }
 
-  // Orders & Subscriptions
+  // Orders & Subscriptions (with standard 10% VAT system applied across all orders)
   createOrder(userId: number, packageId: number, amount: number): Order {
     const dateStr = new Date().toISOString().slice(2, 10).replace(/-/g, '');
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const subtotal = amount;
+    const vatRate = 0.10;
+    const vatAmount = Math.round(subtotal * vatRate);
+    const finalAmount = subtotal + vatAmount;
+
     const order: Order = {
       id: this.nextOrderId++,
       user_id: userId,
       package_id: packageId,
       order_number: `ORD-${dateStr}-${rand}`,
-      amount,
+      amount: finalAmount,
+      subtotal: subtotal,
+      final_amount: finalAmount,
       status: 'pending',
+      breakdown: {
+        subtotal: subtotal,
+        vat_rate: vatRate,
+        vat_amount: vatAmount,
+        final_amount: finalAmount,
+      },
       created_at: new Date().toISOString(),
     };
     this.orders.push(order);
@@ -1551,6 +1828,9 @@ class Database {
     durationDays: number,
     usageLimit: number | null
   ): Subscription {
+    if (source === 'purchase') {
+      this.removeUserTrialSubscriptions(userId);
+    }
     const now = new Date();
     const expires = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
     const sub: Subscription = {

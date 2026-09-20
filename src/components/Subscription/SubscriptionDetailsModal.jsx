@@ -24,6 +24,7 @@ import {
 import { api } from '../../services/api';
 import { OnlinePaymentModal } from '../Payments/OnlinePaymentModal';
 import { DEFAULT_MODULES } from '../PricingConfigurator/configuratorData';
+import { calculateSubscriptionMonths } from '../../utils/subscriptionPeriod';
 
 const ERP_PORTAL_URL = 'https://crm.karovita.ir';
 
@@ -288,24 +289,33 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
     return availableNewModules.filter(m => selectedNewModuleIds.includes(m.id));
   }, [availableNewModules, selectedNewModuleIds]);
 
-  // Price calculations for selected modules and extra users
+  // Real calendar month calculation: DAYS_IN_MONTH = 365 / 12 with smart calendar rounding
+  const remainingMonths = useMemo(() => {
+    const days = typeof remainingDays === 'number' ? remainingDays : 30;
+    return calculateSubscriptionMonths(days);
+  }, [remainingDays]);
+
   const monthlyModulesSum = useMemo(() => {
     return selectedModulesObjects.reduce((acc, m) => acc + (Number(m.price) || 0), 0);
   }, [selectedModulesObjects]);
 
   const baseUserLimit = configSettings.base_user_limit || 1;
   const extraUserPrice = configSettings.extra_user_price || 800000;
-  const extraUsersCount = Math.max(userCount - baseUserLimit, 0);
-  const extraUsersMonthlyCost = extraUsersCount * extraUserPrice;
+  const newlyAddedUserSeats = Math.max(userCount - initialUserCount, 0);
+  const newlyAddedUsersMonthlyCost = newlyAddedUserSeats * extraUserPrice;
 
   const currentPeriodConfig = PERIOD_CONFIG[selectedPeriod] || PERIOD_CONFIG['3_months'];
-  const billingMultiplier = currentPeriodConfig.multiplier;
   
-  const baseMonthlyTotal = monthlyModulesSum + extraUsersMonthlyCost;
-  const finalCalculatedAmount = baseMonthlyTotal * billingMultiplier;
+  // Base price of newly added modules and users for the remaining duration
+  const modulesPeriodTotal = monthlyModulesSum * remainingMonths;
+  const usersPeriodTotal = newlyAddedUsersMonthlyCost * remainingMonths;
+  const subtotalBeforeVat = modulesPeriodTotal + usersPeriodTotal;
+  const vatRate = 0.10;
+  const vatAmount = Math.round(subtotalBeforeVat * vatRate);
+  const finalCalculatedAmount = subtotalBeforeVat + vatAmount;
 
   // ---------------------------------------------------------------------------
-  // Subscription Renewal Calculations & State
+  // Subscription Renewal Calculations & State (including 10% standard VAT)
   // ---------------------------------------------------------------------------
   const [renewPeriod, setRenewPeriod] = useState('yearly');
   const renewPeriodConfig = PERIOD_CONFIG[renewPeriod] || PERIOD_CONFIG['yearly'];
@@ -323,7 +333,9 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
   const renewExtraUsersMonthlyCost = renewExtraUsersCount * extraUserPrice;
   const renewBaseMonthlyTotal = activeModulesMonthlySum + renewExtraUsersMonthlyCost;
   const renewMultiplier = renewPeriodConfig.multiplier;
-  const renewFinalAmount = Math.round(renewBaseMonthlyTotal * renewMultiplier);
+  const renewSubtotal = Math.round(renewBaseMonthlyTotal * renewMultiplier);
+  const renewVat = Math.round(renewSubtotal * 0.10);
+  const renewFinalAmount = renewSubtotal + renewVat;
 
   // Has items in cart to invoice (either modules or extra user seats)
   const hasOrderItems = selectedNewModuleIds.length > 0 || (userCount > initialUserCount);
@@ -342,7 +354,7 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
     });
   };
 
-  // Create ERP Order for New Modules / Users and trigger payment modal
+  // Create ERP Order for New Modules / Users (co-termed to remaining duration) and trigger payment modal
   const handleCreateInvoiceAndPay = async () => {
     if (!hasOrderItems) return;
     setIsCreatingOrder(true);
@@ -353,10 +365,16 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
         body: JSON.stringify({
           selected_module_ids: selectedNewModuleIds,
           user_count: userCount,
-          billing_period: selectedPeriod,
+          billing_period: subscription?.billing_period || 'yearly',
           amount: finalCalculatedAmount,
           final_amount: finalCalculatedAmount,
-          subtotal: baseMonthlyTotal,
+          subtotal: subtotalBeforeVat,
+          vat_amount: vatAmount,
+          remaining_months: remainingMonths,
+          remaining_days: remainingDays,
+          order_type: 'resource_upgrade',
+          is_resource_addon: true,
+          subscription_id: subscription.id
         })
       });
 
@@ -368,8 +386,9 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
           amount: finalCalculatedAmount,
           selected_modules: selectedModulesObjects,
           user_count: userCount,
-          billing_period: selectedPeriod,
-          payment_url: res.payment_url
+          billing_period: subscription?.billing_period || 'yearly',
+          payment_url: res.payment_url,
+          is_resource_addon: true
         });
       } else {
         throw new Error(res.message || 'خطا در صدور پیش‌فاکتور سفارش.');
@@ -390,13 +409,15 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
       const res = await api('/orders', {
         method: 'POST',
         body: JSON.stringify({
-          selected_module_ids: activeIdsList.length > 0 ? activeIdsList : ['accounting', 'crm', 'sales', 'warehouse'],
+          selected_module_ids: activeIdsList.length > 0 ? activeIdsList : ['account', 'crm', 'sale', 'contacts'],
           user_count: initialUserCount,
           billing_period: renewPeriod,
           amount: renewFinalAmount,
           final_amount: renewFinalAmount,
-          subtotal: renewBaseMonthlyTotal,
-          is_renewal: true
+          subtotal: renewSubtotal,
+          vat_amount: renewVat,
+          is_renewal: true,
+          subscription_id: subscription.id
         })
       });
 
@@ -557,18 +578,41 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
             )}
 
             {errorBanner && (
-              <div className="erp-sub-alert-banner error">
+              <div className="erp-sub-alert-banner error" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <AlertCircle size={18} />
                   <span>{errorBanner}</span>
                 </div>
-                <button 
-                  type="button" 
-                  onClick={() => setErrorBanner(null)} 
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
-                >
-                  <X size={15} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {(errorBanner.includes('پرداخت‌نشده') || errorBanner.includes('پیش‌فاکتور')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        window.location.href = '/dashboard?tab=payments';
+                      }}
+                      style={{
+                        background: '#ffffff',
+                        border: '1px solid #f87171',
+                        color: '#b91c1c',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      مدیریت و لغو پیش‌فاکتور
+                    </button>
+                  )}
+                  <button 
+                    type="button" 
+                    onClick={() => setErrorBanner(null)} 
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -1068,30 +1112,31 @@ export function SubscriptionDetailsModal({ subscription, user, onClose, onUpdate
                         <span className="erp-proforma-stat-label">تعداد ماژول‌های جدید:</span>
                         <span className="erp-proforma-stat-val">
                           {selectedNewModuleIds.length > 0 
-                            ? `${selectedNewModuleIds.length.toLocaleString('fa-IR')} ماژول (${(monthlyModulesSum * billingMultiplier).toLocaleString('fa-IR')} ت)`
+                            ? `${selectedNewModuleIds.length.toLocaleString('fa-IR')} ماژول (${modulesPeriodTotal.toLocaleString('fa-IR')} ت)`
                             : '—'}
                         </span>
                       </div>
                       <div className="erp-proforma-stat-item">
-                        <span className="erp-proforma-stat-label">ظرفیت کاربران:</span>
-                        <span className="erp-proforma-stat-val">
-                          {userCount.toLocaleString('fa-IR')} کاربر مجاز
-                          {extraUsersCount > 0 && (
-                            <small style={{ color: '#2563eb', display: 'block', fontSize: '11px' }}>
-                              (+{(extraUsersMonthlyCost * billingMultiplier).toLocaleString('fa-IR')} تومان)
-                            </small>
-                          )}
+                        <span className="erp-proforma-stat-label">مدت باقیمانده اشتراک:</span>
+                        <span className="erp-proforma-stat-val" style={{ color: '#2563eb' }}>
+                          {remainingMonths.toLocaleString('fa-IR')} ماه (سقف {remainingDays.toLocaleString('fa-IR')} روز)
                         </span>
                       </div>
                       <div className="erp-proforma-stat-item">
-                        <span className="erp-proforma-stat-label">دوره صورت‌حساب:</span>
+                        <span className="erp-proforma-stat-label">مبلغ خالص پایه:</span>
                         <span className="erp-proforma-stat-val">
-                          {currentPeriodConfig.label}
+                          {subtotalBeforeVat.toLocaleString('fa-IR')} تومان
                         </span>
                       </div>
                       <div className="erp-proforma-stat-item">
-                        <span className="erp-proforma-stat-label">مبلغ کل فاکتور:</span>
-                        <span className="erp-proforma-stat-val" style={{ color: '#0284c7', fontSize: '15px' }}>
+                        <span className="erp-proforma-stat-label">مالیات بر ارزش افزوده (۱۰٪):</span>
+                        <span className="erp-proforma-stat-val" style={{ color: '#0284c7' }}>
+                          +{vatAmount.toLocaleString('fa-IR')} تومان
+                        </span>
+                      </div>
+                      <div className="erp-proforma-stat-item" style={{ gridColumn: '1 / -1' }}>
+                        <span className="erp-proforma-stat-label">مبلغ کل قابل پرداخت با ۱۰٪ مالیات:</span>
+                        <span className="erp-proforma-stat-val" style={{ color: '#16a34a', fontSize: '16px', fontWeight: 900 }}>
                           {finalCalculatedAmount.toLocaleString('fa-IR')} تومان
                         </span>
                       </div>

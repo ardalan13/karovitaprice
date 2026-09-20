@@ -1,711 +1,613 @@
 export const DEFAULT_MODULES = [
   {
-    "id": "mail",
-    "title": "گفتگو",
-    "price": 250000,
-    "category": "productivity",
-    "description": "پیام‌رسان داخلی، کانال‌های گفتگو و ارتباط بین پرسنل",
-    "dependencies": [
-      "contacts"
-    ],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "contracting_projects",
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "calendar",
-    "title": "گاهشمار و کارکرد",
-    "price": 250000,
-    "category": "productivity",
-    "description": "تقویم کاری، زمان‌بندی جلسات و یادآوری رویدادها",
+    "id": "account",
+    "title": "حسابداری",
+    "category": "عمومی",
+    "price": 300000,
     "dependencies": [
       "mail",
-      "contacts"
+      "contacts",
+      "sale"
     ],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "contracting_projects",
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
+    "industries": [],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-14 05:54:49",
+    "deleted_at": null
   },
   {
     "id": "activities",
     "title": "اقدامات و پیگیری‌ها",
-    "price": 250000,
-    "category": "management",
-    "description": "ثبت وظایف روزانه، پیگیری امور و یادآور تماس‌ها",
-    "dependencies": [
-      "mail",
-      "calendar"
-    ],
-    "industries": [
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "survey",
-    "title": "فرم‌ساز و فرآیندها",
-    "price": 250000,
-    "category": "marketing",
-    "description": "ساخت انواع فرم‌های سفارشی، پرسشنامه و جمع‌آوری داده",
-    "dependencies": [
-      "contacts",
-      "crm"
-    ],
-    "industries": [
-      "real_estate",
-      "healthcare_clinic",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "contacts",
-    "title": "مخاطبان و اشخاص",
-    "price": 0,
-    "category": "sales",
-    "description": "دفترچه تلفن یکپارچه و پرونده مشخصات اشخاص و شرکت‌ها",
-    "dependencies": [],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "contracting_projects",
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "crm",
-    "title": "مدیریت ارتباط با مشتری (CRM)",
-    "price": 800000,
-    "category": "sales",
-    "description": "مدیریت ارتباط با مشتریان و رهگیری خط لوله فرصت‌های فروش",
+    "category": "عمومی",
+    "price": 90000,
     "dependencies": [
       "mail",
       "calendar",
       "contacts",
-      "activities"
-    ],
-    "industries": [
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "sale",
-    "title": "فروش و پیش‌فاکتور",
-    "price": 250000,
-    "category": "sales",
-    "description": "صدور پیش‌فاکتور، سفارشات فروش، امضای الکترونیک و نرخ‌نامه",
-    "dependencies": [
-      "crm",
-      "account",
-      "mail",
-      "contacts",
-      "activities"
-    ],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "real_estate",
-      "medical_pharma",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "account",
-    "title": "حسابداری پایه",
-    "price": 250000,
-    "category": "finance",
-    "description": "اسناد دوبل، تراز آزمایشی، سود و زیان، دفاتر مالی و استهلاک",
-    "dependencies": [
-      "mail",
-      "contacts"
-    ],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "contracting_projects",
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "project",
-    "title": "پروژه",
-    "price": 1000000,
-    "category": "management",
-    "description": "مدیریت پروژه‌ها، بردهای کانبان، نمودار گانت و مایل‌استون‌ها",
-    "dependencies": [
-      "mail",
-      "contacts",
-      "activities",
-      "hr"
-    ],
-    "industries": [
-      "contracting_projects",
-      "it_software",
-      "advertising_marketing",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "hr",
-    "title": "کارمندان پایه",
-    "price": 250000,
-    "category": "hr",
-    "description": "پرونده الکترونیک پرسنل، چارت سازمانی و مهارت‌های فردی",
-    "dependencies": [
-      "mail",
-      "contacts"
-    ],
-    "industries": [
-      "manufacturing",
-      "commerce_trade",
-      "distribution_logistics",
-      "contracting_projects",
-      "real_estate",
-      "healthcare_clinic",
-      "medical_pharma",
-      "it_software",
-      "education_academy",
-      "legal_law",
-      "immigration",
-      "advertising_marketing",
-      "insurance_agency",
-      "consulting_finance",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "hr_attendance",
-    "title": "حضور و غیاب پرسنل",
-    "price": 250000,
-    "category": "hr",
-    "description": "ثبت ورود و خروج، محاسبه اضافه‌کاری و کسر کار پرسنل",
-    "dependencies": [
-      "hr"
-    ],
-    "industries": [
-      "manufacturing",
-      "distribution_logistics",
-      "healthcare_clinic",
-      "education_academy",
-      "services_maintenance"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "hr_recruitment",
-    "title": "استخدام و جذب نیرو",
-    "price": 250000,
-    "category": "hr",
-    "description": "پایگاه کارجویان، مصاحبه‌های استخدامی و گردش جذب نیرو",
-    "dependencies": [
-      "hr",
-      "survey",
-      "mail",
-      "calendar",
-      "contacts"
-    ],
-    "industries": [
-      "manufacturing",
-      "it_software",
-      "education_academy",
-      "advertising_marketing"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "hr_holidays",
-    "title": "مرخصی و ماموریت",
-    "price": 250000,
-    "category": "hr",
-    "description": "ثبت و گردش تایید مرخصی استحقاقی، استعلاجی و ماموریت",
-    "dependencies": [
-      "hr",
-      "contacts",
-      "calendar",
-      "activities"
-    ],
-    "industries": [
-      "manufacturing",
-      "distribution_logistics",
-      "healthcare_clinic",
-      "it_software",
-      "education_academy"
-    ],
-    "is_active": true
-  },
-  {
-    "id": "hr_contract",
-    "title": "قرارداد کارمند",
-    "price": 250000,
-    "category": "hr",
-    "description": "احکام اداری، ثبت قراردادهای استخدامی و تاریخ‌های تمدید",
-    "dependencies": [
-      "hr"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "hr_payroll",
-    "title": "حقوق و دستمزد",
-    "price": 250000,
-    "category": "hr",
-    "description": "محاسبه فیش حقوقی مطابق قانون کار، دیسکت بیمه و فایل بانکی",
-    "dependencies": [
-      "hr"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "barcode",
-    "title": "بارکد",
-    "price": 250000,
-    "category": "logistics",
-    "description": "اسکنر بارکدخوان پرتابل برای ورود کالا، انبارگردانی و خروج بار",
-    "dependencies": [
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "survey_feedback",
-    "title": "نظرسنجی ها",
-    "price": 250000,
-    "category": "marketing",
-    "description": "پرسشنامه‌های آنلاین و سنجش سطح رضایت مشتریان و پرسنل",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "appointment",
-    "title": "قرار ملاقات",
-    "price": 250000,
-    "category": "productivity",
-    "description": "لینک تقویم شخصی جهت رزرو آنلاین وقت و جلسه توسط مشتریان",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "im_livechat",
-    "title": "چت انلاین",
-    "price": 250000,
-    "category": "marketing",
-    "description": "ابزارک گفتگوی زنده با کاربران و مشتریان روی وب‌سایت",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "marketing_automation",
-    "title": "اتوماسیون بازاریابی",
-    "price": 250000,
-    "category": "marketing",
-    "description": "طراحی مسیر تعامل خودکار، پیام‌های مناسبتی و پیگیری سرنخ‌ها",
-    "dependencies": [
-      "crm"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "fleet",
-    "title": "ناوگان",
-    "price": 250000,
-    "category": "hr",
-    "description": "پرونده خودروها، سوابق بیمه، مصرف سوخت و رانندگان سازمانی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "planning",
-    "title": "برنامه ریزی",
-    "price": 250000,
-    "category": "management",
-    "description": "زمان‌بندی شیفت‌های کاری، تخصیص نیروها و تقویم تیمی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "event",
-    "title": "رویداد",
-    "price": 250000,
-    "category": "marketing",
-    "description": "مدیریت وبینارها، همایش‌ها، ثبت‌نام و بلیت‌فروشی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "knowledge",
-    "title": "دانش",
-    "price": 250000,
-    "category": "productivity",
-    "description": "پایگاه دانش سازمانی، راهنماهای آموزشی و ویکی مستندات تیمی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "maintenance",
-    "title": "نگهداری و تعمیرات",
-    "price": 250000,
-    "category": "production",
-    "description": "تعمیرات دوره‌ای پیشگیرانه (PM) و خرابی ماشین‌آلات فنی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "documents",
-    "title": "اسناد",
-    "price": 250000,
-    "category": "productivity",
-    "description": "آرشیو امن ابری مدارک، پوشه‌بندی سازمانی و شناسایی اسناد",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "hr_timesheet",
-    "title": "برگه ساعت کارکرد",
-    "price": 250000,
-    "category": "management",
-    "description": "ثبت کارکرد ساعتی پرسنل بر روی تسک‌ها و کنترل راندمان",
-    "dependencies": [
       "project"
     ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "hr_expense",
-    "title": "هزینه ها",
-    "price": 250000,
-    "category": "finance",
-    "description": "ثبت فاکتورهای تنخواه، هزینه‌های جاری اداری و تاییدات مدیران",
-    "dependencies": [
-      "account"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "purchase",
-    "title": "خرید و تدارکات",
-    "price": 250000,
-    "category": "logistics",
-    "description": "درخواست استعلام قیمت، سفارش خرید سازمانی و ارزیابی تامین‌کننده",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "stock",
-    "title": "انبار و کالا",
-    "price": 250000,
-    "category": "logistics",
-    "description": "کاردکس کالا، کنترل موجودی چندانباره و نقطه سفارش خودکار",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "mrp",
-    "title": "تولید",
-    "price": 250000,
-    "category": "production",
-    "description": "فرمول ساخت کالا (BOM)، سفارشات کارگاهی و بهای تمام‌شده",
-    "dependencies": [
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "pos",
-    "title": "صندوق",
-    "price": 250000,
-    "category": "sales",
-    "description": "صندوق فروشگاهی لمسی، بارکدخوان، پوز بانکی و کارکرد آفلاین",
-    "dependencies": [
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "account_invoicing",
-    "title": "فاکتور",
-    "price": 250000,
-    "category": "finance",
-    "description": "صدور پیش‌فاکتور و فاکتور رسمی، لینک پرداخت و مالیات",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "account_budget",
-    "title": "بودجه",
-    "price": 250000,
-    "category": "finance",
-    "description": "بودجه‌بندی فصلی، کنترل هزینه‌های واقعی و گزارش انحراف",
-    "dependencies": [
-      "account"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "website",
-    "title": "وب‌سایت",
-    "price": 250000,
-    "category": "marketing",
-    "description": "صفحه‌ساز بصری درگ‌اند‌دراپ، سئو پیشرفته و وبلاگ سازمانی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "website_sale",
-    "title": "فروشگاه",
-    "price": 250000,
-    "category": "marketing",
-    "description": "فروشگاه آنلاین کالا با درگاه پرداخت شاپرک و اتصال به انبار",
-    "dependencies": [
-      "website",
-      "sale",
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "sign",
-    "title": "امضا",
-    "price": 250000,
-    "category": "productivity",
-    "description": "امضای امن دیجیتالی اسناد، فرم‌ها و قراردادهای شرکتی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "helpdesk",
-    "title": "پشتیبانی",
-    "price": 250000,
-    "category": "management",
-    "description": "میز خدمت، پورتال تیکت مشتریان و زمان‌بندی پاسخگویی SLA",
-    "dependencies": [],
     "industries": [
-      "it_software",
-      "services_maintenance"
+      "education_academy",
+      "distribution_logistics",
+      "immigration"
     ],
-    "is_active": true
-  },
-  {
-    "id": "field_service",
-    "title": "خدمات در محل",
-    "price": 250000,
-    "category": "management",
-    "description": "اعزام تکنسین فنی روی نقشه، ثبت قطعات و امضای مشتری",
-    "dependencies": [
-      "project",
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "quality_control",
-    "title": "کنترل کیفیت",
-    "price": 250000,
-    "category": "production",
-    "description": "آزمون‌های استاندارد در خط تولید، انبار ورودی و گزارش عدم انطباق",
-    "dependencies": [
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "voip",
-    "title": "تلفن ابری",
-    "price": 250000,
-    "category": "productivity",
-    "description": "اتصال به سانترال و تلفن اینترنتی با پاپ‌آپ پرونده مشتری",
-    "dependencies": [
-      "crm"
-    ],
-    "industries": [],
-    "is_active": false
-  },
-  {
-    "id": "iot",
-    "title": "اینترنت اشیا",
-    "price": 250000,
-    "category": "productivity",
-    "description": "اتصال سخت‌افزارهای ترازو، بارکدخوان و سنسورهای صنعتی خط تولید",
-    "dependencies": [
-      "stock"
-    ],
-    "industries": [],
-    "is_active": false
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:47:07",
+    "deleted_at": null
   },
   {
     "id": "ai_assistant",
     "title": "هوش مصنوعی",
-    "price": 250000,
     "category": "productivity",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
     "description": "نگارش هوشمند متون، تحلیل روند فروش و پیش‌بینی تقاضا",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
   },
   {
-    "id": "mass_mailing",
-    "title": "ایمیل مارکتینگ",
-    "price": 250000,
-    "category": "marketing",
-    "description": "ارسال ایمیل‌های تبلیغاتی انبوه، بخش‌بندی و گزارش نرخ بازگشایی",
-    "dependencies": [],
-    "industries": [],
-    "is_active": false
+    "id": "calendar",
+    "title": "گاهشمار",
+    "category": "عمومی",
+    "price": 0,
+    "dependencies": [
+      "mail",
+      "contacts"
+    ],
+    "industries": [
+      "medical_pharma",
+      "it_software",
+      "healthcare_clinic",
+      "immigration",
+      "legal_law",
+      "real_estate",
+      "services_maintenance",
+      "manufacturing",
+      "insurance_agency",
+      "contracting_projects",
+      "advertising_marketing",
+      "commerce_trade",
+      "distribution_logistics",
+      "education_academy",
+      "consulting_finance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:38:17",
+    "deleted_at": null
   },
   {
-    "id": "mass_mailing_sms",
-    "title": "پیامک",
-    "price": 250000,
-    "category": "marketing",
-    "description": "سامانه ارسال پیامک انبوه اطلاع‌رسانی، تخفیف و مناسبتی",
+    "id": "contacts",
+    "title": "مخاطبان و اشخاص",
+    "category": "عمومی",
+    "price": 0,
     "dependencies": [],
     "industries": [
-      "healthcare_clinic",
-      "education_academy",
       "advertising_marketing",
-      "insurance_agency"
+      "commerce_trade",
+      "consulting_finance",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "healthcare_clinic",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
     ],
-    "is_active": true
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:38:51",
+    "deleted_at": null
+  },
+  {
+    "id": "crm",
+    "title": "مدیریت ارتباط با مشتری (CRM)",
+    "category": "عمومی",
+    "price": 350000,
+    "dependencies": [
+      "mail",
+      "calendar",
+      "contacts"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "commerce_trade",
+      "consulting_finance",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "healthcare_clinic",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:40:18",
+    "deleted_at": null
+  },
+  {
+    "id": "helpdesk",
+    "title": "پشتیبانی",
+    "category": "management",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
+    "description": "میز خدمت، پورتال تیکت مشتریان و زمان‌بندی پاسخگویی SLA",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-13 11:47:54",
+    "deleted_at": null
+  },
+  {
+    "id": "hr",
+    "title": "کارمندان",
+    "category": "عمومی",
+    "price": 130000,
+    "dependencies": [
+      "mail",
+      "contacts",
+      "calendar"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "commerce_trade",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "healthcare_clinic",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:42:25",
+    "deleted_at": null
+  },
+  {
+    "id": "hr_attendance",
+    "title": "حضور و غیاب پرسنل",
+    "category": "عمومی",
+    "price": 100000,
+    "dependencies": [
+      "mail",
+      "calendar",
+      "contacts",
+      "hr"
+    ],
+    "industries": [
+      "contracting_projects",
+      "education_academy",
+      "healthcare_clinic",
+      "it_software",
+      "manufacturing"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:42:48",
+    "deleted_at": null
+  },
+  {
+    "id": "hr_holidays",
+    "title": "مرخصی و ماموریت",
+    "category": "عمومی",
+    "price": 50000,
+    "dependencies": [
+      "hr",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
+    "industries": [
+      "real_estate",
+      "medical_pharma",
+      "healthcare_clinic",
+      "insurance_agency",
+      "immigration",
+      "legal_law"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:47:33",
+    "deleted_at": null
+  },
+  {
+    "id": "hr_payroll",
+    "title": "حقوق و دستمزد",
+    "category": "hr",
+    "price": 250000,
+    "dependencies": [
+      "hr"
+    ],
+    "industries": [],
+    "description": "محاسبه فیش حقوقی مطابق قانون کار، دیسکت بیمه و فایل بانکی",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
+  },
+  {
+    "id": "hr_recruitment",
+    "title": "استخدام و جذب نیرو",
+    "category": "عمومی",
+    "price": 80000,
+    "dependencies": [
+      "hr",
+      "mail",
+      "calendar",
+      "contacts"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "education_academy",
+      "contracting_projects",
+      "consulting_finance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:47:19",
+    "deleted_at": null
+  },
+  {
+    "id": "hr_timesheet",
+    "title": "برگه ساعت کارکرد",
+    "category": "management",
+    "price": 250000,
+    "dependencies": [
+      "project"
+    ],
+    "industries": [],
+    "description": "ثبت کارکرد ساعتی پرسنل بر روی تسک‌ها و کنترل راندمان",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
+  },
+  {
+    "id": "im_livechat",
+    "title": "چت انلاین",
+    "category": "marketing",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
+    "description": "ابزارک گفتگوی زنده با کاربران و مشتریان روی وب‌سایت",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
+  },
+  {
+    "id": "knowledge",
+    "title": "دانش",
+    "category": "productivity",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
+    "description": "پایگاه دانش سازمانی، راهنماهای آموزشی و ویکی مستندات تیمی",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
   },
   {
     "id": "loyalty",
     "title": "باشگاه مشتریان",
-    "price": 250000,
     "category": "sales",
+    "price": 250000,
+    "dependencies": [
+      "sale"
+    ],
+    "industries": [],
     "description": "امتیاز خرید، بن‌های هدیه، کوپن تخفیف و کارت وفاداری",
-    "dependencies": [
-      "sale"
-    ],
-    "industries": [],
-    "is_active": false
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
   },
   {
-    "id": "sale_subscription",
-    "title": "اشتراک",
-    "price": 250000,
-    "category": "sales",
-    "description": "صدور صورت‌حساب دوره‌ای، قراردادهای آبونمان و تمدید خودکار",
+    "id": "mail",
+    "title": "گفتگو",
+    "category": "عمومی",
+    "price": 0,
     "dependencies": [
-      "sale"
+      "contacts"
     ],
-    "industries": [],
-    "is_active": false
+    "industries": [
+      "advertising_marketing",
+      "commerce_trade",
+      "consulting_finance",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "healthcare_clinic",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:39:17",
+    "deleted_at": null
   },
   {
-    "id": "sale_renting",
-    "title": "اجاره",
-    "price": 250000,
-    "category": "sales",
-    "description": "قراردادهای کرایه کالا، تقویم تحویل و عودت و بیمه تجهیزات",
-    "dependencies": [
-      "sale"
-    ],
+    "id": "mass_mailing_sms",
+    "title": "پیامک",
+    "category": "marketing",
+    "price": 100000,
+    "dependencies": [],
     "industries": [],
-    "is_active": false
+    "description": "سامانه ارسال پیامک انبوه اطلاع‌رسانی، تخفیف و مناسبتی",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-13 11:49:35",
+    "deleted_at": null
+  },
+  {
+    "id": "project",
+    "title": "پروژه",
+    "category": "عمومی",
+    "price": 150000,
+    "dependencies": [
+      "mail",
+      "contacts",
+      "calendar"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "consulting_finance",
+      "contracting_projects",
+      "immigration",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-15 14:41:38",
+    "deleted_at": null
+  },
+  {
+    "id": "sale",
+    "title": "فروش",
+    "category": "عمومی",
+    "price": 250000,
+    "dependencies": [
+      "mail",
+      "contacts",
+      "calendar"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "commerce_trade",
+      "consulting_finance",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 05:44:36",
+    "deleted_at": null
+  },
+  {
+    "id": "stock",
+    "title": "انبار و کالا",
+    "category": "logistics",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
+    "description": "کاردکس کالا، کنترل موجودی چندانباره و نقطه سفارش خودکار",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
+  },
+  {
+    "id": "survey",
+    "title": "فرم‌ساز",
+    "category": "عمومی",
+    "price": 150000,
+    "dependencies": [
+      "contacts",
+      "calendar",
+      "mail"
+    ],
+    "industries": [
+      "advertising_marketing",
+      "commerce_trade",
+      "consulting_finance",
+      "contracting_projects",
+      "distribution_logistics",
+      "education_academy",
+      "healthcare_clinic",
+      "immigration",
+      "insurance_agency",
+      "it_software",
+      "legal_law",
+      "manufacturing",
+      "medical_pharma",
+      "real_estate",
+      "services_maintenance"
+    ],
+    "description": "",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 05:44:43",
+    "deleted_at": null
+  },
+  {
+    "id": "survey_feedback",
+    "title": "نظرسنجی ها",
+    "category": "marketing",
+    "price": 250000,
+    "dependencies": [],
+    "industries": [],
+    "description": "پرسشنامه‌های آنلاین و سنجش سطح رضایت مشتریان و پرسنل",
+    "is_core": false,
+    "is_recommended": false,
+    "icon": "Package",
+    "badge": null,
+    "status": "active",
+    "is_active": false,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-10 06:10:07",
+    "deleted_at": null
   }
 ];
 
@@ -713,317 +615,466 @@ export const DEFAULT_PRESETS = [
   {
     "id": "advertising_marketing",
     "title": "تبلیغات، مارکتینگ و روابط عمومی",
-    "icon": "Megaphone",
     "category": "صنف",
+    "icon": "Megaphone",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
+    "mandatory_modules": [
+      "calendar",
       "contacts",
       "mail",
+      "crm"
+    ],
+    "default_modules": [
+      "contacts",
       "crm",
       "project",
       "sale",
-      "hr",
       "calendar",
-      "survey",
-      "hr_recruitment"
+      "activities",
+      "mass_mailing_sms",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:16:02",
+    "deleted_at": null
   },
   {
     "id": "commerce_trade",
     "title": "بازرگانی، واردات و صادرات",
-    "icon": "Ship",
     "category": "صنف",
+    "icon": "Ship",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "sale",
+      "activities",
+      "contacts",
+      "mail",
+      "calendar"
+    ],
     "default_modules": [
       "sale",
       "contacts",
       "crm",
-      "mail",
       "hr",
-      "calendar",
-      "survey"
+      "activities",
+      "mass_mailing_sms",
+      "mail",
+      "calendar"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:15:12",
+    "deleted_at": null
   },
   {
     "id": "consulting_finance",
     "title": "مشاوره مدیریت و خدمات مالی",
-    "icon": "BarChart3",
     "category": "صنف",
+    "icon": "BarChart3",
     "description": "",
     "mandatory_modules": [
-      "account",
-      "hr"
+      "activities",
+      "project",
+      "calendar",
+      "contacts",
+      "mail"
     ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
       "project",
       "calendar",
       "survey",
-      "hr_recruitment"
+      "hr",
+      "activities",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:17:05",
+    "deleted_at": null
   },
   {
     "id": "contracting_projects",
-    "title": "پیمانکاری و پروژهمحور",
-    "icon": "Building2",
+    "title": "پیمانکاری و پروژه‌محور",
     "category": "صنف",
+    "icon": "Building2",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
+    "mandatory_modules": [
+      "project",
+      "activities",
       "contacts",
       "sale",
-      "crm",
+      "calendar",
+      "mail"
+    ],
+    "default_modules": [
       "project",
       "hr",
-      "mail",
       "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "contacts",
+      "sale",
       "calendar",
-      "survey",
-      "hr_recruitment"
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:18:03",
+    "deleted_at": null
   },
   {
     "id": "distribution_logistics",
     "title": "پخش، انبارداری و توزیع",
-    "icon": "Truck",
     "category": "صنف",
+    "icon": "Truck",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "activities",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "sale",
       "contacts",
-      "crm",
+      "activities",
+      "mass_mailing_sms",
       "hr",
-      "mail",
+      "hr_holidays",
+      "hr_attendance",
       "calendar",
-      "survey",
-      "activities"
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:18:37",
+    "deleted_at": null
   },
   {
     "id": "education_academy",
-    "title": "آموزشگاهها و مراکز علمی",
-    "icon": "GraduationCap",
+    "title": "آموزشگاه‌ها و مراکز علمی",
     "category": "صنف",
+    "icon": "GraduationCap",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "survey",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
       "hr",
-      "hr_attendance",
       "calendar",
       "survey",
       "activities",
-      "hr_recruitment"
+      "mass_mailing_sms",
+      "mail",
+      "project"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:19:59",
+    "deleted_at": null
   },
   {
     "id": "healthcare_clinic",
     "title": "کلینیک، سلامت و درمان",
-    "icon": "Stethoscope",
     "category": "صنف",
+    "icon": "Stethoscope",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "survey",
+      "calendar",
+      "activities",
+      "contacts",
+      "hr",
+      "hr_attendance",
+      "project",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
-      "crm",
       "hr",
       "hr_attendance",
       "calendar",
       "survey",
+      "mass_mailing_sms",
+      "activities",
+      "project",
+      "mail",
+      "hr_recruitment",
       "hr_holidays"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:21:04",
+    "deleted_at": null
   },
   {
     "id": "immigration",
     "title": "مؤسسات مهاجرتی",
-    "icon": "Plane",
     "category": "صنف",
+    "icon": "Plane",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "mail",
       "crm",
-      "sale",
-      "project",
-      "hr",
       "calendar",
       "survey",
       "activities",
-      "hr_holidays"
+      "mass_mailing_sms",
+      "mail",
+      "project"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:27:26",
+    "deleted_at": null
   },
   {
     "id": "insurance_agency",
-    "title": "بیمه و نمایندگیها",
-    "icon": "ShieldCheck",
+    "title": "بیمه و نمایندگی‌ها",
     "category": "صنف",
+    "icon": "ShieldCheck",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "mail",
+    "mandatory_modules": [
       "crm",
       "sale",
-      "hr",
+      "calendar",
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "sale",
       "calendar",
       "survey",
-      "hr_holidays"
+      "activities",
+      "mass_mailing_sms",
+      "project",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:24:07",
+    "deleted_at": null
   },
   {
     "id": "it_software",
-    "title": "فناوری اطلاعات و نرمافزار",
-    "icon": "Laptop",
+    "title": "فناوری اطلاعات و نرم‌افزار",
     "category": "صنف",
+    "icon": "Laptop",
     "description": "",
     "mandatory_modules": [
-      "calendar"
+      "project",
+      "activities",
+      "mail",
+      "calendar",
+      "contacts"
     ],
     "default_modules": [
-      "contacts",
       "mail",
-      "sale",
       "crm",
       "project",
       "hr",
-      "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "hr_recruitment",
       "calendar",
-      "survey"
+      "contacts"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:25:19",
+    "deleted_at": null
   },
   {
     "id": "legal_law",
     "title": "مؤسسات حقوقی و داوری",
-    "icon": "Scale",
     "category": "صنف",
+    "icon": "Scale",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "mail",
+    "mandatory_modules": [
       "crm",
-      "project",
-      "hr",
       "calendar",
       "survey",
-      "hr_holidays"
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "project",
+      "survey",
+      "activities",
+      "calendar",
+      "mass_mailing_sms",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:26:54",
+    "deleted_at": null
   },
   {
     "id": "manufacturing",
     "title": "تولیدی و صنعتی",
-    "icon": "Factory",
     "category": "صنف",
+    "icon": "Factory",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "sale",
+      "activities",
+      "contacts",
+      "project",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
       "sale",
-      "crm",
-      "mail",
-      "project",
       "hr",
       "hr_attendance",
+      "activities",
+      "hr_holidays",
+      "project",
       "calendar",
-      "survey"
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:28:07",
+    "deleted_at": null
   },
   {
     "id": "medical_pharma",
     "title": "تجهیزات پزشکی و دارویی",
-    "icon": "Pill",
     "category": "صنف",
+    "icon": "Pill",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "crm",
+      "sale",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "sale",
       "contacts",
       "crm",
-      "project",
-      "mail",
-      "calendar",
-      "survey",
       "hr_holidays",
-      "hr"
+      "activities",
+      "mass_mailing_sms",
+      "project",
+      "calendar",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:30:52",
+    "deleted_at": null
   },
   {
     "id": "real_estate",
     "title": "املاک و مستغلات",
-    "icon": "Building",
     "category": "صنف",
+    "icon": "Building",
     "description": "",
-    "mandatory_modules": [],
-    "default_modules": [
-      "contacts",
-      "sale",
+    "mandatory_modules": [
       "crm",
-      "hr",
-      "mass_mailing_sms",
-      "mail",
       "calendar",
       "survey",
-      "hr_holidays"
+      "contacts",
+      "mail"
+    ],
+    "default_modules": [
+      "contacts",
+      "crm",
+      "mass_mailing_sms",
+      "calendar",
+      "survey",
+      "activities",
+      "project",
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:31:29",
+    "deleted_at": null
   },
   {
     "id": "services_maintenance",
     "title": "خدماتی، تأسیساتی و تعمیرات",
-    "icon": "Wrench",
     "category": "صنف",
+    "icon": "Wrench",
     "description": "",
-    "mandatory_modules": [],
+    "mandatory_modules": [
+      "activities",
+      "project",
+      "sale",
+      "contacts",
+      "calendar",
+      "mail"
+    ],
     "default_modules": [
       "contacts",
-      "sale",
-      "mail",
-      "crm",
       "project",
       "hr",
+      "activities",
+      "mass_mailing_sms",
+      "sale",
+      "hr_attendance",
       "calendar",
-      "survey"
+      "mail"
     ],
     "popular": false,
-    "is_active": true
+    "status": "active",
+    "is_active": true,
+    "created_at": "2026-09-10 06:10:07",
+    "updated_at": "2026-09-16 10:33:41",
+    "deleted_at": null
   }
 ];
 

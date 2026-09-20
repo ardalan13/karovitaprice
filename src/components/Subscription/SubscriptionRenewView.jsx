@@ -31,6 +31,7 @@ import {
 import { api } from '../../services/api';
 import { DEFAULT_MODULES } from '../PricingConfigurator/configuratorData';
 import { getModulePersianTitle } from './SubscriptionDetailsModal';
+import { calculateSubscriptionMonths } from '../../utils/subscriptionPeriod';
 
 const ERP_PORTAL_URL = 'https://crm.karovita.ir';
 
@@ -232,7 +233,9 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
   const sameSpecExtraUsers = Math.max(initialUserCount - baseUserLimit, 0);
   const sameSpecExtraCost = sameSpecExtraUsers * extraUserPrice;
   const sameSpecMonthlyTotal = sameSpecModulesSum + sameSpecExtraCost;
-  const sameSpecYearlyTotal = Math.round(sameSpecMonthlyTotal * (PERIOD_CONFIG['yearly']?.multiplier || 10));
+  const sameSpecYearlyBase = Math.round(sameSpecMonthlyTotal * (PERIOD_CONFIG['yearly']?.multiplier || 10));
+  const sameSpecVat = Math.round(sameSpecYearlyBase * 0.10);
+  const sameSpecYearlyTotal = sameSpecYearlyBase + sameSpecVat;
 
   // 2. Calculation for Customized Edit Mode Renewal (Card B)
   const editedModulesObjects = useMemo(() => {
@@ -256,7 +259,9 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
   const editedExtraUsers = Math.max(userCount - baseUserLimit, 0);
   const editedExtraCost = editedExtraUsers * extraUserPrice;
   const editedMonthlyTotal = editedModulesSum + editedExtraCost;
-  const editedFinalAmount = Math.round(editedMonthlyTotal * billingMultiplier);
+  const editedSubtotal = Math.round(editedMonthlyTotal * billingMultiplier);
+  const editedVat = Math.round(editedSubtotal * 0.10);
+  const editedFinalAmount = editedSubtotal + editedVat;
 
   // Toggle module selection in edit mode
   const handleToggleModule = (moduleId) => {
@@ -297,12 +302,11 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
         })
       });
 
-      if (res && res.payment_url) {
-        window.location.href = res.payment_url;
-      } else if (res && (res.order_id || res.id)) {
-        window.location.href = `/api/payments/zibal/callback?orderId=${res.order_id || res.id}&success=1&status=2`;
+      const paymentUrl = res?.data?.payment_url || res?.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
-        throw new Error(res.message || 'خطا در صدور پیش‌فاکتور پرداخت.');
+        throw new Error(res?.message || 'خطا در صدور پیش‌فاکتور و اتصال به درگاه پرداخت شاپرک.');
       }
     } catch (err) {
       setErrorBanner(err.message || 'خطا در برقراری ارتباط با سرور.');
@@ -358,13 +362,26 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
     });
   }, [selectedAddonModuleIds, allModules]);
 
-  // Addon period and pricing calculation
+  // Calculate remaining duration until main subscription expires for add-on modules
+  const addonRemainingDays = useMemo(() => {
+    if (!subscription?.expires_at) return 30;
+    const diff = new Date(subscription.expires_at).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [subscription?.expires_at]);
+
+  // Real calendar month calculation: DAYS_IN_MONTH = 365 / 12 with smart calendar rounding
+  const addonRemainingMonths = useMemo(() => {
+    return calculateSubscriptionMonths(addonRemainingDays);
+  }, [addonRemainingDays]);
+
   const addonBillingPeriod = subscription?.billing_period || 'yearly';
-  const addonPeriodMultiplier = (PERIOD_CONFIG[addonBillingPeriod] || PERIOD_CONFIG['yearly']).multiplier;
   const addonMonthlyBase = useMemo(() => {
     return selectedAddonObjects.reduce((acc, m) => acc + (Number(m.price) || 0), 0);
   }, [selectedAddonObjects]);
-  const finalAddonAmount = Math.round(addonMonthlyBase * addonPeriodMultiplier);
+
+  const addonSubtotal = addonMonthlyBase * addonRemainingMonths;
+  const addonVat = Math.round(addonSubtotal * 0.10);
+  const finalAddonAmount = addonSubtotal + addonVat;
 
   // Toggle selection of addon module (with automatic dependency addition)
   const handleToggleAddonModule = (moduleId) => {
@@ -404,19 +421,21 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
           billing_period: addonBillingPeriod,
           amount: finalAddonAmount,
           final_amount: finalAddonAmount,
-          subtotal: addonMonthlyBase,
+          subtotal: addonSubtotal,
+          vat_amount: addonVat,
+          remaining_months: addonRemainingMonths,
+          remaining_days: addonRemainingDays,
           order_type: 'resource_upgrade',
           is_resource_addon: true,
           subscription_id: subscription.id
         })
       });
 
-      if (res && res.payment_url) {
-        window.location.href = res.payment_url;
-      } else if (res && (res.order_id || res.id)) {
-        window.location.href = `/api/payments/zibal/callback?orderId=${res.order_id || res.id}&success=1&status=2`;
+      const paymentUrl = res?.data?.payment_url || res?.payment_url;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
       } else {
-        throw new Error(res.message || 'خطا در صدور سفارش ماژول‌ها.');
+        throw new Error(res?.message || 'خطا در صدور سفارش ماژول‌ها و اتصال به درگاه شاپرک.');
       }
     } catch (err) {
       setAddonError(err.message || 'خطا در برقراری ارتباط با درگاه پرداخت.');
@@ -463,11 +482,31 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
       </div>
 
       {errorBanner && (
-        <div className="erp-sub-alert-banner error" style={{ marginBottom: '20px' }}>
+        <div className="erp-sub-alert-banner error" style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertCircle size={18} />
             <span>{errorBanner}</span>
           </div>
+          {(errorBanner.includes('پرداخت‌نشده') || errorBanner.includes('پیش‌فاکتور')) && (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/dashboard?tab=payments';
+              }}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #f87171',
+                color: '#b91c1c',
+                borderRadius: '6px',
+                padding: '4px 10px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              مدیریت و لغو پیش‌فاکتور
+            </button>
+          )}
         </div>
       )}
 
@@ -903,7 +942,7 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
                       {selectedAddonModuleIds.length.toLocaleString('fa-IR')} ماژول انتخاب شده
                     </span>
                     <span style={{ fontSize: '12px', color: '#475569' }}>
-                      دوره محاسبه: {currentPeriodConfig.label} ({addonPeriodMultiplier.toLocaleString('fa-IR')} ماه)
+                      دوره محاسبه: {addonRemainingMonths.toLocaleString('fa-IR')} ماه سقف ({addonRemainingDays.toLocaleString('fa-IR')} روز باقیمانده)
                     </span>
                   </div>
 
@@ -951,7 +990,7 @@ export function SubscriptionRenewView({ subscription, user, onBack, onUpdated })
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                   <div style={{ textAlign: 'left' }}>
                     <div style={{ fontSize: '11px', color: '#64748b' }}>
-                      مبلغ نهایی قابل پرداخت:
+                      محاسبه {addonRemainingMonths.toLocaleString('fa-IR')} ماه باقیمانده (پایه {addonSubtotal.toLocaleString('fa-IR')} ت + ۱۰٪ ارزش افزوده):
                     </div>
                     <div style={{ fontSize: '18px', fontWeight: 900, color: '#16a34a' }}>
                       {finalAddonAmount.toLocaleString('fa-IR')}{' '}

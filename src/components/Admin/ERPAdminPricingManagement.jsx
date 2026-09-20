@@ -153,11 +153,13 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
   
   // Coupon Modal State
   const [couponModalOpen, setCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
   const [couponForm, setCouponForm] = useState({
     code: '',
     discount_type: 'percent',
     discount_value: 20,
     min_order_amount: '',
+    max_discount_amount: '',
     is_active: true,
   });
 
@@ -467,13 +469,26 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
     const targetModule = data?.modules?.find(m => m.id === moduleId);
     if (!targetModule) return;
 
+    // Resolve which presets currently include this module so preset
+    // assignments are preserved when only the price is being changed.
+    const currentPresets = (data?.presets || [])
+      .filter(p => {
+        const pMods = Array.isArray(p.default_modules) ? p.default_modules : [];
+        return pMods.includes(moduleId);
+      })
+      .map(p => p.id);
+
     setSavingModuleId(moduleId);
     try {
       await api('/admin/erp/modules', {
         method: 'POST',
         body: JSON.stringify({
-          ...targetModule,
+          id: targetModule.id,
+          title: targetModule.title,
           price: newPrice,
+          is_active: targetModule.is_active,
+          dependencies: targetModule.dependencies || [],
+          add_to_presets: currentPresets,
         }),
       });
       showSuccess(`قیمت ماژول «${targetModule.title}» بروزرسانی شد.`);
@@ -599,6 +614,32 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
   // -------------------------------------------------------------
   // Coupons Handlers
   // -------------------------------------------------------------
+  const openNewCouponModal = () => {
+    setEditingCoupon(null);
+    setCouponForm({
+      code: '',
+      discount_type: 'percent',
+      discount_value: 20,
+      min_order_amount: '',
+      max_discount_amount: '',
+      is_active: true,
+    });
+    setCouponModalOpen(true);
+  };
+
+  const handleEditCoupon = (coupon) => {
+    setEditingCoupon(coupon);
+    setCouponForm({
+      code: coupon.code,
+      discount_type: coupon.discount_type || 'percent',
+      discount_value: coupon.discount_value,
+      min_order_amount: coupon.min_order_amount || '',
+      max_discount_amount: coupon.max_discount_amount || '',
+      is_active: coupon.is_active !== false,
+    });
+    setCouponModalOpen(true);
+  };
+
   const handleSaveCoupon = async (e) => {
     e.preventDefault();
     if (!couponForm.code.trim() || !couponForm.discount_value) {
@@ -608,24 +649,53 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
     try {
       await api('/admin/erp/coupons', {
         method: 'POST',
-        body: JSON.stringify(couponForm),
+        body: JSON.stringify({
+          ...couponForm,
+          code: couponForm.code.trim().toUpperCase(),
+          discount_value: Number(couponForm.discount_value),
+          min_order_amount: couponForm.min_order_amount ? Number(couponForm.min_order_amount) : null,
+          max_discount_amount: couponForm.max_discount_amount ? Number(couponForm.max_discount_amount) : null,
+          is_active: couponForm.is_active ?? true,
+        }),
       });
       setCouponModalOpen(false);
-      showSuccess('کد تخفیف با موفقیت ذخیره شد.');
+      showSuccess(editingCoupon ? `کد تخفیف «${couponForm.code.toUpperCase()}» با موفقیت بروزرسانی شد.` : `کد تخفیف «${couponForm.code.toUpperCase()}» با موفقیت ذخیره شد.`);
       loadData();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || 'خطا در ذخیره کد تخفیف');
+    }
+  };
+
+  const handleToggleCouponActive = async (coupon) => {
+    try {
+      await api(`/admin/erp/coupons/${coupon.code}/toggle`, { method: 'POST' });
+      showSuccess(`وضعیت کد تخفیف «${coupon.code}» تغییر کرد.`);
+      loadData();
+    } catch (err) {
+      try {
+        await api('/admin/erp/coupons', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...coupon,
+            is_active: !coupon.is_active,
+          }),
+        });
+        showSuccess(`وضعیت کد تخفیف «${coupon.code}» تغییر کرد.`);
+        loadData();
+      } catch (err2) {
+        alert(err2.message || 'خطا در تغییر وضعیت کد تخفیف');
+      }
     }
   };
 
   const handleDeleteCoupon = async (code) => {
-    if (!window.confirm(`آیا از حذف کد تخفیف ${code} اطمینان دارید؟`)) return;
+    if (!window.confirm(`آیا از حذف کد تخفیف «${code}» اطمینان دارید؟`)) return;
     try {
       await api(`/admin/erp/coupons/${code}`, { method: 'DELETE' });
-      showSuccess('کد تخفیف حذف شد.');
+      showSuccess(`کد تخفیف «${code}» با موفقیت حذف شد.`);
       loadData();
     } catch (err) {
-      alert(err.message);
+      alert(err.message || 'خطا در حذف کد تخفیف');
     }
   };
 
@@ -783,10 +853,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
         )}
 
         {activeSubTab === 'coupons' && (
-          <button type="button" className="btn-add-tab-action" onClick={() => {
-            setCouponForm({ code: '', discount_type: 'percent', discount_value: 20, min_order_amount: '', is_active: true });
-            setCouponModalOpen(true);
-          }}>
+          <button type="button" className="btn-add-tab-action" onClick={openNewCouponModal}>
             <Plus size={16} />
             <span>افزودن کد تخفیف جدید</span>
           </button>
@@ -1377,37 +1444,76 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
       {/* ------------------------------------------------------------- */}
       {activeSubTab === 'coupons' && (
         <div className="erp-admin-section">
-          <div className="erp-admin-coupons-grid">
-            {(data?.coupons || []).map(coupon => (
-              <div key={coupon.code} className="erp-admin-coupon-card">
-                <div className="coupon-code-banner">
-                  <code>{coupon.code}</code>
-                  <span className={`status-pill ${coupon.is_active ? 'active' : 'inactive'}`}>
-                    {coupon.is_active ? 'فعال' : 'غیرفعال'}
-                  </span>
-                </div>
-                <div className="coupon-card-details">
-                  <p>
-                    <strong>میزان تخفیف:</strong>{' '}
-                    {coupon.discount_type === 'percent' ? `${coupon.discount_value} درصد` : money(coupon.discount_value)}
-                  </p>
-                  {coupon.min_order_amount && (
-                    <p><small>حداقل خرید: {money(coupon.min_order_amount)}</small></p>
-                  )}
-                </div>
-                <div className="coupon-card-actions">
-                  <button 
-                    type="button" 
-                    className="btn-icon-action delete"
-                    onClick={() => handleDeleteCoupon(coupon.code)}
-                    title="حذف کد تخفیف"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="erp-admin-intro-box">
+            <Tag size={20} color="#0870d1" />
+            <div>
+              <strong>مدیریت کدهای تخفیف سیستم:</strong>
+              <p>شما می‌توانید کدهای تخفیف درصدی یا مبلغ ثابت تعریف نمایید، حداقل مبلغ سفارش یا سقف تخفیف مشخص کنید و وضعیت فعال/غیرفعال بودن هر کد را به سادگی کنترل نمایید.</p>
+            </div>
           </div>
+
+          {(!data?.coupons || data.coupons.length === 0) ? (
+            <div className="erp-admin-empty-coupons">
+              <Tag size={44} color="#94a3b8" />
+              <h4>هیچ کد تخفیفی یافت نشد</h4>
+              <p>در حال حاضر کد تخفیفی در سامانه تعریف نشده است. جهت ساخت اولین کد تخفیف روی دکمه زیر کلیک نمایید.</p>
+              <button type="button" className="btn-add-tab-action" onClick={openNewCouponModal}>
+                <Plus size={16} />
+                <span>افزودن کد تخفیف جدید</span>
+              </button>
+            </div>
+          ) : (
+            <div className="erp-admin-coupons-grid">
+              {data.coupons.map(coupon => (
+                <div key={coupon.code} className="erp-admin-coupon-card">
+                  <div className="coupon-code-banner">
+                    <code>{coupon.code}</code>
+                    <button
+                      type="button"
+                      className={`status-pill clickable ${coupon.is_active ? 'active' : 'inactive'}`}
+                      onClick={() => handleToggleCouponActive(coupon)}
+                      title="برای تغییر وضعیت کلیک کنید"
+                    >
+                      {coupon.is_active ? '✓ فعال' : '✕ غیرفعال'}
+                    </button>
+                  </div>
+                  <div className="coupon-card-details">
+                    <p>
+                      <strong>میزان تخفیف:</strong>{' '}
+                      <span style={{ color: '#16a34a', fontWeight: 700 }}>
+                        {coupon.discount_type === 'percent' ? `${coupon.discount_value} درصد` : money(coupon.discount_value)}
+                      </span>
+                    </p>
+                    {coupon.max_discount_amount && coupon.discount_type === 'percent' && (
+                      <p><small>حداکثر تخفیف: {money(coupon.max_discount_amount)}</small></p>
+                    )}
+                    {coupon.min_order_amount && (
+                      <p><small>حداقل سفارش: {money(coupon.min_order_amount)}</small></p>
+                    )}
+                  </div>
+                  <div className="coupon-card-actions">
+                    <button 
+                      type="button" 
+                      className="btn-icon-action edit"
+                      onClick={() => handleEditCoupon(coupon)}
+                      title="ویرایش کد تخفیف"
+                      style={{ marginLeft: '6px' }}
+                    >
+                      <Edit3 size={15} />
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn-icon-action delete"
+                      onClick={() => handleDeleteCoupon(coupon.code)}
+                      title="حذف کد تخفیف"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1717,7 +1823,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
       )}
 
       {/* ------------------------------------------------------------- */}
-      {/* MODAL: ADD COUPON */}
+      {/* MODAL: ADD / EDIT COUPON */}
       {/* ------------------------------------------------------------- */}
       {couponModalOpen && (
         <div className="erp-modal-overlay" onClick={() => setCouponModalOpen(false)}>
@@ -1725,7 +1831,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
             <div className="erp-modal-head">
               <div className="head-title">
                 <Tag size={18} color="#0870d1" />
-                <h3>افزودن کد تخفیف جدید</h3>
+                <h3>{editingCoupon ? `ویرایش کد تخفیف «${editingCoupon.code}»` : 'افزودن کد تخفیف جدید'}</h3>
               </div>
               <button className="btn-close-modal" onClick={() => setCouponModalOpen(false)}>
                 <X size={18} />
@@ -1735,14 +1841,16 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
             <form onSubmit={handleSaveCoupon}>
               <div className="erp-modal-body">
                 <div className="form-group">
-                  <label>کد تخفیف (لاتین و بدون فاصله)</label>
+                  <label>کد تخفیف (لاتین و بدون فاصله) <span style={{ color: '#ef4444' }}>*</span></label>
                   <input 
                     type="text" 
                     placeholder="e.g. SUMMER20, DISCOUNT50"
                     value={couponForm.code}
                     onChange={e => setCouponForm({ ...couponForm, code: e.target.value.toUpperCase().replace(/\s+/g, '') })}
+                    disabled={!!editingCoupon}
                     required
                   />
+                  {editingCoupon && <small className="help-text">شناسه کد تخفیف قابل تغییر نیست.</small>}
                 </div>
 
                 <div className="form-group">
@@ -1757,7 +1865,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                 </div>
 
                 <div className="form-group">
-                  <label>مقدار تخفیف {couponForm.discount_type === 'percent' ? '(درصد)' : '(تومان)'}</label>
+                  <label>مقدار تخفیف {couponForm.discount_type === 'percent' ? '(درصد)' : '(تومان)'} <span style={{ color: '#ef4444' }}>*</span></label>
                   <input 
                     type="number"
                     min="1"
@@ -1767,6 +1875,19 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                   />
                 </div>
 
+                {couponForm.discount_type === 'percent' && (
+                  <div className="form-group">
+                    <label>حداکثر مبلغ تخفیف (اختیاری - به تومان)</label>
+                    <input 
+                      type="number"
+                      placeholder="بدون سقف"
+                      value={couponForm.max_discount_amount}
+                      onChange={e => setCouponForm({ ...couponForm, max_discount_amount: e.target.value })}
+                    />
+                    <small className="help-text">سقف تخفیف برای سفارش‌های بزرگ.</small>
+                  </div>
+                )}
+
                 <div className="form-group">
                   <label>حداقل مبلغ سفارش (اختیاری - به تومان)</label>
                   <input 
@@ -1775,6 +1896,20 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                     value={couponForm.min_order_amount}
                     onChange={e => setCouponForm({ ...couponForm, min_order_amount: e.target.value })}
                   />
+                  <small className="help-text">حداقل مبلغ کل فاکتور برای فعال شدن این کد تخفیف.</small>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '6px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox"
+                      checked={couponForm.is_active}
+                      onChange={e => setCouponForm({ ...couponForm, is_active: e.target.checked })}
+                    />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                      این کد تخفیف فعال و قابل استفاده باشد
+                    </span>
+                  </label>
                 </div>
               </div>
 
@@ -1784,7 +1919,7 @@ export function ERPAdminPricingManagement({ onOpenAddTabModal, refreshTrigger })
                 </button>
                 <button type="submit" className="btn-submit-save">
                   <Save size={16} />
-                  <span>ذخیره کد تخفیف</span>
+                  <span>{editingCoupon ? 'بروزرسانی کد تخفیف' : 'ذخیره کد تخفیف'}</span>
                 </button>
               </div>
             </form>

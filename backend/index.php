@@ -73,6 +73,7 @@ try {
 
     // Direct unconditional self-healing for subscriptions table (never blocked by sys_migrations)
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `plan_name` VARCHAR(191) NULL"); } catch (Exception $ex) {}
+    try { $pdo->exec("ALTER TABLE `users` ADD `has_used_trial` TINYINT(1) DEFAULT 0"); } catch (Exception $ex) {}
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `order_id` BIGINT UNSIGNED NULL"); } catch (Exception $ex) {}
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `order_number` VARCHAR(100) NULL"); } catch (Exception $ex) {}
     try { $pdo->exec("ALTER TABLE `subscriptions` ADD `server_instance` TEXT NULL"); } catch (Exception $ex) {}
@@ -381,13 +382,13 @@ try {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
         } catch (Exception $ex) {}
 
-        // Universal 12 Enterprise Standards Self-Healing Loop across all 23 tables
+        // Universal 12 Enterprise Standards Self-Healing Loop across all 24 tables
         $tablesToStandardize = [
             'users', 'companies', 'orders', 'subscriptions', 'transactions',
             'tickets', 'ticket_messages', 'ticket_attachments', 'pricing_modules',
             'erp_modules', 'industry_presets', 'configurator_settings', 'gateway_settings',
             'sms_logs', 'audit_logs', 'error_logs', 'push_subscriptions', 'web_vitals',
-            'leads', 'coupons', 'discounts', 'invoices', 'auth_tokens'
+            'leads', 'coupons', 'discounts', 'invoices', 'auth_tokens', 'pwa_settings'
         ];
         foreach ($tablesToStandardize as $tbl) {
             $ensureColumnExists($pdo, $tbl, 'created_at', "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP");
@@ -405,6 +406,7 @@ try {
     $ensureColumnExists($pdo, 'users', 'onboarding_completed_at', "TIMESTAMP NULL");
     $ensureColumnExists($pdo, 'users', 'last_login_at', "TIMESTAMP NULL");
     $ensureColumnExists($pdo, 'users', 'can_renew_early', "TINYINT(1) DEFAULT 0");
+    $ensureColumnExists($pdo, 'users', 'has_used_trial', "TINYINT(1) DEFAULT 0");
     try {
         $pdo->exec("ALTER TABLE `users` MODIFY `name` VARCHAR(255) NULL");
     } catch (Exception $ex) {}
@@ -525,10 +527,26 @@ try {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // Ensure pwa_settings table exists
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS pwa_settings (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            enabled TINYINT(1) NOT NULL DEFAULT 1,
+            updated_by VARCHAR(191) NULL DEFAULT 'admin',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $checkPwa = $pdo->query("SELECT id, enabled FROM pwa_settings WHERE id = 1 LIMIT 1")->fetch();
+        if (!$checkPwa) {
+            $pdo->exec("INSERT INTO pwa_settings (id, enabled, updated_by) VALUES (1, 1, 'system')");
+        }
+    } catch (Exception $exPwa) {}
+
     $checkGw = $pdo->query("SELECT id, zibal_merchant, zibal_sandbox, sms_api_key, sms_template_otp FROM gateway_settings WHERE id = 1 LIMIT 1")->fetch();
     if (!$checkGw) {
         $stmt = $pdo->prepare("INSERT INTO gateway_settings (id, zibal_merchant, zibal_sandbox, zibal_enabled, sms_provider, sms_api_key, sms_line_number, sms_template_otp, sms_param_name, sms_templates_json, sms_sandbox, sms_enabled)
-            VALUES (1, 'zibal', 1, 1, 'sms_ir', 'ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z', '30007732', '418155', 'CODE', ?, 0, 1)");
+            VALUES (1, '6a5f37d32884aa3809632821', 0, 1, 'sms_ir', 'ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z', '30007732', '418155', 'CODE', ?, 0, 1)");
         $stmt->execute([json_encode([
             'otp' => 418155,
             'invoice_issued' => 418155,
@@ -538,8 +556,10 @@ try {
             'payment_success' => 418155,
         ], JSON_UNESCAPED_UNICODE)]);
     } else {
-        // Ensure Zibal Sandbox mode is active by default as requested
-        $pdo->exec("UPDATE gateway_settings SET zibal_sandbox = 1 WHERE id = 1 AND (zibal_sandbox = 0 OR zibal_sandbox IS NULL) AND (zibal_merchant = 'zibal' OR zibal_merchant IS NULL)");
+        // Upgrade legacy default 'zibal' or empty merchant to live production merchant
+        if (empty($checkGw['zibal_merchant']) || $checkGw['zibal_merchant'] === 'zibal') {
+            $pdo->exec("UPDATE gateway_settings SET zibal_merchant = '6a5f37d32884aa3809632821', zibal_sandbox = 0 WHERE id = 1");
+        }
         if ($checkGw['sms_api_key'] === 'YOUR_SMS_IR_API_KEY' || $checkGw['sms_template_otp'] === '100000') {
             $pdo->exec("UPDATE gateway_settings SET sms_api_key = 'ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z', sms_template_otp = '418155', sms_line_number = '30007732' WHERE id = 1");
         }
@@ -794,6 +814,73 @@ function getDefaultPresets() {
     return $list;
 }
 
+function getDefaultCoupons() {
+    $db = getJsonDatabase();
+    $raw = $db['coupons'] ?? [];
+    if (empty($raw)) {
+        $raw = [
+            ['code' => 'KAROVITA20', 'discount_type' => 'percent', 'discount_value' => 20, 'min_order_amount' => null, 'max_discount_amount' => null, 'is_active' => true],
+            ['code' => 'OFF10', 'discount_type' => 'percent', 'discount_value' => 10, 'min_order_amount' => null, 'max_discount_amount' => null, 'is_active' => true],
+            ['code' => 'WELCOME', 'discount_type' => 'fixed', 'discount_value' => 500000, 'min_order_amount' => 2000000, 'max_discount_amount' => null, 'is_active' => true]
+        ];
+    }
+    $list = [];
+    foreach ($raw as $c) {
+        $list[] = [
+            'code' => strtoupper(trim($c['code'] ?? '')),
+            'discount_type' => ($c['discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent',
+            'discount_value' => (int)($c['discount_value'] ?? 0),
+            'min_order_amount' => !empty($c['min_order_amount']) ? (int)$c['min_order_amount'] : null,
+            'max_discount_amount' => !empty($c['max_discount_amount']) ? (int)$c['max_discount_amount'] : null,
+            'is_active' => isset($c['is_active']) ? (bool)$c['is_active'] : true,
+            'status' => $c['status'] ?? 'active',
+            'created_at' => $c['created_at'] ?? null,
+            'expires_at' => $c['expires_at'] ?? null
+        ];
+    }
+    return $list;
+}
+
+function ensureCouponsSeeded($pdo) {
+    if (!$pdo) return;
+    try {
+        $pdo->exec("CREATE TABLE IF NOT EXISTS `coupons` (
+          `code` VARCHAR(50) NOT NULL,
+          `discount_type` VARCHAR(20) NOT NULL DEFAULT 'percent',
+          `discount_value` BIGINT NOT NULL DEFAULT 0,
+          `min_order_amount` BIGINT NULL DEFAULT 0,
+          `max_discount_amount` BIGINT NULL,
+          `expires_at` TIMESTAMP NULL,
+          `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+          `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+          `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          `deleted_at` TIMESTAMP NULL DEFAULT NULL,
+          PRIMARY KEY (`code`),
+          KEY `idx_coupons_status` (`status`),
+          KEY `idx_coupons_is_active` (`is_active`),
+          KEY `idx_coupons_expires_at` (`expires_at`),
+          KEY `idx_coupons_deleted_at` (`deleted_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+        $cnt = (int)$pdo->query("SELECT COUNT(*) FROM `coupons`")->fetchColumn();
+        if ($cnt === 0) {
+            $defCoupons = getDefaultCoupons();
+            $ins = $pdo->prepare("INSERT IGNORE INTO `coupons` (`code`, `discount_type`, `discount_value`, `min_order_amount`, `max_discount_amount`, `is_active`, `status`) VALUES (?, ?, ?, ?, ?, ?, 'active')");
+            foreach ($defCoupons as $dc) {
+                $ins->execute([
+                    $dc['code'],
+                    $dc['discount_type'],
+                    $dc['discount_value'],
+                    $dc['min_order_amount'],
+                    $dc['max_discount_amount'],
+                    $dc['is_active'] ? 1 : 0
+                ]);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function ensureIndustryPresetsSeeded($pdo) {
     if (!$pdo) return;
     try {
@@ -855,6 +942,38 @@ function getVapidKeys() {
     return ['publicKey' => $pub, 'privateKey' => $priv];
 }
 
+function isPwaEnabled($pdo) {
+    if (!$pdo) return true;
+    try {
+        $row = $pdo->query("SELECT enabled FROM pwa_settings WHERE id = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['enabled'])) {
+            return (int)$row['enabled'] === 1;
+        }
+    } catch (Exception $e) {}
+    return true;
+}
+
+function getPwaSettings($pdo) {
+    $enabled = true;
+    $updatedAt = null;
+    $updatedBy = 'admin';
+    if ($pdo) {
+        try {
+            $row = $pdo->query("SELECT * FROM pwa_settings WHERE id = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                $enabled = ((int)($row['enabled'] ?? 1) === 1);
+                $updatedAt = $row['updated_at'] ?? null;
+                $updatedBy = $row['updated_by'] ?? 'admin';
+            }
+        } catch (Exception $e) {}
+    }
+    return [
+        'enabled' => (bool)$enabled,
+        'updated_at' => $updatedAt,
+        'updated_by' => $updatedBy
+    ];
+}
+
 // ------------------------------------------------------------------------------
 // SUBSCRIPTION GENERATION & RECOVERY HELPER
 // ------------------------------------------------------------------------------
@@ -881,17 +1000,54 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
     }
 
     // -------------------------------------------------------------------------
-    // Check if user already has an active subscription: UPDATE & EXTEND IT!
+    // CRITICAL: When user purchases a subscription, if they have ANY trial
+    // subscription (active, inactive, expired, or cancelled), that trial subscription
+    // must be permanently deleted so it's cleared, user is marked as having used trial,
+    // and the new purchased subscription is activated with its exact purchased modules
+    // and billing period!
+    // -------------------------------------------------------------------------
+    try {
+        $trialCheckStmt = $pdo->prepare("SELECT id FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%')");
+        $trialCheckStmt->execute([$userId]);
+        $trialSubIds = $trialCheckStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+        if (!empty($trialSubIds)) {
+            // Unlink any orders that referenced trial subscription(s)
+            $placeholders = implode(',', array_fill(0, count($trialSubIds), '?'));
+            $unStmt = $pdo->prepare("UPDATE orders SET subscription_id = NULL WHERE user_id = ? AND subscription_id IN ({$placeholders})");
+            $unStmt->execute(array_merge([$userId], $trialSubIds));
+
+            // Permanently delete trial subscriptions for this user
+            $delStmt = $pdo->prepare("DELETE FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%')");
+            $delStmt->execute([$userId]);
+
+            // Persist that user has used their trial
+            try {
+                $pdo->prepare("UPDATE users SET has_used_trial = 1 WHERE id = ?")->execute([$userId]);
+            } catch (Exception $eU) {}
+
+            logAudit($pdo, 'TRIAL_DELETED_ON_PURCHASE', 'SUBSCRIPTION_CHANGE', "حذف کامل اشتراک آزمایشی قبلی کاربر #{$userId} به دلیل خرید اشتراک جدید برای سفارش #{$ordNum}");
+        }
+    } catch (Exception $eTrialClean) {}
+
+    // -------------------------------------------------------------------------
+    // Check if user already has an active COMMERCIAL subscription to update/extend:
+    // Only commercial subscriptions (source != 'trial') qualify for renewal or upgrade!
     // -------------------------------------------------------------------------
     try {
         $activeSub = null;
+        $isResourceUpgrade = (!empty($order['order_type']) && $order['order_type'] === 'resource_upgrade') 
+            || !empty($order['is_resource_addon']);
+        $isRenewal = (!empty($order['order_type']) && $order['order_type'] === 'renewal') || !empty($order['is_renewal']);
+
         if (!empty($order['subscription_id'])) {
-            $subStmt = $pdo->prepare("SELECT * FROM subscriptions WHERE id = ? AND user_id = ? AND status = 'active' LIMIT 1");
+            $subStmt = $pdo->prepare("SELECT * FROM subscriptions WHERE id = ? AND user_id = ? AND status = 'active' AND source != 'trial' AND title NOT LIKE '%آزمایشی%' LIMIT 1");
             $subStmt->execute([(int)$order['subscription_id'], $userId]);
             $activeSub = $subStmt->fetch(PDO::FETCH_ASSOC);
         }
-        if (!$activeSub) {
-            $stmt = $pdo->prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 1");
+        // Only merge into existing active subscription if explicitly a resource upgrade or renewal of an existing commercial subscription
+        if (!$activeSub && ($isResourceUpgrade || $isRenewal)) {
+            $stmt = $pdo->prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active' AND source != 'trial' AND title NOT LIKE '%آزمایشی%' ORDER BY id DESC LIMIT 1");
             $stmt->execute([$userId]);
             $activeSub = $stmt->fetch(PDO::FETCH_ASSOC);
         }
@@ -901,9 +1057,6 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
 
             // 1. Calculate expiration date
             // CRITICAL RULE: Resource upgrades (adding modules/users) do NOT change expiration date!
-            $isResourceUpgrade = (!empty($order['order_type']) && $order['order_type'] === 'resource_upgrade') 
-                || !empty($order['is_resource_addon']);
-            $isRenewal = (!empty($order['order_type']) && $order['order_type'] === 'renewal') || !empty($order['is_renewal']);
             $currentExpiresAt = !empty($activeSub['expires_at']) ? strtotime($activeSub['expires_at']) : 0;
             $now = time();
 
@@ -915,16 +1068,16 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 $newExpiresAt = date('Y-m-d H:i:s', $baseTime + ($days * 86400));
             }
 
-            // 2. Merge module_ids (union or renewal override)
+            // 2. Merge module_ids (renewal overrides with order modules, resource upgrade performs union)
             $existingModIds = [];
             if (!empty($activeSub['module_ids'])) {
                 $dec = is_string($activeSub['module_ids']) ? json_decode($activeSub['module_ids'], true) : $activeSub['module_ids'];
                 if (is_array($dec)) $existingModIds = $dec;
             }
-            if ($isRenewal && !empty($orderModIds)) {
-                $mergedModIds = array_values(array_unique($orderModIds));
-            } else {
+            if ($isResourceUpgrade) {
                 $mergedModIds = array_values(array_unique(array_merge($existingModIds, $orderModIds)));
+            } else {
+                $mergedModIds = array_values(array_unique($orderModIds));
             }
             $mergedModIdsStr = json_encode($mergedModIds, JSON_UNESCAPED_UNICODE);
 
@@ -988,6 +1141,11 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 ]);
             }
 
+            // Link order to the updated subscription
+            try {
+                $pdo->prepare("UPDATE orders SET subscription_id = ? WHERE id = ?")->execute([$activeSubId, $order['id']]);
+            } catch (Exception $eOrdLink) {}
+
             // 6. Deactivate / mark redundant duplicate active subscriptions as merged
             try {
                 $dupStmt = $pdo->prepare("UPDATE subscriptions SET status = 'merged' WHERE user_id = ? AND id != ? AND status = 'active'");
@@ -999,7 +1157,7 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
     } catch (Exception $eCheck) {}
 
     // -------------------------------------------------------------------------
-    // No active subscription exists: INSERT A NEW ONE
+    // No active subscription exists (or trial was deleted): INSERT A BRAND NEW ONE
     // -------------------------------------------------------------------------
     $exp = date('Y-m-d H:i:s', strtotime("+{$days} days"));
     $pkgName = !empty($order['package_name']) ? $order['package_name'] : ("اشتراک اختصاصی ابری (" . count($orderModIds) . " ماژول)");
@@ -1033,7 +1191,16 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
             $srv,
             $exp
         ]);
-        return (int)$pdo->lastInsertId();
+        $newSubId = (int)$pdo->lastInsertId();
+        if ($newSubId > 0) {
+            try {
+                $pdo->prepare("UPDATE orders SET subscription_id = ? WHERE id = ?")->execute([$newSubId, $order['id']]);
+            } catch (Exception $eOrdUp) {}
+            try {
+                $pdo->prepare("UPDATE companies SET subdomain = ? WHERE user_id = ? AND (subdomain LIKE 'trial-%' OR subdomain IS NULL)")->execute(['app-' . $order['id'] . '.karovita.ir', $userId]);
+            } catch (Exception $eCmpUp) {}
+        }
+        return $newSubId;
     } catch (Exception $e) {
         try {
             $stmt = $pdo->prepare("INSERT INTO subscriptions (user_id, order_id, title, package_name, status, source, billing_period, user_count, starts_at, expires_at) VALUES (?, ?, ?, ?, 'active', ?, ?, ?, NOW(), ?)");
@@ -1047,7 +1214,13 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 $orderUserCount,
                 $exp
             ]);
-            return (int)$pdo->lastInsertId();
+            $newSubId = (int)$pdo->lastInsertId();
+            if ($newSubId > 0) {
+                try {
+                    $pdo->prepare("UPDATE orders SET subscription_id = ? WHERE id = ?")->execute([$newSubId, $order['id']]);
+                } catch (Exception $eOrdUp) {}
+            }
+            return $newSubId;
         } catch (Exception $e2) {
             return null;
         }
@@ -1125,10 +1298,10 @@ function getCurrentUser($pdo, $allowFallback = true) {
             $stmt->execute([$token]);
             $user = $stmt->fetch();
             if ($user) {
-                // Strictly enforce role check: only real admin mobile or DB role 'admin' can be admin
+                // Strictly enforce role check: only real admin mobile or DB role 'admin' can be admin, DB role 'support' retains support role
                 if ($user['mobile'] === '09111273476') {
                     $user['role'] = 'admin';
-                } elseif (empty($user['role']) || $user['role'] !== 'admin') {
+                } elseif (empty($user['role']) || !in_array($user['role'], ['admin', 'support'])) {
                     $user['role'] = 'user';
                 }
                 return $user;
@@ -1202,7 +1375,7 @@ function getGatewaySettings($pdo) {
     $paramName = getenv('SMS_IR_PARAM_NAME') ?: 'CODE';
 
     $defaults = [
-        'zibal_merchant' => getenv('ZIBAL_MERCHANT') ?: 'zibal',
+        'zibal_merchant' => getenv('ZIBAL_MERCHANT') ?: '6a5f37d32884aa3809632821',
         'zibal_sandbox' => 0,
         'zibal_enabled' => 1,
         'sms_provider' => getenv('SMS_DRIVER') ?: 'sms_ir',
@@ -1547,6 +1720,14 @@ if (($path === '/auth/otp/verify' || $path === '/profile/otp/verify') && $method
         } catch (Exception $e) {}
     }
 
+    if ($user) {
+        if ($user['mobile'] === '09111273476') {
+            $user['role'] = 'admin';
+        } elseif (empty($user['role']) || !in_array($user['role'], ['admin', 'support'])) {
+            $user['role'] = 'user';
+        }
+    }
+
     if (!$user) {
         $user = [
             'id' => 1,
@@ -1572,7 +1753,19 @@ if ($path === '/auth/user' || $path === '/auth/me') {
     if (!$user || empty($user['id'])) {
         sendError('نشست کاربری شما نامعتبر است یا منقضی شده است.', 401);
     }
-    sendJson(['user' => $user]);
+    $hasSub = false;
+    $activeSub = null;
+    if ($pdo) {
+        try {
+            $subStmt = $pdo->prepare("SELECT * FROM subscriptions WHERE user_id = ? AND (status = 'active' OR is_active = 1) AND (expires_at IS NULL OR expires_at > NOW()) AND deleted_at IS NULL ORDER BY id DESC LIMIT 1");
+            $subStmt->execute([$user['id']]);
+            $activeSub = $subStmt->fetch();
+            $hasSub = !empty($activeSub);
+        } catch (Exception $e) {}
+    }
+    $user['has_subscription'] = $hasSub;
+    $user['active_subscription'] = $activeSub;
+    sendJson(['user' => $user, 'has_subscription' => $hasSub, 'active_subscription' => $activeSub]);
 }
 
 if ($path === '/auth/logout' && $method === 'POST') {
@@ -1640,7 +1833,7 @@ if ($path === '/onboarding' && $method === 'GET') {
 
             $trialStmt = $pdo->prepare("SELECT COUNT(*) FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%')");
             $trialStmt->execute([$user['id']]);
-            $hasUsedTrial = (int)$trialStmt->fetchColumn() > 0;
+            $hasUsedTrial = (!empty($user['has_used_trial']) || (int)$trialStmt->fetchColumn() > 0);
 
             $trialSubRow = null;
             $trialSubStmt = $pdo->prepare("SELECT * FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%') ORDER BY id DESC LIMIT 1");
@@ -1939,7 +2132,7 @@ if ($path === '/dashboard') {
 
             $trialStmt = $pdo->prepare("SELECT COUNT(*) FROM subscriptions WHERE user_id = ? AND (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%')");
             $trialStmt->execute([$user['id']]);
-            $user['has_used_trial'] = (int)$trialStmt->fetchColumn() > 0;
+            $user['has_used_trial'] = (!empty($user['has_used_trial']) || (int)$trialStmt->fetchColumn() > 0);
             $user['can_renew_early'] = !empty($user['can_renew_early']);
         } catch (Exception $e) {}
     } else {
@@ -1978,12 +2171,31 @@ if ($path === '/payments/pending-count') {
     $pendingCount = 0;
     if ($pdo && isset($user['id'])) {
         try {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE user_id = ? AND status = 'pending'");
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM orders WHERE user_id = ? AND status = 'pending' AND deleted_at IS NULL");
             $stmt->execute([$user['id']]);
             $pendingCount = (int)$stmt->fetchColumn();
         } catch (Exception $e) {}
     }
     sendJson(['count' => $pendingCount, 'pending_count' => $pendingCount]);
+}
+
+if ($path === '/payments/gateway-info') {
+    $gw = getGatewaySettings($pdo);
+    $merchant = trim($gw['zibal_merchant'] ?? '6a5f37d32884aa3809632821');
+    if (empty($merchant) || $merchant === 'zibal') {
+        $merchant = '6a5f37d32884aa3809632821';
+    }
+    sendJson([
+        'success' => true,
+        'data' => [
+            'gateway' => 'zibal',
+            'merchant' => $merchant,
+            'sandbox' => false,
+            'is_live' => true,
+            'enabled' => true,
+            'title' => 'درگاه پرداخت اینترنتی شاپرک زیبال'
+        ]
+    ]);
 }
 
 if ($path === '/user/purchased-packages') {
@@ -2017,9 +2229,37 @@ if ($path === '/user/orders') {
     $orders = [];
     if ($pdo && isset($user['id'])) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC");
+            $stmt = $pdo->prepare("SELECT o.*, t.reference_id, t.tracking_code, t.status as tx_status, t.gateway as tx_gateway 
+                                   FROM orders o 
+                                   LEFT JOIN transactions t ON o.id = t.order_id 
+                                   WHERE o.user_id = ? AND o.deleted_at IS NULL AND o.status != 'cancelled' 
+                                   ORDER BY o.id DESC");
             $stmt->execute([$user['id']]);
-            $orders = $stmt->fetchAll() ?: [];
+            $rows = $stmt->fetchAll() ?: [];
+            foreach ($rows as $r) {
+                $ref = $r['reference_id'] ?? $r['tracking_code'] ?? null;
+                $orders[] = [
+                    'id' => (int)$r['id'],
+                    'order_number' => $r['order_number'] ?? ('ORD-' . $r['id']),
+                    'amount' => (int)($r['amount'] ?? 0),
+                    'status' => $r['status'] ?? 'pending',
+                    'created_at' => $r['created_at'],
+                    'package_name' => $r['package_name'] ?? 'اشتراک ابری کارویتا',
+                    'user_id' => (int)$r['user_id'],
+                    'billing_period' => $r['billing_period'] ?? 'monthly',
+                    'user_count' => (int)($r['user_count'] ?? 1),
+                    'paid_at' => $r['paid_at'] ?? null,
+                    'reference_id' => $ref,
+                    'tracking_code' => $r['tracking_code'] ?? $ref,
+                    'transaction' => !empty($ref) ? [
+                        'reference_id' => $ref,
+                        'tracking_code' => $r['tracking_code'] ?? $ref,
+                        'status' => $r['tx_status'] ?? 'successful',
+                        'gateway' => $r['tx_gateway'] ?? 'zibal'
+                    ] : null,
+                    'transaction_status' => $r['tx_status'] ?? ($r['status'] === 'completed' || $r['status'] === 'paid' ? 'successful' : 'pending'),
+                ];
+            }
         } catch (Exception $e) {}
     }
     sendJson(['orders' => $orders, 'data' => $orders]);
@@ -2541,6 +2781,7 @@ if (preg_match('#^/tickets/(\d+)/(messages|reply)$#', $path, $matches) && $metho
         try {
             $stmt = $pdo->prepare("INSERT INTO ticket_messages (ticket_id, user_id, sender_type, user_name, message, attachments, is_security_info, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
             $stmt->execute([$tid, $userId, $senderType, $senderName, $text, $attachments, $isSecurityInfo]);
+            $msgId = (int)$pdo->lastInsertId();
 
             $newStatus = ($senderType === 'support') ? 'answered' : 'customer_reply';
             $stmt = $pdo->prepare("UPDATE tickets SET status = ?, updated_at = NOW() WHERE id = ?");
@@ -2552,7 +2793,18 @@ if (preg_match('#^/tickets/(\d+)/(messages|reply)$#', $path, $matches) && $metho
         }
     }
 
-    sendJson(['success' => true, 'message' => 'پاسخ با موفقیت ثبت شد.']);
+    sendJson([
+        'success' => true, 
+        'message' => 'پاسخ با موفقیت ثبت شد.',
+        'data' => [
+            'id' => $msgId ?? 1,
+            'ticket_id' => $tid,
+            'user_id' => $userId,
+            'sender_type' => $senderType,
+            'user_name' => $senderName,
+            'message' => $text
+        ]
+    ]);
 }
 
 if (preg_match('#^/tickets/(\d+)/close$#', $path, $matches) && ($method === 'POST' || $method === 'PUT')) {
@@ -2685,7 +2937,7 @@ if (($path === '/trial' || $path === '/user/trial') && $method === 'POST') {
                 $subId = $pdo->lastInsertId();
             }
 
-            $stmt = $pdo->prepare("UPDATE users SET onboarding_step = 4, onboarding_completed_at = NOW(), updated_at = NOW() WHERE id = ?");
+            $stmt = $pdo->prepare("UPDATE users SET has_used_trial = 1, onboarding_step = 4, onboarding_completed_at = NOW(), updated_at = NOW() WHERE id = ?");
             $stmt->execute([$user['id']]);
 
             logAudit($pdo, 'TRIAL_ACTIVATED', 'SUBSCRIPTION_CHANGE', "فعالسازی دوره آزمایشی {$trialDays} روزه برای کاربر {$user['mobile']}");
@@ -2708,6 +2960,31 @@ if (($path === '/trial' || $path === '/user/trial') && $method === 'POST') {
 
 if ($path === '/orders' && $method === 'POST') {
     $user = getCurrentUser($pdo);
+    if (!$user || empty($user['id'])) {
+        http_response_code(401);
+        sendJson(['success' => false, 'message' => 'لطفاً ابتدا وارد سیستم شوید.']);
+        exit;
+    }
+
+    // Check if user already has an unpaid/pending invoice
+    if ($pdo && isset($user['id'])) {
+        try {
+            $pCheck = $pdo->prepare("SELECT id, order_number, amount FROM orders WHERE user_id = ? AND status = 'pending' AND deleted_at IS NULL LIMIT 1");
+            $pCheck->execute([$user['id']]);
+            $existingPending = $pCheck->fetch();
+            if ($existingPending) {
+                http_response_code(400);
+                sendJson([
+                    'success' => false,
+                    'message' => 'شما یک پیش‌فاکتور پرداخت‌نشده در انتظار دارید. لطفاً ابتدا نسبت به پرداخت یا لغو آن اقدام نمایید.',
+                    'has_pending_order' => true,
+                    'pending_order' => $existingPending
+                ]);
+                exit;
+            }
+        } catch (Exception $ePending) {}
+    }
+
     $modIds = $body['module_ids'] ?? $body['selected_module_ids'] ?? ['accounting', 'crm', 'sales', 'warehouse'];
     if (is_string($modIds)) {
         $modIds = json_decode($modIds, true) ?: [$modIds];
@@ -2919,9 +3196,13 @@ if ($path === '/orders' && $method === 'POST') {
             $stmt->execute($ordValues);
             $orderId = $pdo->lastInsertId();
 
-            // Initiate Zibal Payment Gateway in Sandbox Mode
+            // Initiate Zibal Payment Gateway
             $gw = getGatewaySettings($pdo);
-            $zibalMerchant = 'zibal'; // Official sandbox merchant
+            $zibalMerchant = trim($gw['zibal_merchant'] ?? '');
+            if (empty($zibalMerchant)) {
+                $zibalMerchant = '6a5f37d32884aa3809632821';
+            }
+            $isSandbox = !empty($gw['zibal_sandbox']) && $zibalMerchant === 'zibal';
             $amountRials = max(10000, $amount * 10);
             
             $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
@@ -2942,7 +3223,7 @@ if ($path === '/orders' && $method === 'POST') {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $zibalPayload);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             $zibalRaw = curl_exec($ch);
@@ -2950,12 +3231,16 @@ if ($path === '/orders' && $method === 'POST') {
             curl_close($ch);
 
             $zibalData = json_decode($zibalRaw, true);
-            if ($zibalCode === 200 && isset($zibalData['result']) && $zibalData['result'] == 100 && !empty($zibalData['trackId'])) {
+            if ($zibalCode === 200 && isset($zibalData['result']) && (int)$zibalData['result'] === 100 && !empty($zibalData['trackId'])) {
                 $trackId = (string)$zibalData['trackId'];
                 $paymentUrl = "https://gateway.zibal.ir/start/{$trackId}";
             } else {
-                // Safe and instant Zibal sandbox fallback simulator URL
-                $paymentUrl = "/api/payments/zibal/callback?trackId={$trackId}&success=1&status=2&orderId={$orderId}";
+                $resCode = $zibalData['result'] ?? 0;
+                $errMsg = $zibalData['message'] ?? "خطا در برقراری ارتباط با درگاه شاپرک زیبال (کد: {$resCode})";
+                if ($resCode == 102) $errMsg = 'شناسه مرچنت در زیبال یافت نشد. لطفاً در پنل مدیریت کد مرچنت را بررسی نمایید.';
+                if ($resCode == 103) $errMsg = 'درگاه زیبال در حال حاضر غیرفعال است.';
+                if ($resCode == 115) $errMsg = 'آی‌پی سرور در پنل زیبال ثبت نشده است (کد ۱۱۵). لطفاً در پنل کاربری زیبال آی‌پی هاست را اضافه فرمایید.';
+                sendError($errMsg, 502);
             }
 
             // Dynamic check & safe insertion for transactions table
@@ -2969,7 +3254,7 @@ if ($path === '/orders' && $method === 'POST') {
                 try { $pdo->exec("ALTER TABLE transactions ADD COLUMN tracking_code VARCHAR(100) NULL"); $existingTxCols[] = 'tracking_code'; } catch (Exception $eCol) {}
             }
             if (!in_array('gateway', $existingTxCols)) {
-                try { $pdo->exec("ALTER TABLE transactions ADD COLUMN gateway VARCHAR(50) DEFAULT 'zibal_sandbox'"); $existingTxCols[] = 'gateway'; } catch (Exception $eCol) {}
+                try { $pdo->exec("ALTER TABLE transactions ADD COLUMN gateway VARCHAR(50) DEFAULT 'zibal'"); $existingTxCols[] = 'gateway'; } catch (Exception $eCol) {}
             }
             if (!in_array('reference_id', $existingTxCols)) {
                 try { $pdo->exec("ALTER TABLE transactions ADD COLUMN reference_id VARCHAR(100) NULL"); $existingTxCols[] = 'reference_id'; } catch (Exception $eCol) {}
@@ -2984,7 +3269,7 @@ if ($path === '/orders' && $method === 'POST') {
             }
             if (in_array('reference_id', $existingTxCols)) {
                 $txFields[] = 'reference_id';
-                $txValues[] = $trackId;
+                $txValues[] = null;
             }
             if (in_array('tracking_code', $existingTxCols)) {
                 $txFields[] = 'tracking_code';
@@ -2992,7 +3277,7 @@ if ($path === '/orders' && $method === 'POST') {
             }
             if (in_array('gateway', $existingTxCols)) {
                 $txFields[] = 'gateway';
-                $txValues[] = 'zibal_sandbox';
+                $txValues[] = 'zibal';
             }
 
             $txNames = implode(', ', $txFields);
@@ -3000,14 +3285,14 @@ if ($path === '/orders' && $method === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO transactions ({$txNames}) VALUES ({$txMarks})");
             $stmt->execute($txValues);
 
-            logAudit($pdo, 'ORDER_PENDING', 'PAYMENT_INITIATED', "ثبت پیش‌فاکتور و درخواست درگاه زیبال (سندباکس) برای سفارش #{$ordNum}");
+            logAudit($pdo, 'ORDER_PENDING', 'PAYMENT_INITIATED', "ثبت پیش‌فاکتور و درخواست درگاه شاپرک زیبال برای سفارش #{$ordNum} (کد پیگیری: {$trackId})");
         } catch (Exception $e) {
             sendError('خطا در ثبت سفارش: ' . $e->getMessage(), 500);
         }
     }
 
     if (!$paymentUrl) {
-        $paymentUrl = "/api/payments/zibal/callback?trackId={$trackId}&success=1&status=2&orderId={$orderId}";
+        sendError('خطا در ایجاد لینک پرداخت درگاه شاپرک.', 502);
     }
 
     sendJson([
@@ -3022,7 +3307,7 @@ if ($path === '/orders' && $method === 'POST') {
         'order_number' => $ordNum,
         'payment_url' => $paymentUrl,
         'track_id' => $trackId,
-        'message' => 'درگاه پرداخت زیبال (سندباکس) آماده است.'
+        'message' => 'درگاه پرداخت شاپرک زیبال آماده اتصال است.'
     ], 201);
 }
 
@@ -3032,12 +3317,41 @@ if ($path === '/orders' && $method === 'POST') {
 if (($path === '/payments/zibal/callback' || $path === '/api/payments/zibal/callback') || 
     (strpos($path, 'payments/zibal/callback') !== false)) {
     $trackId = $_REQUEST['trackId'] ?? $_REQUEST['track_id'] ?? null;
-    $success = $_REQUEST['success'] ?? '1';
-    $status = $_REQUEST['status'] ?? '2';
+    $success = $_REQUEST['success'] ?? '0';
+    $status = $_REQUEST['status'] ?? '0';
     $orderId = (int)($_REQUEST['orderId'] ?? $_REQUEST['order_id'] ?? 0);
 
-    $isPaid = ($success == '1' || $status == '2');
+    $isPaid = false;
     $refNumber = 'ZBL-' . time() . '-' . rand(1000, 9999);
+    $gw = getGatewaySettings($pdo);
+    $zibalMerchant = trim($gw['zibal_merchant'] ?? '6a5f37d32884aa3809632821');
+
+    if ($trackId) {
+        // Strictly Real Zibal verification with Shaparak (Mock/sandbox bypass removed)
+        $verifyPayload = json_encode([
+            'merchant' => $zibalMerchant,
+            'trackId' => $trackId
+        ], JSON_UNESCAPED_UNICODE);
+
+        $ch = curl_init('https://gateway.zibal.ir/v1/verify');
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $verifyPayload);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $verifyRaw = curl_exec($ch);
+        curl_close($ch);
+
+        $verifyData = json_decode($verifyRaw, true);
+        if (isset($verifyData['result']) && ((int)$verifyData['result'] === 100 || (int)$verifyData['result'] === 201)) {
+            $isPaid = true;
+            $refNumber = (string)($verifyData['refNumber'] ?? $refNumber);
+        } else {
+            $isPaid = false;
+        }
+    }
 
     if ($pdo) {
         try {
@@ -3090,51 +3404,182 @@ if (($path === '/payments/zibal/callback' || $path === '/api/payments/zibal/call
 if (preg_match('#^/orders/(\d+)/pay$#', $path, $matches) && $method === 'POST') {
     $orderId = (int)$matches[1];
     $user = getCurrentUser($pdo);
-    $trackingCode = 'TRK-' . rand(10000000, 99999999);
-    $refId = 'REF-' . rand(1000000, 9999999);
-    $amount = 0;
+    if (!$user || empty($user['id'])) {
+        http_response_code(401);
+        sendJson(['success' => false, 'message' => 'لطفاً ابتدا وارد حساب کاربری خود شوید.']);
+        exit;
+    }
+
+    $order = null;
+    if ($pdo) {
+        $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? AND deleted_at IS NULL LIMIT 1");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch();
+    }
+
+    if (!$order) {
+        sendError('پیش‌فاکتور یا سفارش مورد نظر یافت نشد.', 404);
+    }
+
+    if ((int)$order['user_id'] !== (int)$user['id'] && ($user['role'] ?? '') !== 'admin') {
+        sendError('شما دسترسی پرداخت این پیش‌فاکتور را ندارید.', 403);
+    }
+
+    if ($order['status'] === 'completed' || $order['status'] === 'paid' || !empty($order['is_paid'])) {
+        sendError('این فاکتور قبلاً پرداخت و تسویه شده است.', 400);
+    }
+
+    $amount = (int)($order['amount'] ?? $order['final_amount'] ?? 0);
+    if ($amount <= 0) {
+        sendError('مبلغ فاکتور نامعتبر است.', 400);
+    }
+
+    $gw = getGatewaySettings($pdo);
+    $zibalMerchant = trim($gw['zibal_merchant'] ?? '');
+    if (empty($zibalMerchant) || $zibalMerchant === 'zibal') {
+        $zibalMerchant = '6a5f37d32884aa3809632821';
+    }
+
+    $amountRials = max(10000, $amount * 10);
+    $ordNum = $order['order_number'] ?? ('ORD-' . $orderId);
+
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost:3000';
+    $callbackUrl = $protocol . $host . '/api/payments/zibal/callback';
+
+    $zibalPayload = json_encode([
+        'merchant' => $zibalMerchant,
+        'amount' => $amountRials,
+        'callbackUrl' => $callbackUrl,
+        'description' => "تسویه آنلاین فاکتور کارویتا #{$ordNum}",
+        'orderId' => (string)$orderId,
+        'mobile' => $user['mobile'] ?? null,
+    ], JSON_UNESCAPED_UNICODE);
+
+    $ch = curl_init('https://gateway.zibal.ir/v1/request');
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $zibalPayload);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Accept: application/json']);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    $zibalRaw = curl_exec($ch);
+    $zibalCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    $zibalData = json_decode($zibalRaw, true);
+    if ($zibalCode === 200 && isset($zibalData['result']) && (int)$zibalData['result'] === 100 && !empty($zibalData['trackId'])) {
+        $trackId = (string)$zibalData['trackId'];
+        $paymentUrl = "https://gateway.zibal.ir/start/{$trackId}";
+
+        if ($pdo) {
+            try {
+                $chkTx = $pdo->prepare("SELECT id FROM transactions WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+                $chkTx->execute([$orderId]);
+                $existingTxId = $chkTx->fetchColumn();
+
+                if ($existingTxId) {
+                    $upTx = $pdo->prepare("UPDATE transactions SET authority = ?, reference_id = NULL, tracking_code = ?, gateway = 'zibal', status = 'pending', amount = ? WHERE id = ?");
+                    $upTx->execute([$trackId, $trackId, $amount, $existingTxId]);
+                } else {
+                    $insTx = $pdo->prepare("INSERT INTO transactions (user_id, order_id, order_number, amount, status, gateway, authority, tracking_code) VALUES (?, ?, ?, ?, 'pending', 'zibal', ?, ?)");
+                    $insTx->execute([$order['user_id'], $orderId, $ordNum, $amount, $trackId, $trackId]);
+                }
+
+                logAudit($pdo, 'PAYMENT_INITIATED', 'PAYMENT', "درخواست اتصال به درگاه شاپرک زیبال برای فاکتور #{$ordNum} (کد پیگیری: {$trackId})");
+            } catch (Exception $eTx) {}
+        }
+
+        sendJson([
+            'success' => true,
+            'data' => [
+                'order_id' => $orderId,
+                'order_number' => $ordNum,
+                'payment_url' => $paymentUrl,
+                'trackId' => $trackId,
+                'is_redirect' => true,
+                'amount' => $amount
+            ],
+            'message' => 'درخواست اتصال به درگاه شاپرک ایجاد شد.'
+        ]);
+    } else {
+        $resCode = $zibalData['result'] ?? 0;
+        $errMsg = $zibalData['message'] ?? "خطا در برقراری ارتباط با درگاه شاپرک زیبال (کد: {$resCode})";
+        if ($resCode == 102) $errMsg = 'شناسه مرچنت در زیبال یافت نشد. لطفاً در پنل مدیریت کد مرچنت را بررسی فرمایید.';
+        if ($resCode == 103) $errMsg = 'درگاه زیبال در حال حاضر غیرفعال است.';
+        if ($resCode == 115) $errMsg = 'آی‌پی سرور در پنل زیبال ثبت نشده است (کد ۱۱۵). لطفاً در پنل کاربری زیبال آی‌پی هاست را اضافه فرمایید.';
+        sendError($errMsg, 502);
+    }
+}
+
+if ((preg_match('#^/orders/(\d+)/cancel$#', $path, $matches) && ($method === 'POST' || $method === 'DELETE')) ||
+    (preg_match('#^/orders/(\d+)$#', $path, $matches) && $method === 'DELETE')) {
+    $orderId = (int)$matches[1];
+    $user = getCurrentUser($pdo);
+    if (!$user || empty($user['id'])) {
+        http_response_code(401);
+        sendJson(['success' => false, 'message' => 'لطفاً ابتدا وارد سیستم شوید.']);
+        exit;
+    }
 
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("UPDATE orders SET status = 'completed', is_paid = 1, tracking_code = ?, paid_at = NOW() WHERE id = ?");
-            $stmt->execute([$trackingCode, $orderId]);
-
             $stmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
             $stmt->execute([$orderId]);
             $order = $stmt->fetch();
+            if (!$order) {
+                http_response_code(404);
+                sendJson(['success' => false, 'message' => 'پیش‌فاکتور یا سفارش مورد نظر یافت نشد.']);
+                exit;
+            }
 
-            $amount = $order['amount'] ?? 0;
-            $ordNum = $order['order_number'] ?? ('ORD-' . $orderId);
+            if ((int)$order['user_id'] !== (int)$user['id'] && ($user['role'] ?? '') !== 'admin') {
+                http_response_code(403);
+                sendJson(['success' => false, 'message' => 'شما دسترسی لغو این پیش‌فاکتور را ندارید.']);
+                exit;
+            }
 
-            $stmt = $pdo->prepare("INSERT INTO transactions (user_id, order_id, order_number, amount, status, reference_id, tracking_code, gateway) VALUES (?, ?, ?, ?, 'successful', ?, ?, 'zibal')");
-            $stmt->execute([$user['id'], $orderId, $ordNum, $amount, $refId, $trackingCode]);
+            if ($order['status'] === 'completed' || $order['status'] === 'paid' || !empty($order['is_paid'])) {
+                http_response_code(400);
+                sendJson(['success' => false, 'message' => 'پیش‌فاکتور تسویه شده قابل لغو یا حذف نمی‌باشد.']);
+                exit;
+            }
 
-            // Activate subscription
-            createSubscriptionForOrder($pdo, $order, 'purchase');
+            $stmt = $pdo->prepare("UPDATE orders SET status = 'cancelled', deleted_at = NOW() WHERE id = ?");
+            $stmt->execute([$orderId]);
 
-            logAudit($pdo, 'ORDER_PAID', 'PAYMENT', "پرداخت موفقیت‌آمیز فاکتور #{$ordNum} به مبلغ {$amount} تومان");
-        } catch (Exception $e) {}
+            logAudit($pdo, 'ORDER_CANCELLED', 'ORDER', "لغو و حذف پیش‌فاکتور #{$order['order_number']} توسط کاربر");
+        } catch (Exception $e) {
+            http_response_code(500);
+            sendJson(['success' => false, 'message' => 'خطا در لغو پیش‌فاکتور: ' . $e->getMessage()]);
+            exit;
+        }
     }
 
     sendJson([
         'success' => true,
-        'data' => [
-            'order_id' => $orderId,
-            'amount' => $amount,
-            'tracking_code' => $trackingCode,
-            'reference_id' => $refId,
-            'paid_at' => date('Y-m-d H:i:s'),
-            'status' => 'completed'
-        ],
-        'message' => 'پرداخت با موفقیت انجام شد و دسترسی فعال گردید.'
+        'message' => 'پیش‌فاکتور با موفقیت لغو و حذف گردید.'
     ]);
+    exit;
 }
 
-// Global Security Guard: Enforce strict admin access for all /admin/ endpoints
+// Global Security Guard: Enforce strict admin access for all /admin/ endpoints (while allowing support role for permitted management endpoints)
 if (strpos($path, '/admin/') === 0) {
     $adminUser = getCurrentUser($pdo, false);
-    if (!$adminUser || ($adminUser['role'] !== 'admin' && ($adminUser['mobile'] ?? '') !== '09111273476')) {
-        sendError('دسترسی غیرمجاز. این بخش منحصراً در اختیار مدیریت سیستم کارویتا می‌باشد.', 403);
+    $isAdmin = $adminUser && ($adminUser['role'] === 'admin' || ($adminUser['mobile'] ?? '') === '09111273476');
+    $isSupport = $adminUser && ($adminUser['role'] === 'support');
+
+    $supportAllowed = (
+        strpos($path, '/admin/tickets') === 0 ||
+        strpos($path, '/admin/support-staff') === 0 ||
+        strpos($path, '/admin/orders') === 0 ||
+        strpos($path, '/admin/subscriptions') === 0 ||
+        strpos($path, '/admin/push/subscribers') === 0
+    );
+
+    if (!$isAdmin && !($isSupport && $supportAllowed)) {
+        sendError('دسترسی غیرمجاز. این بخش منحصراً در اختیار تیم مدیریت و پشتیبانی کارویتا می‌باشد.', 403);
     }
 }
 
@@ -3778,9 +4223,15 @@ if ($path === '/admin/erp/modules') {
 
         // 4. Coupons
         try {
-            $stmt = $pdo->query("SELECT * FROM coupons ORDER BY id DESC");
-            $coupons = $stmt->fetchAll() ?: [];
-        } catch (Exception $e) {}
+            ensureCouponsSeeded($pdo);
+            $stmt = $pdo->query("SELECT * FROM coupons WHERE deleted_at IS NULL ORDER BY created_at DESC");
+            $coupons = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        } catch (Exception $e) {
+            try {
+                $stmt = $pdo->query("SELECT * FROM coupons ORDER BY code ASC");
+                $coupons = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+            } catch (Exception $e2) {}
+        }
     }
 
     if (empty($modules)) {
@@ -3788,6 +4239,25 @@ if ($path === '/admin/erp/modules') {
     }
     if (empty($presets)) {
         $presets = getDefaultPresets();
+    }
+    if (empty($coupons)) {
+        $coupons = getDefaultCoupons();
+    } else {
+        $formattedCoupons = [];
+        foreach ($coupons as $c) {
+            $formattedCoupons[] = [
+                'code' => strtoupper(trim($c['code'] ?? '')),
+                'discount_type' => ($c['discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent',
+                'discount_value' => (int)($c['discount_value'] ?? 0),
+                'min_order_amount' => !empty($c['min_order_amount']) ? (int)$c['min_order_amount'] : null,
+                'max_discount_amount' => !empty($c['max_discount_amount']) ? (int)$c['max_discount_amount'] : null,
+                'is_active' => isset($c['is_active']) ? (bool)$c['is_active'] : true,
+                'status' => $c['status'] ?? 'active',
+                'created_at' => $c['created_at'] ?? null,
+                'expires_at' => $c['expires_at'] ?? null,
+            ];
+        }
+        $coupons = $formattedCoupons;
     }
 
     sendJson([
@@ -4126,21 +4596,41 @@ if ($path === '/admin/erp/settings' && ($method === 'POST' || $method === 'PUT')
 // ------------------------------------------------------------------------------
 if ($path === '/coupons/validate' && $method === 'POST') {
     $code = trim(strtoupper($body['code'] ?? ''));
+    if (empty($code)) {
+        sendError('لطفاً کد تخفیف را وارد نمایید.', 422);
+    }
     $coupon = null;
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM coupons WHERE code = ? AND is_active = 1 LIMIT 1");
+            ensureCouponsSeeded($pdo);
+            $stmt = $pdo->prepare("SELECT * FROM coupons WHERE code = ? AND is_active = 1 AND deleted_at IS NULL LIMIT 1");
             $stmt->execute([$code]);
             $coupon = $stmt->fetch();
         } catch (Exception $e) {}
     }
 
     if (!$coupon) {
+        $defCoupons = getDefaultCoupons();
+        foreach ($defCoupons as $dc) {
+            if (strtoupper($dc['code']) === $code && !empty($dc['is_active'])) {
+                $coupon = $dc;
+                break;
+            }
+        }
+    }
+
+    if (!$coupon) {
         sendError('کد تخفیف وارد شده معتبر نیست یا منقضی شده است.', 404);
     }
 
-    $discountValue = (int)($coupon['discount_value'] ?? $coupon['discount_percent'] ?? 20);
-    $discountType = $coupon['discount_type'] ?? 'percent';
+    if (!empty($coupon['expires_at']) && strtotime($coupon['expires_at']) < time()) {
+        sendError('این کد تخفیف منقضی شده است.', 422);
+    }
+
+    $discountValue = (int)($coupon['discount_value'] ?? $coupon['discount_percent'] ?? 0);
+    $discountType = ($coupon['discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent';
+    $minOrderAmount = !empty($coupon['min_order_amount']) ? (int)$coupon['min_order_amount'] : null;
+    $maxDiscountAmount = !empty($coupon['max_discount_amount']) ? (int)$coupon['max_discount_amount'] : null;
 
     sendJson([
         'success' => true,
@@ -4148,36 +4638,59 @@ if ($path === '/coupons/validate' && $method === 'POST') {
             'code' => $coupon['code'],
             'discount_type' => $discountType,
             'discount_value' => $discountValue,
-            'min_order_amount' => (int)($coupon['min_order_amount'] ?? 0)
+            'min_order_amount' => $minOrderAmount,
+            'max_discount_amount' => $maxDiscountAmount,
         ],
-        'message' => 'کد تخفیف با موفقیت اعمال شد.'
+        'message' => 'کد تخفیف معتبر است.'
     ]);
 }
 
 if ($path === '/admin/erp/coupons' && $method === 'POST') {
     $code = trim(strtoupper($body['code'] ?? ''));
-    $type = $body['discount_type'] ?? 'percent';
-    $val = (int)($body['discount_value'] ?? 20);
-    $minAmount = !empty($body['min_order_amount']) ? (int)$body['min_order_amount'] : 0;
+    $type = ($body['discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent';
+    $val = (int)($body['discount_value'] ?? 0);
+    $minAmount = !empty($body['min_order_amount']) ? (int)$body['min_order_amount'] : null;
+    $maxAmount = !empty($body['max_discount_amount']) ? (int)$body['max_discount_amount'] : null;
+    $isActive = isset($body['is_active']) ? (!empty($body['is_active']) ? 1 : 0) : 1;
 
-    if (empty($code)) {
-        sendError('کد تخفیف الزامی است.', 422);
+    if (empty($code) || $val <= 0) {
+        sendError('کد تخفیف و میزان تخفیف الزامی است.', 422);
     }
 
     if ($pdo) {
         try {
-            $stmt = $pdo->prepare("INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, is_active)
-                VALUES (?, ?, ?, ?, 1)
-                ON DUPLICATE KEY UPDATE discount_type = VALUES(discount_type), discount_value = VALUES(discount_value), min_order_amount = VALUES(min_order_amount)");
-            $stmt->execute([$code, $type, $val, $minAmount]);
+            ensureCouponsSeeded($pdo);
+            $stmt = $pdo->prepare("INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount_amount, is_active, status, deleted_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'active', NULL)
+                ON DUPLICATE KEY UPDATE 
+                    discount_type = VALUES(discount_type), 
+                    discount_value = VALUES(discount_value), 
+                    min_order_amount = VALUES(min_order_amount),
+                    max_discount_amount = VALUES(max_discount_amount),
+                    is_active = VALUES(is_active),
+                    status = 'active',
+                    deleted_at = NULL");
+            $stmt->execute([$code, $type, $val, $minAmount, $maxAmount, $isActive]);
         } catch (Exception $e) {}
     }
 
     sendJson(['success' => true, 'message' => 'کد تخفیف با موفقیت ذخیره شد.']);
 }
 
+if (preg_match('#^/admin/erp/coupons/([^/]+)/toggle$#', $path, $matches) && $method === 'POST') {
+    $code = trim(strtoupper($matches[1]));
+    if ($pdo) {
+        try {
+            ensureCouponsSeeded($pdo);
+            $stmt = $pdo->prepare("UPDATE coupons SET is_active = NOT is_active WHERE code = ?");
+            $stmt->execute([$code]);
+        } catch (Exception $e) {}
+    }
+    sendJson(['success' => true, 'message' => 'وضعیت کد تخفیف با موفقیت تغییر کرد.']);
+}
+
 if (preg_match('#^/admin/erp/coupons/([^/]+)$#', $path, $matches) && $method === 'DELETE') {
-    $code = $matches[1];
+    $code = trim(strtoupper($matches[1]));
     if ($pdo) {
         try {
             $stmt = $pdo->prepare("DELETE FROM coupons WHERE code = ?");
@@ -4688,12 +5201,67 @@ if (preg_match('#^/admin/error-logs/(\d+)/resolve$#', $path, $matches) && ($meth
 // ------------------------------------------------------------------------------
 // PWA & PUSH NOTIFICATIONS
 // ------------------------------------------------------------------------------
-if ($path === '/push/public-key' && $method === 'GET') {
+// 0. Get PWA / Web Push Master Status (Public)
+if (($path === '/pwa/status' || $path === '/api/pwa/status') && $method === 'GET') {
+    $settings = getPwaSettings($pdo);
+    sendJson([
+        'success' => true,
+        'enabled' => $settings['enabled'],
+        'pwaSettings' => $settings
+    ]);
+}
+
+// Admin: Toggle PWA, Service Worker & Web Push Master Switch
+if (($path === '/admin/pwa/toggle' || $path === '/api/admin/pwa/toggle') && $method === 'POST') {
+    $adminUser = getCurrentUser($pdo, false);
+    if (!$adminUser || ($adminUser['role'] !== 'admin' && ($adminUser['mobile'] ?? '') !== '09111273476')) {
+        sendError('دسترسی غیرمجاز. تنها مدیر ارشد سیستم امکان فعال یا غیرفعال‌سازی سراسری سرویس PWA را دارد.', 403);
+    }
+
+    if (!isset($body['enabled'])) {
+        sendError('پارامتر enabled باید به صورت boolean (true/false) ارسال شود.', 422);
+    }
+
+    $willEnable = !empty($body['enabled']) ? 1 : 0;
+    $updatedBy = $adminUser['id'] ?? 'admin';
+
+    if ($pdo) {
+        try {
+            $stmt = $pdo->prepare("INSERT INTO pwa_settings (id, enabled, updated_by, updated_at)
+                VALUES (1, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), updated_by = VALUES(updated_by), updated_at = NOW()");
+            $stmt->execute([$willEnable, (string)$updatedBy]);
+
+            logAudit($pdo, 'PWA_SERVICE_TOGGLED', 'CONFIGURATION_CHANGE',
+                $willEnable
+                    ? 'فعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)'
+                    : 'غیرفعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)'
+            );
+        } catch (Exception $e) {}
+    }
+
+    $settings = getPwaSettings($pdo);
+    sendJson([
+        'success' => true,
+        'enabled' => (bool)$willEnable,
+        'pwaSettings' => $settings,
+        'message' => $willEnable
+            ? 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت در سراسر سامانه فعال گردید.'
+            : 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت در سراسر سامانه غیرفعال شد.'
+    ]);
+}
+if (($path === '/push/public-key' || $path === '/api/push/public-key') && $method === 'GET') {
+    if (!isPwaEnabled($pdo)) {
+        sendError('سرویس PWA و ارسال اعلان‌های وب توسط مدیریت غیرفعال شده است.', 403);
+    }
     $vk = getVapidKeys();
     sendJson(['publicKey' => $vk['publicKey']]);
 }
 
-if ($path === '/push/subscribe' && $method === 'POST') {
+if (($path === '/push/subscribe' || $path === '/api/push/subscribe') && $method === 'POST') {
+    if (!isPwaEnabled($pdo)) {
+        sendError('سرویس PWA و ثبت دستگاه جدید در حال حاضر غیرفعال می‌باشد.', 403);
+    }
     $sub = $body['subscription'] ?? $body;
     $endpoint = $sub['endpoint'] ?? '';
     $p256dh = $sub['keys']['p256dh'] ?? '';
@@ -4732,7 +5300,7 @@ if ($path === '/push/subscribe' && $method === 'POST') {
     ], 201);
 }
 
-if ($path === '/push/unsubscribe' && $method === 'POST') {
+if (($path === '/push/unsubscribe' || $path === '/api/push/unsubscribe') && $method === 'POST') {
     $endpoint = $body['endpoint'] ?? '';
     if (!empty($endpoint) && $pdo) {
         try {
@@ -4743,14 +5311,17 @@ if ($path === '/push/unsubscribe' && $method === 'POST') {
     sendJson(['success' => true, 'message' => 'اشتراک اعلان‌ها با موفقیت لغو شد.']);
 }
 
-if ($path === '/push/test' && $method === 'POST') {
+if (($path === '/push/test' || $path === '/api/push/test') && $method === 'POST') {
+    if (!isPwaEnabled($pdo)) {
+        sendError('سرویس PWA و ارسال اعلان‌های وب هم‌اکنون غیرفعال است.', 403);
+    }
     sendJson([
         'success' => true,
         'message' => 'اعلان آزمایشی با موفقیت به دستگاه شما ارسال گردید.'
     ]);
 }
 
-if ($path === '/admin/push/subscribers' && $method === 'GET') {
+if (($path === '/admin/push/subscribers' || $path === '/api/admin/push/subscribers') && $method === 'GET') {
     $subscribers = [];
     if ($pdo) {
         try {
@@ -4767,8 +5338,11 @@ if ($path === '/admin/push/subscribers' && $method === 'GET') {
         elseif ($r === 'user') $userCount++;
         else $guestCount++;
     }
+    $pwaSettings = getPwaSettings($pdo);
     sendJson([
         'total' => $total,
+        'enabled' => $pwaSettings['enabled'],
+        'pwaSettings' => $pwaSettings,
         'stats' => [
             'admin_count' => $adminCount,
             'support_count' => $supportCount,
@@ -4779,7 +5353,10 @@ if ($path === '/admin/push/subscribers' && $method === 'GET') {
     ]);
 }
 
-if ($path === '/admin/push/broadcast' && $method === 'POST') {
+if (($path === '/admin/push/broadcast' || $path === '/api/admin/push/broadcast') && $method === 'POST') {
+    if (!isPwaEnabled($pdo)) {
+        sendError('سرویس اعلان‌های وب هم‌اکنون غیرفعال است. ابتدا آن را فعال نمایید.', 403);
+    }
     $title = trim($body['title'] ?? '');
     $msg = trim($body['body'] ?? '');
     if (empty($title) || empty($msg)) {
@@ -4822,13 +5399,21 @@ if ($path === '/admin/users') {
     $users = [];
     if ($pdo) {
         try {
-            $stmt = $pdo->query("SELECT u.*, c.company_name, 
-                (SELECT COUNT(*) FROM subscriptions WHERE user_id = u.id AND status = 'active') as active_subs_count 
+            $stmt = $pdo->query("SELECT u.*, 
+                COALESCE(NULLIF(c.company_name, ''), c.name, '—') as company_name,
+                (SELECT COUNT(*) FROM subscriptions WHERE user_id = u.id AND deleted_at IS NULL) as subscriptions_count,
+                (SELECT COUNT(*) FROM subscriptions WHERE user_id = u.id AND (status = 'active' OR is_active = 1) AND (expires_at IS NULL OR expires_at > NOW()) AND deleted_at IS NULL) as active_subs_count 
                 FROM users u 
                 LEFT JOIN companies c ON u.id = c.user_id 
                 WHERE u.deleted_at IS NULL
                 ORDER BY u.id DESC");
             $users = $stmt->fetchAll() ?: [];
+            foreach ($users as &$u) {
+                $u['subscriptions_count'] = (int)($u['subscriptions_count'] ?? 0);
+                $u['active_subs_count'] = (int)($u['active_subs_count'] ?? 0);
+                $u['is_owner'] = ($u['mobile'] === '09111273476');
+            }
+            unset($u);
         } catch (Exception $e) {}
     }
     sendJson(['users' => $users, 'data' => $users]);
@@ -4839,38 +5424,86 @@ if ($path === '/admin/users/lookup') {
     $user = null;
     if ($pdo && !empty($mobile)) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile LIKE ? AND deleted_at IS NULL LIMIT 1");
+            $stmt = $pdo->prepare("SELECT u.*, 
+                COALESCE(NULLIF(c.company_name, ''), c.name, '—') as company_name,
+                (SELECT COUNT(*) FROM subscriptions WHERE user_id = u.id AND deleted_at IS NULL) as subscriptions_count,
+                (SELECT COUNT(*) FROM subscriptions WHERE user_id = u.id AND (status = 'active' OR is_active = 1) AND (expires_at IS NULL OR expires_at > NOW()) AND deleted_at IS NULL) as active_subs_count 
+                FROM users u 
+                LEFT JOIN companies c ON u.id = c.user_id 
+                WHERE u.mobile LIKE ? AND u.deleted_at IS NULL LIMIT 1");
             $stmt->execute(["%{$mobile}%"]);
             $user = $stmt->fetch();
+            if ($user) {
+                $user['subscriptions_count'] = (int)($user['subscriptions_count'] ?? 0);
+                $user['active_subs_count'] = (int)($user['active_subs_count'] ?? 0);
+                $user['full_name'] = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?: 'کاربر';
+                $user['is_owner'] = ($user['mobile'] === '09111273476');
+            }
         } catch (Exception $e) {}
     }
-    sendJson(['user' => $user, 'data' => $user]);
+    sendJson(['exists' => !empty($user), 'user' => $user, 'data' => $user]);
 }
 
 if ($path === '/admin/users/toggle-role' && $method === 'POST') {
     $uid = (int)($body['user_id'] ?? 0);
+    $mobile = normalizeMobileNumber($body['mobile'] ?? '');
     $newRole = $body['role'] ?? 'support';
-    if ($pdo && $uid > 0) {
+    if (!in_array($newRole, ['admin', 'support', 'user'])) {
+        $newRole = 'support';
+    }
+
+    if ($pdo) {
         try {
-            $stmt = $pdo->prepare("UPDATE users SET role = ? WHERE id = ?");
-            $stmt->execute([$newRole, $uid]);
-            logAudit($pdo, 'USER_ROLE_CHANGED', 'PRIVILEGE_ESCALATION', "تغییر نقش کاربر #{$uid} به {$newRole}");
+            $user = null;
+            if ($uid > 0) {
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+                $stmt->execute([$uid]);
+                $user = $stmt->fetch();
+            } elseif (!empty($mobile)) {
+                $stmt = $pdo->prepare("SELECT * FROM users WHERE mobile = ? LIMIT 1");
+                $stmt->execute([$mobile]);
+                $user = $stmt->fetch();
+            }
+
+            if ($user) {
+                if ($user['mobile'] === '09111273476' && $newRole !== 'admin') {
+                    sendError('امکان خلع دسترسی از مالک و مدیر ارشد پروژه وجود ندارد.', 403);
+                }
+                $stmt = $pdo->prepare("UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?");
+                $stmt->execute([$newRole, $user['id']]);
+                logAudit($pdo, 'USER_ROLE_CHANGED', 'PRIVILEGE_MANAGEMENT', "تغییر نقش کاربر #{$user['id']} ({$user['mobile']}) به {$newRole}");
+            } elseif (!empty($mobile)) {
+                // Pre-create user with this role
+                $defaultJob = ($newRole === 'admin') ? 'مدیر سیستم' : (($newRole === 'support') ? 'کارشناس پشتیبانی' : 'کاربر');
+                $stmt = $pdo->prepare("INSERT INTO users (mobile, role, status, is_active, job_title, onboarding_step) VALUES (?, ?, 'active', 1, ?, 1)");
+                $stmt->execute([$mobile, $newRole, $defaultJob]);
+                logAudit($pdo, 'USER_CREATED_WITH_ROLE', 'PRIVILEGE_MANAGEMENT', "ایجاد کاربر جدید با موبایل {$mobile} و نقش {$newRole}");
+            }
         } catch (Exception $e) {}
     }
-    sendJson(['success' => true, 'message' => 'نقش کاربر بروزرسانی شد.']);
+    sendJson(['success' => true, 'message' => 'نقش کاربر با موفقیت بروزرسانی شد.']);
 }
 
 if (preg_match('#^/admin/users/(\d+)/role$#', $path, $matches) && ($method === 'PUT' || $method === 'POST')) {
     $uid = (int)$matches[1];
     $newRole = $body['role'] ?? 'user';
+    if (!in_array($newRole, ['admin', 'support', 'user'])) {
+        $newRole = 'user';
+    }
     if ($pdo && $uid > 0) {
         try {
-            $stmt = $pdo->prepare("UPDATE users SET role = ? WHERE id = ?");
+            $stmt = $pdo->prepare("SELECT mobile FROM users WHERE id = ? LIMIT 1");
+            $stmt->execute([$uid]);
+            $uMobile = $stmt->fetchColumn();
+            if ($uMobile === '09111273476' && $newRole !== 'admin') {
+                sendError('امکان خلع دسترسی از مالک و مدیر ارشد پروژه وجود ندارد.', 403);
+            }
+            $stmt = $pdo->prepare("UPDATE users SET role = ?, updated_at = NOW() WHERE id = ?");
             $stmt->execute([$newRole, $uid]);
-            logAudit($pdo, 'USER_ROLE_CHANGED', 'PRIVILEGE_ESCALATION', "تغییر نقش کاربر #{$uid} به {$newRole}");
+            logAudit($pdo, 'USER_ROLE_CHANGED', 'PRIVILEGE_MANAGEMENT', "تغییر نقش کاربر #{$uid} به {$newRole}");
         } catch (Exception $e) {}
     }
-    sendJson(['success' => true, 'message' => 'نقش کاربر تغییر یافت.']);
+    sendJson(['success' => true, 'message' => 'نقش کاربر با موفقیت تغییر یافت.']);
 }
 
 if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && $method === 'DELETE') {
@@ -5538,40 +6171,418 @@ if ($path === '/admin/push/broadcast' && $method === 'POST') {
 }
 
 // ------------------------------------------------------------------------------
-// 17. OFFICIAL INVOICE GENERATOR
+// 17. OFFICIAL INVOICES, CONTRACTS & SLA AGREEMENTS
 // ------------------------------------------------------------------------------
-if (preg_match('#^/invoices/(\d+)$#', $path, $matches)) {
-    $orderId = (int)$matches[1];
-    $order = null;
-    $company = null;
-    $user = null;
 
-    if ($pdo) {
-        try {
-            $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.mobile, u.email FROM orders o JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
-            $stmt->execute([$orderId]);
-            $order = $stmt->fetch();
+if (!function_exists('gregorian_to_jalali')) {
+    function gregorian_to_jalali($gy, $gm, $gd) {
+        $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        if ($gy > 1600) {
+            $jy = 979;
+            $gy -= 1600;
+        } else {
+            $jy = 0;
+            $gy -= 621;
+        }
+        $gy2 = ($gm > 2) ? ($gy + 1) : $gy;
+        $days = (365 * $gy) + ((int)(($gy2 + 3) / 4)) - ((int)(($gy2 + 99) / 100)) + ((int)(($gy2 + 399) / 400)) - 80 + $gd + $g_d_m[$gm - 1];
+        $jy += 33 * ((int)($days / 12053));
+        $days %= 12053;
+        $jy += 4 * ((int)($days / 1461));
+        $days %= 1461;
+        if ($days > 365) {
+            $jy += (int)(($days - 1) / 365);
+            $days = ($days - 1) % 365;
+        }
+        $jm = ($days < 186) ? 1 + (int)($days / 31) : 7 + (int)(($days - 186) / 30);
+        $jd = 1 + (($days < 186) ? ($days % 31) : (($days - 186) % 30));
+        return [$jy, $jm, $jd];
+    }
+}
 
-            if ($order) {
-                $stmt = $pdo->prepare("SELECT * FROM companies WHERE user_id = ? LIMIT 1");
-                $stmt->execute([$order['user_id']]);
-                $company = $stmt->fetch();
+if (!function_exists('numberToWordsPersian')) {
+    function numberToWordsPersian($num) {
+        $num = (int)$num;
+        if ($num === 0) return 'صفر تومان';
+        if ($num < 0) return 'منفی ' . numberToWordsPersian(abs($num));
+        $yekan = ['', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نه'];
+        $dahha = ['', 'ده', 'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود'];
+        $dahha10_19 = ['ده', 'یازده', 'دوازده', 'سیزده', 'چهارده', 'پانزده', 'شانزده', 'هفده', 'هجده', 'نوزده'];
+        $sadha = ['', 'یکصد', 'دویست', 'سیصد', 'چهارصد', 'پانصد', 'ششصد', 'هفتصد', 'هشتصد', 'نهصد'];
+        $tabaghat = ['', 'هزار', 'میلیون', 'میلیارد', 'تریلیون'];
+        $convertGroup = function($n) use ($yekan, $dahha, $dahha10_19, $sadha) {
+            $res = '';
+            $s = (int)($n / 100); $d = (int)(($n % 100) / 10); $y = $n % 10;
+            if ($s > 0) $res .= $sadha[$s];
+            if ($d === 1) {
+                if ($res !== '') $res .= ' و ';
+                $res .= $dahha10_19[$y];
+            } else {
+                if ($d > 1) { if ($res !== '') $res .= ' و '; $res .= $dahha[$d]; }
+                if ($y > 0) { if ($res !== '') $res .= ' و '; $res .= $yekan[$y]; }
             }
-        } catch (Exception $e) {}
+            return $res;
+        };
+        $parts = []; $temp = $num; $groupIdx = 0;
+        while ($temp > 0) {
+            $group = $temp % 1000;
+            if ($group > 0) {
+                $groupText = $convertGroup($group);
+                $suffix = !empty($tabaghat[$groupIdx]) ? ' ' . $tabaghat[$groupIdx] : '';
+                array_unshift($parts, $groupText . $suffix);
+            }
+            $temp = (int)($temp / 1000); $groupIdx++;
+        }
+        return implode(' و ', $parts) . ' تومان';
+    }
+}
+
+if (!function_exists('findOrderAndDetails')) {
+    function findOrderAndDetails($pdo, $targetId) {
+        $order = null; $tx = null; $company = null;
+        if ($pdo) {
+            try {
+                $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.mobile, u.email, u.national_code, u.national_id FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
+                $stmt->execute([$targetId]);
+                $order = $stmt->fetch();
+                if ($order) {
+                    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+                    $stmt->execute([$order['id']]);
+                    $tx = $stmt->fetch();
+                } else {
+                    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? LIMIT 1");
+                    $stmt->execute([$targetId]);
+                    $tx = $stmt->fetch();
+                    if ($tx && !empty($tx['order_id'])) {
+                        $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.mobile, u.email, u.national_code, u.national_id FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
+                        $stmt->execute([$tx['order_id']]);
+                        $order = $stmt->fetch();
+                    }
+                }
+                $userId = $order['user_id'] ?? ($tx['user_id'] ?? 0);
+                if ($userId) {
+                    $stmt = $pdo->prepare("SELECT * FROM companies WHERE user_id = ? LIMIT 1");
+                    $stmt->execute([$userId]);
+                    $company = $stmt->fetch();
+                }
+            } catch (Exception $e) {}
+        }
+        if (!$order) {
+            $jdb = getJsonDatabase();
+            $orders = $jdb['orders'] ?? [];
+            foreach ($orders as $o) {
+                if ($o['id'] == $targetId) { $order = $o; break; }
+            }
+            if (!$tx) {
+                $txs = $jdb['transactions'] ?? [];
+                foreach ($txs as $t) {
+                    if (($order && $t['order_id'] == $order['id']) || $t['id'] == $targetId) {
+                        $tx = $t;
+                        if (!$order && !empty($t['order_id'])) {
+                            foreach ($orders as $o) {
+                                if ($o['id'] == $t['order_id']) { $order = $o; break; }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            if ($order && empty($company)) {
+                $comps = $jdb['companies'] ?? [];
+                foreach ($comps as $c) {
+                    if ($c['user_id'] == ($order['user_id'] ?? 0)) { $company = $c; break; }
+                }
+            }
+        }
+        if (!$order) {
+            $order = [
+                'id' => $targetId,
+                'order_number' => 'ORD-20260919-' . $targetId,
+                'package_name' => 'اشتراک سامانه ابری کارویتا',
+                'amount' => (int)($tx['amount'] ?? 0),
+                'final_amount' => (int)($tx['amount'] ?? 0),
+                'user_count' => 1,
+                'billing_period' => 'yearly',
+                'created_at' => date('Y-m-d H:i:s'),
+                'first_name' => 'کاربر',
+                'last_name' => 'گرامی',
+                'mobile' => '',
+                'email' => ''
+            ];
+        }
+        return [$order, $tx, $company];
+    }
+}
+
+// ------------------------------------------------------------------------------
+// 17.1 OFFICIAL CONTRACT & SLA DOCUMENT (HTML & PDF Auto-Download)
+// ------------------------------------------------------------------------------
+if (preg_match('#^/invoices/(\d+)/contract/?$#', $path, $matches)) {
+    $targetId = (int)$matches[1];
+    list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
+
+    $seller = [
+        'company_name' => 'شرکت معماران رشد و تحول کسب و کار (سهامی خاص)',
+        'brand_name' => 'کارویتا ابری (Karovita Cloud ERP)',
+        'registration_number' => '10506',
+        'national_id' => '14015285185',
+        'economic_code' => '3880354536',
+        'tax_payer_code' => 'TP-10506-TX',
+        'postal_code' => '1997985614',
+        'province' => 'تهران',
+        'city' => 'تهران',
+        'address' => 'تهران، خیابان ولیعصر، بالاتر از میدان ونک، برج فناوری و نوآوری ابری، طبقه ۸، واحد ۸۰۴',
+        'phone' => '021-88990011',
+        'email' => 'finance@karovita.ir'
+    ];
+
+    $orderNum = $order['order_number'] ?? ('ORD-' . $order['id']);
+    $contractNum = 'KCT-' . (preg_replace('/\D/', '', $orderNum) ?: ($order['id'] ?? '1001'));
+
+    $createdAt = !empty($order['created_at']) ? strtotime($order['created_at']) : time();
+    $gy = (int)date('Y', $createdAt);
+    $gm = (int)date('n', $createdAt);
+    $gd = (int)date('j', $createdAt);
+    list($jy, $jm, $jd) = gregorian_to_jalali($gy, $gm, $gd);
+    $dateFa = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+
+    $buyerName = ($company['company_name'] ?? '') ?: (($company['name'] ?? '') ?: trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')));
+    if (empty($buyerName)) $buyerName = $order['mobile'] ?? 'مشترک محترم';
+
+    $buyerNationalId = trim($company['national_id'] ?? '') ?: (trim($company['economic_code'] ?? '') ?: (trim($order['national_code'] ?? '') ?: (trim($order['national_id'] ?? '') ?: ($order['mobile'] ?? 'ثبت نشده'))));
+    $buyerPhone = ($company['phone'] ?? '') ?: ($order['mobile'] ?? '—');
+    $buyerAddress = ($company['address'] ?? '') ?: (!empty($company['province']) ? ($company['province'] . '، ' . ($company['city'] ?? '')) : 'اقامتگاه قانونی ثبت شده در سامانه کارویتا');
+
+    $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
+    $amountInWords = numberToWordsPersian($finalAmount);
+    $finalAmountFormatted = number_format($finalAmount);
+
+    $userCount = !empty($order['user_count']) ? (int)$order['user_count'] : 1;
+
+    $bp = strtolower($order['billing_period'] ?? 'yearly');
+    if ($bp === 'yearly' || $bp === '12_months') {
+        $billingPeriodText = 'یک‌ساله (۱۲ ماه شمسی با احتساب ۲ ماه هدیه کارویتا)';
+    } elseif ($bp === '6_months' || $bp === 'semiannual') {
+        $billingPeriodText = 'شش‌ماهه (۶ ماه شمسی)';
+    } elseif ($bp === '3_months' || $bp === 'quarterly') {
+        $billingPeriodText = 'سه‌ماهه (۳ ماه شمسی)';
+    } else {
+        $billingPeriodText = 'یک‌ماهه';
     }
 
-    if (!$order) {
-        $order = [
-            'id' => $orderId,
-            'order_number' => 'ORD-' . $orderId,
-            'package_name' => 'اشتراک سامانه ابری کارویتا',
-            'amount' => 1200000,
-            'final_amount' => 1200000,
-            'created_at' => date('Y-m-d H:i:s'),
-            'first_name' => 'کاربر',
-            'last_name' => 'گرامی'
-        ];
+    $allModules = getDefaultModules();
+    $modMap = [];
+    foreach ($allModules as $m) { $modMap[$m['id']] = $m['title']; }
+
+    $rawModuleIds = $order['module_ids'] ?? [];
+    if (is_string($rawModuleIds)) { $rawModuleIds = json_decode($rawModuleIds, true) ?: []; }
+    $selectedTitles = [];
+    if (is_array($rawModuleIds)) {
+        foreach ($rawModuleIds as $mid) { $selectedTitles[] = $modMap[$mid] ?? $mid; }
     }
+    $selectedModulesTitles = !empty($selectedTitles) ? implode('، ', $selectedTitles) : (!empty($order['package_name']) ? htmlspecialchars($order['package_name']) : 'ماژول‌های پایه و اختصاصی ERP');
+
+    $txTracking = !empty($tx['tracking_code']) ? $tx['tracking_code'] : (!empty($tx['reference_id']) ? $tx['reference_id'] : (!empty($order['tracking_code']) ? $order['tracking_code'] : 'REF-ONLINE-PAY'));
+    $userEmail = !empty($order['email']) ? $order['email'] : '—';
+    $userMobileOrId = !empty($order['mobile']) ? $order['mobile'] : ($order['user_id'] ?? '—');
+
+    if (isset($_GET['download']) && $_GET['download'] === '1') {
+        header('Content-Disposition: attachment; filename="Contract-' . ($orderNum ?: 'doc') . '.html"');
+    }
+    header('Content-Type: text/html; charset=utf-8');
+    ?>
+
+    <!doctype html>
+    <html lang="fa" dir="rtl">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>قرارداد رسمی ارائه خدمات ابری و لایسنس - <?= htmlspecialchars($contractNum) ?></title>
+      <style>
+        @page { size: A4 portrait; margin: 12mm; }
+        * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'IRANSans', 'Vazirmatn', Tahoma, 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f8fafc; color: #0f172a; font-size: 11.5px; line-height: 1.8; }
+        .print-actions { max-width: 210mm; margin: 0 auto 16px; display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 12px 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+        .btn-print { background: #0870d1; color: #ffffff; border: none; padding: 8px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-invoice { background: #ffffff; color: #0870d1; border: 1px solid #0870d1; padding: 7px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+        .contract-wrapper { max-width: 210mm; margin: 0 auto; background: #ffffff; padding: 16mm 14mm; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .header-box { border-bottom: 2px solid #0870d1; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .contract-title { font-size: 16px; font-weight: 900; color: #0f172a; margin: 0; }
+        .clause { margin-bottom: 14px; text-align: justify; }
+        .clause-title { font-weight: 800; color: #0870d1; margin-bottom: 4px; }
+        .signatures-box { margin-top: 30px; display: flex; justify-content: space-between; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+        .sig-party { width: 48%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; height: 140px; position: relative; }
+        .stamp-circle { position: absolute; left: 20px; bottom: 20px; border: 3px double #0870d1; border-radius: 50%; width: 80px; height: 80px; color: #0870d1; font-size: 9px; font-weight: bold; text-align: center; padding: 14px 2px; transform: rotate(-12deg); opacity: 0.85; }
+        @media print { body { background: #ffffff; padding: 0; } .print-actions { display: none !important; } .contract-wrapper { border: none; box-shadow: none; padding: 0; } }
+      </style>
+    </head>
+
+    <body>
+      <div class="print-actions">
+        <strong style="color:#0870d1; font-size:14px;">قرارداد رسمی لایسنس و ارائه خدمات ابری کارویتا (SLA Agreement)</strong>
+        <div style="display:flex; gap:8px;">
+          <a href="/api/invoices/<?= $order['id'] ?>" class="btn-invoice" target="_blank">مشاهده فاکتور رسمی</a>
+          <button type="button" class="btn-print" style="background:#16a34a;" onclick="window.downloadContractPdf()">دانلود خودکار PDF قرارداد</button>
+          <button type="button" class="btn-print" onclick="window.print()">چاپ و ذخیره PDF قرارداد</button>
+        </div>
+      </div>
+      <div class="contract-wrapper">
+        <div class="header-box">
+          <div>
+            <h1 class="contract-title">قرارداد اعطای لایسنس و ارائه خدمات ابری (SLA)</h1>
+            <small style="color:#64748b;">سامانه مدیریت یکپارچه منابع سازمانی ابری کارویتا (Karovita Cloud ERP)</small>
+          </div>
+          <div style="text-align:left; font-size:11px; line-height:1.6;">
+            <div>شماره قرارداد: <strong style="font-family:monospace;"><?= htmlspecialchars($contractNum) ?></strong></div>
+            <div>تاریخ انعقاد: <strong><?= htmlspecialchars($dateFa) ?></strong></div>
+            <div>پیوست فاکتور: <strong style="font-family:monospace;"><?= htmlspecialchars($orderNum) ?></strong></div>
+          </div>
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱: طرفین قرارداد</div>
+          این قرارداد فی‌مابین <strong><?= htmlspecialchars($seller['company_name']) ?></strong> به شناسه ملی <?= htmlspecialchars($seller['national_id']) ?>، شماره ثبت <?= htmlspecialchars($seller['registration_number']) ?> و کد اقتصادی <?= htmlspecialchars($seller['economic_code']) ?> به نشانی <?= htmlspecialchars($seller['address']) ?> به عنوان <strong>«مجری / ارائه‌دهنده خدمت»</strong> از یک طرف، و <strong><?= htmlspecialchars($buyerName) ?></strong> به شماره/شناسه ملی <?= htmlspecialchars($buyerNationalId) ?> به نشانی <?= htmlspecialchars($buyerAddress) ?> و شماره تماس <?= htmlspecialchars($buyerPhone) ?> به عنوان <strong>«کارفرما / مشترک»</strong> از طرف دیگر، منعقد گردید.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۲: موضوع قرارداد</div>
+          موضوع قرارداد عبارت است از اعطای حق بهره‌برداری غیرانحصاری (لایسنس ابری)، میزبانی امن داده‌ها، پشتیبانی فنی و دسترسی به سامانه ابری کارویتا و ماژول‌های منتخَب کارفرما شامل: <strong><?= htmlspecialchars($selectedModulesTitles) ?></strong> برای ظرفیت <strong><?= $userCount ?> کاربر همزمان</strong>.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۳: مدت قرارداد و دوره اشتراک</div>
+          مدت این قرارداد به مدت <strong>یک دوره <?= htmlspecialchars($billingPeriodText) ?></strong> از تاریخ پرداخت و فعال‌سازی سفارش بوده و با تمدید اشتراک و تسویه فاکتورهای آتی به صورت خودکار قابل تمدید است.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۴: مبلغ قرارداد و نحوه پرداخت</div>
+          مبلغ کل این قرارداد برابر با <strong><?= $finalAmountFormatted ?> تومان</strong> (حروف: <?= htmlspecialchars($amountInWords) ?>) با احتساب کلیه عوارض و مالیات بر ارزش افزوده قانونی می‌باشد که طبق صورتحساب رسمی شماره <?= htmlspecialchars($orderNum) ?> توسط کارفرما تسویه گردیده است.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۵: سطح تعهدات خدمات (SLA) و پایداری سرویس</div>
+          مجری متعهد می‌گردد پایداری سامانه ابری (Uptime) را با ضریب ۹۹.۹٪ در طول دوره قرارداد تضمین نماید. همچنین پشتیبانی فنی از طریق سامانه تیکتینگ و رفع خطاهای سیستمی به صورت ۲۴/۷ بر عهده مجری خواهد بود.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۶: محرمانگی اطلاعات (NDA) و مالکیت داده‌ها</div>
+          کلیه اطلاعات، پایگاه داده‌ها، مستندات مالی و اسناد تجاری کارفرما که در سامانه کارویتا ذخیره می‌گردد، دارایی انحصاری و محرمانه کارفرما بوده و مجری متعهد به حفاظت کامل از حریم خصوصی داده‌ها طبق پروتکل‌های رمزنگاری پیشرفته می‌باشد.
+        </div>
+
+        <div class="clause">
+          <div class="clause-title">ماده ۷: دوره استفاده رایگان و آشنایی با کارویتا</div>
+          مشتری پیش از پرداخت، از دوره رایگان پنج‌روزه (۵ روز) از تمامی امکانات بهره‌مند بوده و تصدیق می‌کند دسترسی کامل و فرصت کافی برای ارزیابی داشته است؛ خرید پس از این دوره به‌منزله شناخت کامل از عملکرد نرم‌افزار است.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۸: تعهد به پرداخت و شرط عدم بازگشت وجه</div>
+          ۱. مشتری با پرداخت مبلغ اشتراک تصریح می‌کند با شناخت کامل و اراده آزاد خرید کرده است. ۲. از لحظه تأیید پرداخت، مبلغ به هیچ‌وجه قابل بازگشت نیست و مشتری حق درخواست استرداد، فسخ یا انصراف ندارد. ۳. مشتری تصدیق می‌کند شرایط قرارداد را مطالعه و دکمه «پذیرش و پرداخت» را آگاهانه فشرده است. ۴. عدم استفاده یا عدم رضایت پس از دوره رایگان، دلیلی برای استرداد نیست.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۹: مبنای حقوقی شرط عدم بازگشت وجه</div>
+          مبنای حقوقی، قانون تجارت الکترونیکی ایران و ماده ۳۷ آن است: در معامله از راه دور مصرف‌کننده حداقل هفت روز کاری فرصت انصراف دارد؛ در این قرارداد دوره رایگان پنج‌روزه همان فرصت ارزیابی و انصراف بدونِ هزینه است و پس از پرداخت مسئولیت کامل تصمیم بر عهده مشتری است.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱۰: صدور تأییدیه قرائت و پذیرش الکترونیکی</div>
+          پذیرش الکترونیکی مشتری به‌منزله امضا و جایگزین امضای دست‌نویس است. زمان، تاریخ پذیرش و شناسه تراکنش پرداخت در سامانه کارویتا به‌عنوان دلیل اثبات نگهداری می‌شود.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱۱: حقوق و تعهدات طرفین</div>
+          تأمین‌کننده: فعال‌سازی سریع حساب پس از پرداخت، ارائه خدمات مطابق ویژگی‌های تجربه‌شده در دوره رایگان، حفظ اطلاعات مطابق حریم خصوصی. مشتری: مطالعه قرارداد پیش از پرداخت، استفاده از دوره رایگان برای آشنایی، استفاده قانونی از نرم‌افزار، پذیرش مسئولیت کامل تصمیم به خرید.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱۲: استثنائات و موارد استرداد وجه</div>
+          تنها در این موارد محدود استرداد بررسی می‌شود: پرداخت مبلغ بیش از مبلغ نمایش‌داده‌شده (خطای محاسباتی سامانه)، کسر تکراری برای یک تراکنش واحد، عدم فعال‌سازی حساب توسط تأمین‌کننده در بازه تعهدشده. مشتری باید حداکثر ظرف ۷۲ ساعت از پرداخت، از طریق پشتیبانی کارویتا با شماره تراکنش درخواست ثبت کند.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱۳: حل اختلاف و قانون حاکم</div>
+          این قرارداد تابع قوانین جمهوری اسلامی ایران است. اختلاف ابتدا از طریق پشتیبانی کارویتا و مذاکره دوستانه حل‌وفصل می‌شود؛ در صورت عدم توافق، مرجع رسیدگی مراجع قضایی ذی‌صلاح محل اقامت تأمین‌کننده است.
+        </div>
+        <div class="clause">
+          <div class="clause-title">ماده ۱۴: امضا و تأیید نهایی</div>
+          مشتری پذیرش الکترونیکی این قرارداد و پرداخت مبلغ را تأیید می‌کند و این پذیرش به‌منزله امضای الکترونیکی اوست. تاریخ پذیرش: <strong><?= htmlspecialchars($dateFa) ?></strong> ــ شناسه تراکنش: <strong style="font-family:monospace;"><?= htmlspecialchars($txTracking) ?></strong> ــ رایانامه: <strong><?= htmlspecialchars($userEmail) ?></strong> ــ شناسه کاربری: <strong style="font-family:monospace;"><?= htmlspecialchars($userMobileOrId) ?></strong>
+        </div>
+        <div class="signatures-box">
+          <div class="sig-party">
+            <strong>مهر و امضای مجری (ارائه‌دهنده خدمت):</strong>
+            <div style="font-size:10px; color:#64748b; margin-top:2px;">شرکت معماران رشد و تحول کسب و کار (سهامی خاص)</div>
+            <div class="stamp-circle">شرکت کارویتا<br>امور حقوقی و قراردادها</div>
+          </div>
+          <div class="sig-party">
+            <strong>مهر و امضای کارفرما (مشترک):</strong>
+            <div style="font-size:10px; color:#64748b; margin-top:2px;"><?= htmlspecialchars($buyerName) ?></div>
+          </div>
+        </div>
+      </div>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+      <script>
+        (function () {
+          function runAutoDownload() {
+            try {
+              var el = document.querySelector('.contract-wrapper');
+              if (!el || typeof html2pdf === 'undefined') return;
+              var num = (document.title.split(' - ')[1] || 'Contract').trim();
+              html2pdf().set({
+                margin: [8, 8, 8, 8],
+                filename: 'Karovita-Contract-' + num + '.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak: { mode: ['css', 'legacy'] }
+              }).from(el).save();
+            } catch (e) { console.warn('auto pdf failed', e); }
+          }
+          window.downloadContractPdf = runAutoDownload;
+          window.addEventListener('load', function () { setTimeout(runAutoDownload, 1200); });
+        })();
+      </script>
+    </body>
+    </html>
+    <?php
+    exit;
+}
+
+// ------------------------------------------------------------------------------
+// 17.2 INVOICE & CONTRACT JSON DATA
+// ------------------------------------------------------------------------------
+if (preg_match('#^/invoices/(\d+)/data/?$#', $path, $matches)) {
+    $targetId = (int)$matches[1];
+    list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
+
+    $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
+    $orderNum = $order['order_number'] ?? ('ORD-' . $order['id']);
+    $contractNum = 'KCT-' . (preg_replace('/\D/', '', $orderNum) ?: ($order['id'] ?? '1001'));
+
+    $createdAt = !empty($order['created_at']) ? strtotime($order['created_at']) : time();
+    $gy = (int)date('Y', $createdAt);
+    $gm = (int)date('n', $createdAt);
+    $gd = (int)date('j', $createdAt);
+    list($jy, $jm, $jd) = gregorian_to_jalali($gy, $gm, $gd);
+    $dateFa = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+
+    sendJson([
+        'order' => $order,
+        'transaction' => $tx,
+        'company' => $company,
+        'contract_number' => $contractNum,
+        'is_paid' => (bool)($order['is_paid'] ?? false),
+        'amount' => $finalAmount,
+        'amount_words' => numberToWordsPersian($finalAmount),
+        'date_fa' => $dateFa
+    ]);
+}
+
+// ------------------------------------------------------------------------------
+// 17.3 OFFICIAL TAX INVOICE GENERATOR
+// ------------------------------------------------------------------------------
+if (preg_match('#^/invoices/(\d+)/?$#', $path, $matches)) {
+    $targetId = (int)$matches[1];
+    list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
+
+    $createdAt = !empty($order['created_at']) ? strtotime($order['created_at']) : time();
+    $gy = (int)date('Y', $createdAt);
+    $gm = (int)date('n', $createdAt);
+    $gd = (int)date('j', $createdAt);
+    list($jy, $jm, $jd) = gregorian_to_jalali($gy, $gm, $gd);
+    $dateFa = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+
+    $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
+    $buyerName = ($company['company_name'] ?? '') ?: (($company['name'] ?? '') ?: trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')));
+    if (empty($buyerName)) { $buyerName = $order['mobile'] ?? 'مشترک محترم'; }
+    $buyerNationalId = trim($company['national_id'] ?? '') ?: (trim($company['economic_code'] ?? '') ?: (trim($order['national_code'] ?? '') ?: (trim($order['national_id'] ?? '') ?: ($order['mobile'] ?? 'ثبت نشده'))));
 
     header('Content-Type: text/html; charset=utf-8');
     ?>
@@ -5589,13 +6600,17 @@ if (preg_match('#^/invoices/(\d+)$#', $path, $matches)) {
             th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: right; }
             th { background-color: #f1f5f9; color: #334155; }
             .total-row { font-weight: bold; background: #f8fafc; }
-            .print-btn { background: #0284c7; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-bottom: 16px; }
-            @media print { .print-btn { display: none; } }
+            .print-btn { background: #0284c7; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: bold; }
+            .contract-btn { background: #10b981; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
+            @media print { .no-print { display: none !important; } }
         </style>
     </head>
     <body>
         <div class="invoice-box">
-            <button class="print-btn" onclick="window.print()">چاپ فاکتور رسمی</button>
+            <div class="no-print" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button class="print-btn" onclick="window.print()">چاپ فاکتور رسمی</button>
+                <a href="/api/invoices/<?php echo $order['id']; ?>/contract" target="_blank" class="contract-btn">مشاهده و چاپ قرارداد رسمی (PDF)</a>
+            </div>
             <div class="header">
                 <div>
                     <div class="title">صورتحساب رسمی فروش کالا و خدمات</div>
@@ -5603,13 +6618,13 @@ if (preg_match('#^/invoices/(\d+)$#', $path, $matches)) {
                 </div>
                 <div style="text-align: left;">
                     <div>شماره فاکتور: <strong><?php echo htmlspecialchars($order['order_number']); ?></strong></div>
-                    <div>تاریخ: <?php echo date('Y/m/d'); ?></div>
+                    <div>تاریخ صدور: <strong><?php echo htmlspecialchars($dateFa); ?></strong></div>
                 </div>
             </div>
             <table>
                 <tr>
-                    <td colspan="2"><strong>مشخصات خریدار:</strong> <?php echo htmlspecialchars(($company['company_name'] ?? '') ?: ($order['first_name'] . ' ' . $order['last_name'])); ?></td>
-                    <td colspan="2"><strong>شناسه ملی / کد اقتصادی:</strong> <?php echo htmlspecialchars($company['national_id'] ?? $company['economic_code'] ?? 'ثبت نشده'); ?></td>
+                    <td colspan="2"><strong>مشخصات خریدار:</strong> <?php echo htmlspecialchars($buyerName); ?></td>
+                    <td colspan="2"><strong>شناسه ملی / کد اقتصادی:</strong> <?php echo htmlspecialchars($buyerNationalId); ?></td>
                 </tr>
                 <tr>
                     <th>ردیف</th>
@@ -5619,13 +6634,13 @@ if (preg_match('#^/invoices/(\d+)$#', $path, $matches)) {
                 </tr>
                 <tr>
                     <td>۱</td>
-                    <td><?php echo htmlspecialchars($order['package_name']); ?></td>
+                    <td><?php echo htmlspecialchars($order['package_name'] ?? 'اشتراک سامانه ابری کارویتا'); ?></td>
                     <td><?php echo htmlspecialchars($order['billing_period'] ?? 'سالانه'); ?></td>
-                    <td><?php echo number_format((int)($order['final_amount'] ?? $order['amount'] ?? 0)); ?> تومان</td>
+                    <td><?php echo number_format($finalAmount); ?> تومان</td>
                 </tr>
                 <tr class="total-row">
                     <td colspan="3" style="text-align: left;">مبلغ قابل پرداخت نهایی:</td>
-                    <td><strong><?php echo number_format((int)($order['final_amount'] ?? $order['amount'] ?? 0)); ?> تومان</strong></td>
+                    <td><strong><?php echo number_format($finalAmount); ?> تومان</strong></td>
                 </tr>
             </table>
             <div style="margin-top: 32px; font-size: 12px; color: #64748b; text-align: center;">

@@ -48,7 +48,7 @@ DB_PASS=رمز_عبور_دیتابیس_شما
 
 # کلیدهای امنیتی و درگاه‌ها (اختیاری - از داخل پنل مدیریت نیز قابل تغییرند)
 JWT_SECRET=karovita_secure_jwt_key_938472918472
-ZIBAL_MERCHANT=zibal
+ZIBAL_MERCHANT=
 ZIBAL_SANDBOX=0
 SMS_DRIVER=sms_ir
 SMS_IR_API_KEY=ocv39CACg6Vg3cg3DbY3mUwfOti7dktYUwksl3jA3Jt1qI0z

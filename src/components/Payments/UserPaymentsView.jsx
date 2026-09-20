@@ -15,9 +15,13 @@ import {
   FileText,
   FileCheck,
   Building2,
-  Printer
+  Printer,
+  Trash2,
+  XCircle,
+  Loader2,
+  X
 } from 'lucide-react';
-import { api } from '../../services/api';
+import { api, invalidateApiCache } from '../../services/api';
 import { OnlinePaymentModal } from './OnlinePaymentModal';
 import { LegalInfoModal } from './LegalInfoModal';
 
@@ -25,8 +29,11 @@ export function UserPaymentsView() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionSuccessMessage, setActionSuccessMessage] = useState('');
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState(null);
   const [showLegalModal, setShowLegalModal] = useState(false);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [orderToCancel, setOrderToCancel] = useState(null);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -45,21 +52,47 @@ export function UserPaymentsView() {
     }
   };
 
+  const handleCancelOrder = async (orderId) => {
+    setCancellingId(orderId);
+    setError('');
+    setActionSuccessMessage('');
+    try {
+      const res = await api(`/orders/${orderId}/cancel`, { method: 'POST' });
+      invalidateApiCache('/payments/pending-count');
+      invalidateApiCache('/user/orders');
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+      window.dispatchEvent(new Event('order-updated'));
+      setOrderToCancel(null);
+      setActionSuccessMessage(res?.message || 'پیش‌فاکتور با موفقیت لغو و حذف گردید.');
+      setTimeout(() => setActionSuccessMessage(''), 6000);
+    } catch (err) {
+      setError(err.message || 'خطا در لغو پیش‌فاکتور');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   useEffect(() => {
     loadOrders();
-    const handlePaymentDone = () => loadOrders();
-    window.addEventListener('payment-completed', handlePaymentDone);
+    const handleRefresh = () => loadOrders();
+    window.addEventListener('payment-completed', handleRefresh);
+    window.addEventListener('order-updated', handleRefresh);
     return () => {
-      window.removeEventListener('payment-completed', handlePaymentDone);
+      window.removeEventListener('payment-completed', handleRefresh);
+      window.removeEventListener('order-updated', handleRefresh);
     };
   }, []);
 
   const openOfficialInvoice = (id) => {
-    window.open(`/api/invoices/${id}`, '_blank');
+    const token = localStorage.getItem('token') || '';
+    const url = token ? `/api/invoices/${id}?token=${encodeURIComponent(token)}` : `/api/invoices/${id}`;
+    window.open(url, '_blank');
   };
 
   const openOfficialContract = (id) => {
-    window.open(`/api/invoices/${id}/contract`, '_blank');
+    const token = localStorage.getItem('token') || '';
+    const url = token ? `/api/invoices/${id}/contract?token=${encodeURIComponent(token)}` : `/api/invoices/${id}/contract`;
+    window.open(url, '_blank');
   };
 
   const downloadOfficialInvoiceHtml = (id, orderNumber) => {
@@ -147,6 +180,23 @@ export function UserPaymentsView() {
       {error && (
         <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '12px 16px', borderRadius: '8px', fontSize: '13px' }}>
           {error}
+        </div>
+      )}
+
+      {actionSuccessMessage && (
+        <div style={{
+          background: '#ecfdf5',
+          border: '1px solid #a7f3d0',
+          color: '#065f46',
+          padding: '12px 16px',
+          borderRadius: '8px',
+          fontSize: '13px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <CheckCircle2 size={18} color="#059669" />
+          <span>{actionSuccessMessage}</span>
         </div>
       )}
 
@@ -320,6 +370,39 @@ export function UserPaymentsView() {
                       <Printer size={15} />
                       <span>چاپ رسمی دارایی (PDF)</span>
                     </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setOrderToCancel(order)}
+                      disabled={cancellingId === order.id}
+                      title="لغو و حذف پیش‌فاکتور معوق"
+                      style={{
+                        background: '#fff1f2',
+                        color: '#e11d48',
+                        border: '1px solid #fecdd3',
+                        borderRadius: '8px',
+                        padding: '10px 14px',
+                        fontWeight: 700,
+                        fontSize: '12.5px',
+                        cursor: cancellingId === order.id ? 'not-allowed' : 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {cancellingId === order.id ? (
+                        <>
+                          <Loader2 size={14} className="spin" />
+                          <span>در حال لغو...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={14} />
+                          <span>لغو فاکتور</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -381,7 +464,7 @@ export function UserPaymentsView() {
                       )}
                     </td>
                     <td style={{ padding: '14px', fontFamily: 'monospace', color: '#059669', fontWeight: 600 }}>
-                      {order.transaction?.reference_id || 'REF-ONLINE-PAY'}
+                      {order.transaction?.reference_id || order.reference_id || order.transaction?.tracking_code || '—'}
                     </td>
                     <td style={{ padding: '14px', color: '#64748b' }}>
                       {order.transaction?.paid_at 
@@ -483,6 +566,128 @@ export function UserPaymentsView() {
             loadOrders();
           }}
         />
+      )}
+
+      {/* Cancel Order Confirmation Modal */}
+      {orderToCancel && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '460px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            textAlign: 'right',
+            direction: 'rtl'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  color: '#ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}>
+                  <Trash2 size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#1e293b' }}>
+                    لغو و حذف پیش‌فاکتور
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#64748b' }}>
+                    شناسه سفارش: {orderToCancel.order_number}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOrderToCancel(null)}
+                disabled={cancellingId === orderToCancel.id}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13.5px', color: '#475569', lineHeight: 1.6, margin: '0 0 16px 0' }}>
+              آیا از لغو پیش‌فاکتور به مبلغ <strong>{Number(orderToCancel.amount).toLocaleString('fa-IR')} تومان</strong> اطمینان دارید؟ 
+              <br />
+              <span style={{ color: '#b91c1c', fontSize: '12.5px', display: 'block', marginTop: '8px', fontWeight: 600 }}>
+                ⚠️ با لغو این پیش‌فاکتور، اطلاعات آن حذف شده و می‌توانید مجدداً اقدام به ثبت سفارش یا ویرایش اشتراک نمایید.
+              </span>
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setOrderToCancel(null)}
+                disabled={cancellingId === orderToCancel.id}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancelOrder(orderToCancel.id)}
+                disabled={cancellingId === orderToCancel.id}
+                style={{
+                  background: '#e11d48',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '9px 18px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: cancellingId === orderToCancel.id ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(225, 29, 72, 0.25)'
+                }}
+              >
+                {cancellingId === orderToCancel.id ? (
+                  <>
+                    <Loader2 size={15} className="spin" />
+                    <span>در حال لغو...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    <span>بله، فاکتور لغو و حذف شود</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

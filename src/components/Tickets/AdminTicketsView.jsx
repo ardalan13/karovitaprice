@@ -56,6 +56,30 @@ export function AdminTicketsView() {
 
   useEffect(() => {
     loadTickets(tab, search);
+
+    // Auto-polling for incoming tickets every 20 seconds
+    const interval = setInterval(() => {
+      loadTickets(tab, search);
+    }, 20000);
+
+    const handleFocus = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadTickets(tab, search);
+      }
+    };
+
+    const handleTicketEvent = () => loadTickets(tab, search);
+
+    window.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('ticket-updated', handleTicketEvent);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('ticket-updated', handleTicketEvent);
+    };
   }, [tab, departmentFilter, staffFilter]);
 
   function handleSearchChange(e) {

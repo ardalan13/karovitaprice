@@ -21,16 +21,16 @@ export interface SellerInfo {
 }
 
 export const OFFICIAL_SELLER_INFO: SellerInfo = {
-  company_name: 'شرکت داده‌پردازان ابری کارویتا (سهامی خاص)',
+  company_name: 'شرکت معماران رشد و تحول کسب و کار (سهامی خاص)',
   brand_name: 'کارویتا ابری (Karovita Cloud ERP)',
-  registration_number: '۵۶۸۹۴۲',
-  national_id: '۱۴۰۰۹۸۷۴۵۶۱',
-  economic_code: '۴۱۱۶۵۸۹۴۷۵۲۳',
-  tax_payer_code: 'TP-9874561-TX',
+  registration_number: '10506',
+  national_id: '14015285185',
+  economic_code: '3880354536',
+  tax_payer_code: 'TP-10506-TX',
   postal_code: '۱۹۹۷۹۸۵۶۱۴',
-  province: 'تهران',
-  city: 'تهران',
-  address: 'تهران، خیابان ولیعصر، بالاتر از میدان ونک، برج فناوری و نوآوری ابری، طبقه ۸، واحد ۸۰۴',
+  province: 'مازندران',
+  city: 'بابل',
+  address: 'مازندران - بابل - خیابان نواب صفوی - کوچه اشرفی ۲۷',
   phone: '۰۲۱-۸۸۹۹۰۰۱۱',
   fax: '۰۲۱-۸۸۹۹۰۰۱۲',
   email: 'finance@karovita.ir',
@@ -131,27 +131,41 @@ export function generateOfficialTaxInvoiceHtml(params: {
   const buyerPhone = company?.phone || user.mobile;
   const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'تهران، اقامتگاه قانونی ثبت شده در سامانه');
 
+  // Check if this is a resource addon for an active subscription
+  const isResourceAddon = Boolean(
+    order?.is_resource_addon ||
+    order?.order_type === 'resource_upgrade' ||
+    order?.order_type === 'addon' ||
+    order?.order_type === 'module_addon' ||
+    order?.breakdown?.is_resource_addon
+  );
+  const remainingMonths = Number(order?.breakdown?.remaining_months || 0);
+
   // Determine billing period, multiplier and titles
   const period = String(order?.billing_period || '').toLowerCase();
-  const unitMultiplier = (period === 'yearly' || period === '12_months')
-    ? 10
-    : ((period === '6_months' || period === 'semiannual')
-      ? 6
-      : ((period === '3_months' || period === 'quarterly') ? 3 : 1));
+  const unitMultiplier = isResourceAddon && remainingMonths > 0
+    ? remainingMonths
+    : (order?.breakdown?.multiplier || ((period === 'yearly' || period === '12_months')
+      ? 10
+      : ((period === '6_months' || period === 'semiannual')
+        ? 6
+        : ((period === '3_months' || period === 'quarterly') ? 3 : 1))));
 
-  const periodTitleFa = (period === 'yearly' || period === '12_months')
-    ? '۱ ساله (معادل ۱۰ ماه + ۲ ماه هدیه)'
-    : ((period === '6_months' || period === 'semiannual')
-      ? '۶ ماهه'
-      : ((period === '3_months' || period === 'quarterly') ? '۳ ماهه' : 'ماهانه'));
+  const periodTitleFa = isResourceAddon && remainingMonths > 0
+    ? `مدت باقیمانده اشتراک (${remainingMonths} ماه گردشده به سقف)`
+    : ((period === 'yearly' || period === '12_months')
+      ? '۱ ساله (معادل ۱۰ ماه + ۲ ماه هدیه)'
+      : ((period === '6_months' || period === 'semiannual')
+        ? '۶ ماهه'
+        : ((period === '3_months' || period === 'quarterly') ? '۳ ماهه' : 'ماهانه')));
 
-  const finalAmount = Number(tx?.amount || order?.amount || 0);
+  const finalAmount = Number(tx?.amount || order?.final_amount || order?.amount || 0);
   const vatRate = 0.10;
 
   // Breakdown calculations
   const extraUsersCount = Number(order?.breakdown?.extra_users_count || (order?.user_count && order.user_count > 1 ? order.user_count - 1 : 0));
   const monthlyExtraCost = Number(order?.breakdown?.extra_users_cost || 0);
-  const extraUsersPeriodTotal = monthlyExtraCost * unitMultiplier;
+  const extraUsersPeriodTotal = isResourceAddon ? monthlyExtraCost : (monthlyExtraCost * unitMultiplier);
 
   let calculatedModulesPeriodTotal = 0;
   if (order?.module_ids && order.module_ids.length > 0) {
@@ -160,16 +174,16 @@ export function generateOfficialTaxInvoiceHtml(params: {
       return sum + (m ? (Number(m.price) || 0) * unitMultiplier : 0);
     }, 0);
   } else {
-    calculatedModulesPeriodTotal = Number(order?.breakdown?.modules_total || 0) * unitMultiplier;
+    calculatedModulesPeriodTotal = Number(order?.breakdown?.modules_total || 0);
   }
 
-  const rawTotal = (calculatedModulesPeriodTotal + extraUsersPeriodTotal) > 0 
+  const rawTotal = order?.subtotal || ((calculatedModulesPeriodTotal + extraUsersPeriodTotal) > 0 
     ? (calculatedModulesPeriodTotal + extraUsersPeriodTotal)
-    : finalAmount;
+    : finalAmount);
 
-  const discountAmount = Math.max(rawTotal - finalAmount, 0);
-  const baseBeforeVat = Math.round(finalAmount / (1 + vatRate));
-  const vatAmount = finalAmount - baseBeforeVat;
+  const discountAmount = Math.max(rawTotal - (order?.subtotal || finalAmount), 0);
+  const baseBeforeVat = order?.subtotal || Math.round(finalAmount / (1 + vatRate));
+  const vatAmount = (order?.breakdown?.vat_amount !== undefined) ? order.breakdown.vat_amount : (finalAmount - baseBeforeVat);
   const amountInWords = numberToWordsPersian(finalAmount);
 
   // Items table
@@ -727,12 +741,12 @@ export function generateOfficialTaxInvoiceHtml(params: {
       <tr>
         <td>
           <div style="font-weight:800; font-size:11px; color:#1e293b;">مهر و امضای فروشنده:</div>
-          <div style="font-size:10px; color:#64748b; margin-top:2px;">شرکت داده‌پردازان ابری کارویتا (سهامی خاص)</div>
+          <div style="font-size:10px; color:#64748b; margin-top:2px;">${OFFICIAL_SELLER_INFO.company_name}</div>
           
           <div class="stamp-box">
-            شرکت کارویتا<br>
-            سهامی خاص<br>
-            ثبت: ۵۶۸۹۴۲<br>
+            شرکت معماران رشد و تحول<br>
+            کسب و کار (سهامی خاص)<br>
+            ثبت: ${OFFICIAL_SELLER_INFO.registration_number}<br>
             امور مالی
           </div>
         </td>
@@ -787,7 +801,7 @@ export function generateOfficialContractHtml(params: {
   const buyerNationalId = company?.national_id?.trim() || user.national_code?.trim() || user.national_id?.trim() || user.mobile;
   const buyerPhone = company?.phone || user.mobile;
   const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'اقامتگاه قانونی ثبت شده در سامانه');
-  const finalAmount = Number(tx?.amount || order?.amount || 0);
+  const finalAmount = Number(tx?.amount || order?.final_amount || order?.amount || 0);
   const amountInWords = numberToWordsPersian(finalAmount);
 
   const selectedModulesTitles = (order?.module_ids || [])
@@ -795,7 +809,7 @@ export function generateOfficialContractHtml(params: {
       const m = modulesList.find(x => x.id === id);
       return m ? m.title : id;
     })
-    .join('، ') || 'ماژول‌های پایه و اختصاصی ERP';
+    .join('، ') || order?.package_name || order?.description || 'ماژول‌های پایه و اختصاصی ERP';
 
   return `<!doctype html>
 <html lang="fa" dir="rtl">
@@ -1014,10 +1028,11 @@ export function generateOfficialContractHtml(params: {
     <div class="signatures-box">
       <div class="sig-party">
         <strong>مهر و امضای مجری (ارائه‌دهنده خدمت):</strong>
-        <div style="font-size:10px; color:#64748b; margin-top:2px;">شرکت داده‌پردازان ابری کارویتا (سهامی خاص)</div>
+        <div style="font-size:10px; color:#64748b; margin-top:2px;">${OFFICIAL_SELLER_INFO.company_name}</div>
         <div class="stamp-circle">
-          شرکت کارویتا<br>
-          امور حقوقی و قراردادها
+          شرکت معماران رشد<br>
+          و تحول کسب و کار<br>
+          امور قراردادها
         </div>
       </div>
 

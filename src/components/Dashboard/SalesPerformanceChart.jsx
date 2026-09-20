@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, memo } from 'react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -14,7 +14,7 @@ import { TrendingUp, Calendar, DollarSign, ShoppingCart, Award, Sparkles, Filter
 const moneyFa = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
 const numFa = n => Number(n || 0).toLocaleString('fa-IR');
 
-export function SalesPerformanceChart({ transactions = [], title = 'روند عملکرد فروش و درآمد ماهانه سامانه' }) {
+export function SalesPerformanceChartInner({ transactions = [], title = 'روند عملکرد فروش و درآمد ماهانه سامانه' }) {
   const [viewMode, setViewMode] = useState('weekly'); // 'weekly' | 'daily' | 'plans'
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
 
@@ -371,5 +371,9 @@ export function SalesPerformanceChart({ transactions = [], title = 'روند ع�
     </section>
   );
 }
+
+// Memo guard: skip re-render when transactions reference and title are unchanged
+// (admin overview refetches /admin/overview on unrelated tab switches)
+export const SalesPerformanceChart = memo(SalesPerformanceChartInner);
 
 export default SalesPerformanceChart;

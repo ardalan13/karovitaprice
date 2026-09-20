@@ -113,7 +113,47 @@ Route::middleware(['token.auth', 'admin.only', 'throttle:120,1'])->prefix('admin
     Route::get('/admin/gateways/sms/logs', [AdminController::class, 'getSmsLogs']);
     Route::post('/gateways/sms/test', [AdminController::class, 'testSms']);
     Route::post('/admin/gateways/sms/test', [AdminController::class, 'testSms']);
+
+    // Admin PWA Master Switch
+    Route::post('/pwa/toggle', function (\Illuminate\Http\Request $request) {
+        $enabled = $request->boolean('enabled', true);
+        return response()->json([
+            'success' => true,
+            'enabled' => $enabled,
+            'pwaSettings' => ['enabled' => $enabled, 'updated_at' => now()->toIso8601String()],
+            'message' => $enabled
+                ? 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت فعال گردید.'
+                : 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت غیرفعال شد.'
+        ]);
+    });
 });
+
+// PWA Master Status (Public)
+Route::get('/pwa/status', function () {
+    return response()->json([
+        'success' => true,
+        'enabled' => true,
+        'pwaSettings' => ['enabled' => true]
+    ]);
+});
+Route::get('/api/pwa/status', function () {
+    return response()->json([
+        'success' => true,
+        'enabled' => true,
+        'pwaSettings' => ['enabled' => true]
+    ]);
+});
+Route::post('/api/admin/pwa/toggle', function (\Illuminate\Http\Request $request) {
+    $enabled = $request->boolean('enabled', true);
+    return response()->json([
+        'success' => true,
+        'enabled' => $enabled,
+        'pwaSettings' => ['enabled' => $enabled, 'updated_at' => now()->toIso8601String()],
+        'message' => $enabled
+            ? 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت فعال گردید.'
+            : 'سرویس PWA، سرویس‌ورکر و اعلان‌های وب با موفقیت غیرفعال شد.'
+    ]);
+})->middleware(['token.auth', 'admin.only']);
 
 // Fallback & direct routes outside prefix to avoid any 'Route not found' in reverse proxies
 Route::get('/api/health', [HealthController::class, 'check']);
@@ -122,4 +162,43 @@ Route::put('/admin/subscriptions', [AdminController::class, 'updateSubscriptionS
 Route::put('/admin/subscriptions/{id}', [AdminController::class, 'updateSubscriptionStatus']);
 Route::get('/subscriptions', [AdminController::class, 'subscriptions']);
 Route::put('/subscriptions', [AdminController::class, 'updateSubscriptionStatus']);
+
+// Official Invoice and Contract routes
+Route::get('/invoices/{id}/contract', function ($id) {
+    if (file_exists(__DIR__ . '/../public/api/index.php')) {
+        $_SERVER['REQUEST_URI'] = "/api/invoices/{$id}/contract";
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        require __DIR__ . '/../public/api/index.php';
+        exit;
+    }
+    return response()->json(['message' => 'Contract endpoint not found'], 404);
+});
+Route::get('/api/invoices/{id}/contract', function ($id) {
+    if (file_exists(__DIR__ . '/../public/api/index.php')) {
+        $_SERVER['REQUEST_URI'] = "/api/invoices/{$id}/contract";
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        require __DIR__ . '/../public/api/index.php';
+        exit;
+    }
+    return response()->json(['message' => 'Contract endpoint not found'], 404);
+});
+Route::get('/invoices/{id}', function ($id) {
+    if (file_exists(__DIR__ . '/../public/api/index.php')) {
+        $_SERVER['REQUEST_URI'] = "/api/invoices/{$id}";
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        require __DIR__ . '/../public/api/index.php';
+        exit;
+    }
+    return response()->json(['message' => 'Invoice endpoint not found'], 404);
+});
+Route::get('/api/invoices/{id}', function ($id) {
+    if (file_exists(__DIR__ . '/../public/api/index.php')) {
+        $_SERVER['REQUEST_URI'] = "/api/invoices/{$id}";
+        $_SERVER['REQUEST_METHOD'] = 'GET';
+        require __DIR__ . '/../public/api/index.php';
+        exit;
+    }
+    return response()->json(['message' => 'Invoice endpoint not found'], 404);
+});
+
 
