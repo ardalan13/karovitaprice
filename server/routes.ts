@@ -1429,13 +1429,17 @@ router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
   let tx = db.transactions.find(t => 
     ((isNumeric && (t.id === numId || t.order_id === numId)) ||
      t.reference_id === rawId ||
-     t.authority === rawId) &&
+     t.tracking_code === rawId ||
+     t.authority === rawId ||
+     (t.order_number && (t.order_number === rawId || t.order_number.endsWith(rawId)))) &&
     (user.role === 'admin' || user.role === 'support' || t.user_id === user.id)
   );
   
   let order = db.orders.find(o => 
     ((isNumeric && o.id === numId) ||
      o.order_number === rawId ||
+     (o.order_number && o.order_number.endsWith(rawId)) ||
+     o.tracking_code === rawId ||
      (tx && o.id === tx.order_id)) &&
     (user.role === 'admin' || user.role === 'support' || o.user_id === user.id)
   );
@@ -1451,7 +1455,17 @@ router.get('/invoices/:id', authMiddleware, (req: Request, res: Response) => {
     return res.status(404).json({ message: 'فاکتور یا سفارش مورد نظر یافت نشد.' });
   }
 
-  const isPaid = (order?.status === 'paid') || (tx?.status === 'successful');
+  // Ensure amount consistency between order and transaction
+  if (order && tx) {
+    if ((Number(order.amount) <= 0 || Number(order.final_amount) <= 0) && Number(tx.amount) > 0) {
+      order.amount = tx.amount;
+      order.final_amount = tx.amount;
+    } else if (Number(tx.amount) <= 0 && Number(order.amount) > 0) {
+      tx.amount = order.final_amount || order.amount;
+    }
+  }
+
+  const isPaid = (order?.status === 'paid' || order?.status === 'completed' || Boolean((order as any)?.is_paid)) || (tx?.status === 'successful');
   const invoiceUser = order ? db.getUserById(order.user_id) : tx ? db.getUserById(tx.user_id) : user;
   const targetUser = invoiceUser || user;
   const company = db.getCompanyByUserId(targetUser.id);
@@ -1498,13 +1512,17 @@ router.get('/invoices/:id/contract', authMiddleware, (req: Request, res: Respons
   let tx = db.transactions.find(t => 
     ((isNumeric && (t.id === numId || t.order_id === numId)) ||
      t.reference_id === rawId ||
-     t.authority === rawId) &&
+     t.tracking_code === rawId ||
+     t.authority === rawId ||
+     (t.order_number && (t.order_number === rawId || t.order_number.endsWith(rawId)))) &&
     (user.role === 'admin' || user.role === 'support' || t.user_id === user.id)
   );
   
   let order = db.orders.find(o => 
     ((isNumeric && o.id === numId) ||
      o.order_number === rawId ||
+     (o.order_number && o.order_number.endsWith(rawId)) ||
+     o.tracking_code === rawId ||
      (tx && o.id === tx.order_id)) &&
     (user.role === 'admin' || user.role === 'support' || o.user_id === user.id)
   );
@@ -1518,6 +1536,15 @@ router.get('/invoices/:id/contract', authMiddleware, (req: Request, res: Respons
 
   if (!tx && !order) {
     return res.status(404).json({ message: 'سند قرارداد مربوط به این فاکتور یافت نشد.' });
+  }
+
+  if (order && tx) {
+    if ((Number(order.amount) <= 0 || Number(order.final_amount) <= 0) && Number(tx.amount) > 0) {
+      order.amount = tx.amount;
+      order.final_amount = tx.amount;
+    } else if (Number(tx.amount) <= 0 && Number(order.amount) > 0) {
+      tx.amount = order.final_amount || order.amount;
+    }
   }
 
   const invoiceUser = order ? db.getUserById(order.user_id) : tx ? db.getUserById(tx.user_id) : user;
@@ -1564,13 +1591,17 @@ router.get('/invoices/:id/data', authMiddleware, (req: Request, res: Response) =
   let tx = db.transactions.find(t => 
     ((isNumeric && (t.id === numId || t.order_id === numId)) ||
      t.reference_id === rawId ||
-     t.authority === rawId) &&
+     t.tracking_code === rawId ||
+     t.authority === rawId ||
+     (t.order_number && (t.order_number === rawId || t.order_number.endsWith(rawId)))) &&
     (user.role === 'admin' || user.role === 'support' || t.user_id === user.id)
   );
   
   let order = db.orders.find(o => 
     ((isNumeric && o.id === numId) ||
      o.order_number === rawId ||
+     (o.order_number && o.order_number.endsWith(rawId)) ||
+     o.tracking_code === rawId ||
      (tx && o.id === tx.order_id)) &&
     (user.role === 'admin' || user.role === 'support' || o.user_id === user.id)
   );
@@ -1584,6 +1615,15 @@ router.get('/invoices/:id/data', authMiddleware, (req: Request, res: Response) =
 
   if (!tx && !order) {
     return res.status(404).json({ message: 'فاکتور یافت نشد.' });
+  }
+
+  if (order && tx) {
+    if ((Number(order.amount) <= 0 || Number(order.final_amount) <= 0) && Number(tx.amount) > 0) {
+      order.amount = tx.amount;
+      order.final_amount = tx.amount;
+    } else if (Number(tx.amount) <= 0 && Number(order.amount) > 0) {
+      tx.amount = order.final_amount || order.amount;
+    }
   }
 
   const isPaid = (order?.status === 'paid') || (tx?.status === 'successful');
@@ -1611,8 +1651,8 @@ router.get('/invoices/:id/data', authMiddleware, (req: Request, res: Response) =
         economic_code: company?.economic_code || targetUser.economic_code || '—',
         registration_number: company?.registration_number || '—',
         postal_code: company?.postal_code || '—',
-        province: company?.province || 'تهران',
-        city: company?.city || 'تهران',
+        province: company?.province || '—',
+        city: company?.city || '—',
         address: company?.address || '—',
         phone: company?.phone || targetUser.mobile,
       },
@@ -1683,19 +1723,28 @@ router.get('/admin/overview', authMiddleware, adminMiddleware, (_req: Request, r
 
   const enrichedTransactions = db.transactions.map(t => {
     const ord = db.orders.find(o => o.id === t.order_id);
+    const user = db.users.find(u => u.id === t.user_id);
+    const company = db.companies.find(c => c.user_id === t.user_id);
     let pkgName = 'ماژول‌های ERP سازمانی';
     if (ord?.module_ids && ord.module_ids.length > 0) {
       pkgName = `ماژول‌های ERP سازمانی (${ord.module_ids.length} ماژول)`;
     } else if (ord?.package_id) {
       const pkg = db.getPackageById(ord.package_id);
       pkgName = pkg?.name || 'اشتراک کارویتا';
+    } else if (ord?.package_name) {
+      pkgName = ord.package_name;
     }
+    const userName = [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.mobile || '—';
     return {
       ...t,
       package_name: pkgName,
       user_count: ord?.user_count || db.configuratorSettings.base_user_limit || 1,
       billing_period: ord?.billing_period || 'monthly',
-      order_number: ord?.order_number || '—',
+      order_number: t.order_number || ord?.order_number || ('ORD-' + t.order_id),
+      user_name: userName,
+      mobile: user?.mobile || '—',
+      company_name: company?.name || '—',
+      transaction_status: t.status,
     };
   });
 
@@ -4819,6 +4868,61 @@ router.get('/admin/gateways/sms/logs', authMiddleware, adminMiddleware, (req: Re
   return res.json({
     data: logs,
     total: (db.smsLogs || []).length,
+  });
+});
+
+// 5.1 Admin: Clear all SMS Delivery Logs
+router.post('/admin/gateways/sms/logs/clear', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const count = (db.smsLogs || []).length;
+  db.smsLogs = [];
+  db.save();
+
+  logSecurityEvent(req, {
+    eventType: 'CONFIGURATION_CHANGE',
+    severity: 'WARNING',
+    actionDescription: `پاکسازی و حذف کامل کلیه لاگ‌های پیامک (${count} رکورد) توسط مدیر`,
+    resourceType: 'SMS_LOGS',
+    resourceId: 'ALL',
+  });
+
+  return res.json({
+    success: true,
+    message: 'کلیه لاگ‌های پیامک با موفقیت پاکسازی شدند.',
+    clearedCount: count,
+  });
+});
+
+router.delete('/admin/gateways/sms/logs', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const count = (db.smsLogs || []).length;
+  db.smsLogs = [];
+  db.save();
+
+  logSecurityEvent(req, {
+    eventType: 'CONFIGURATION_CHANGE',
+    severity: 'WARNING',
+    actionDescription: `پاکسازی و حذف کامل کلیه لاگ‌های پیامک (${count} رکورد) توسط مدیر`,
+    resourceType: 'SMS_LOGS',
+    resourceId: 'ALL',
+  });
+
+  return res.json({
+    success: true,
+    message: 'کلیه لاگ‌های پیامک با موفقیت پاکسازی شدند.',
+    clearedCount: count,
+  });
+});
+
+// 5.2 Admin: Delete Single SMS Delivery Log
+router.delete('/admin/gateways/sms/logs/:id', authMiddleware, adminMiddleware, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const initialLength = (db.smsLogs || []).length;
+  db.smsLogs = (db.smsLogs || []).filter(l => String(l.id) !== String(id));
+  db.save();
+
+  return res.json({
+    success: true,
+    deleted: initialLength > db.smsLogs.length,
+    message: 'لاگ پیامک موردنظر با موفقیت حذف گردید.',
   });
 });
 

@@ -21,7 +21,8 @@ import {
   Sparkles,
   Sliders,
   Check,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { api } from '../../services/api';
 
@@ -333,9 +334,42 @@ export function GatewayAndSmsAdminView() {
   const [testEventType, setTestEventType] = useState('otp');
   const [testResult, setTestResult] = useState(null);
 
+  // SMS Logs management states
+  const [confirmClearLogsOpen, setConfirmClearLogsOpen] = useState(false);
+  const [deletingLogs, setDeletingLogs] = useState(false);
+
   const showToast = (text, type = 'success') => {
     setToast({ text, type });
     setTimeout(() => setToast(null), 4000);
+  };
+
+  const handleClearAllLogs = async () => {
+    setDeletingLogs(true);
+    try {
+      const res = await api('/admin/gateways/sms/logs/clear', {
+        method: 'POST'
+      });
+      setSmsLogs([]);
+      setConfirmClearLogsOpen(false);
+      showToast(res.message || 'کلیه لاگ‌های پیامک با موفقیت پاکسازی شدند.', 'success');
+    } catch (err) {
+      showToast(err.message || 'خطا در پاکسازی لاگ‌های پیامک', 'error');
+    } finally {
+      setDeletingLogs(false);
+    }
+  };
+
+  const handleDeleteSingleLog = async (logId) => {
+    if (!window.confirm('آیا از حذف این لاگ پیامک اطمینان دارید؟')) return;
+    try {
+      const res = await api(`/admin/gateways/sms/logs/${logId}`, {
+        method: 'DELETE'
+      });
+      setSmsLogs(prev => prev.filter(l => String(l.id) !== String(logId)));
+      showToast(res.message || 'لاگ پیامک با موفقیت حذف شد.', 'success');
+    } catch (err) {
+      showToast(err.message || 'خطا در حذف لاگ پیامک', 'error');
+    }
   };
 
   const loadData = async () => {
@@ -344,7 +378,7 @@ export function GatewayAndSmsAdminView() {
       const [settingsRes, healthRes, logsRes] = await Promise.all([
         api('/admin/gateways/settings'),
         api('/admin/gateways/health'),
-        api('/admin/gateways/sms/logs?limit=50')
+        api('/admin/gateways/sms/logs?limit=200')
       ]);
 
       if (settingsRes && settingsRes.data) {
@@ -488,7 +522,7 @@ export function GatewayAndSmsAdminView() {
       showToast(res.message || 'پیامک تست ارسال شد.');
       setTestResult({ type: 'sms', data: res.data });
       // Reload logs
-      const logsRes = await api('/admin/gateways/sms/logs?limit=50');
+      const logsRes = await api('/admin/gateways/sms/logs?limit=200');
       if (logsRes && logsRes.data) setSmsLogs(logsRes.data);
     } catch (err) {
       showToast(err.message || 'خطا در ارسال پیامک تست', 'error');
@@ -506,7 +540,7 @@ export function GatewayAndSmsAdminView() {
       });
       showToast(res.message || 'اسکن انقضای اشتراک‌ها انجام شد.');
       // Reload logs
-      const logsRes = await api('/admin/gateways/sms/logs?limit=50');
+      const logsRes = await api('/admin/gateways/sms/logs?limit=200');
       if (logsRes && logsRes.data) setSmsLogs(logsRes.data);
     } catch (err) {
       showToast(err.message || 'خطا در اجرای اسکن انقضا', 'error');
@@ -1248,27 +1282,54 @@ export function GatewayAndSmsAdminView() {
               </small>
             </div>
 
-            <button
-              type="button"
-              onClick={loadData}
-              style={{
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                padding: '7px 14px',
-                borderRadius: '8px',
-                fontSize: '12.5px',
-                fontWeight: 700,
-                color: '#334155',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s'
-              }}
-            >
-              <RefreshCw size={14} className={loading ? 'spin' : ''} />
-              <span>تازه‌سازی لاگ‌ها</span>
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={loadData}
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #cbd5e1',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  color: '#334155',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s'
+                }}
+              >
+                <RefreshCw size={14} className={loading ? 'spin' : ''} />
+                <span>تازه‌سازی لاگ‌ها</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setConfirmClearLogsOpen(true)}
+                disabled={smsLogs.length === 0 || deletingLogs}
+                style={{
+                  background: '#fff1f2',
+                  border: '1px solid #fecdd3',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  color: '#e11d48',
+                  cursor: smsLogs.length === 0 || deletingLogs ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  opacity: smsLogs.length === 0 || deletingLogs ? 0.6 : 1,
+                  transition: 'all 0.15s'
+                }}
+                title="پاکسازی و حذف کلیه لاگ‌های پیامک"
+              >
+                <Trash2 size={14} />
+                <span>حذف لاگ‌ها</span>
+              </button>
+            </div>
           </div>
 
           {/* Quick Metrics Bar */}
@@ -1307,27 +1368,48 @@ export function GatewayAndSmsAdminView() {
             </div>
           </div>
 
-          {/* Table */}
-          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontSize: '12px' }}>
-                  <th style={{ padding: '11px 14px' }}>زمان ارسال</th>
-                  <th style={{ padding: '11px 14px' }}>شماره گیرنده</th>
-                  <th style={{ padding: '11px 14px' }}>نام کاربر</th>
-                  <th style={{ padding: '11px 14px' }}>نوع رویداد</th>
-                  <th style={{ padding: '11px 14px' }}>کد و جزئیات پیامک ارسالی</th>
-                  <th style={{ padding: '11px 14px' }}>وضعیت ارسال</th>
-                </tr>
-              </thead>
-              <tbody>
-                {smsLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
-                      هنوز پیامکی در سامانه ثبت نگردیده است.
-                    </td>
+          {/* Table Container - Shows first 5 items in view, rest scrolls in its own section */}
+          <div style={{
+            border: '1px solid #e2e8f0',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            background: '#ffffff',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+          }}>
+            <div style={{
+              maxHeight: '385px',
+              overflowY: 'auto',
+              overflowX: 'auto',
+              scrollBehavior: 'smooth'
+            }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, textAlign: 'right', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                    background: '#f8fafc',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                    color: '#475569',
+                    fontSize: '12px'
+                  }}>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>زمان ارسال</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>شماره گیرنده</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>نام کاربر</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>نوع رویداد</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>کد و جزئیات پیامک ارسالی</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>وضعیت ارسال</th>
+                    <th style={{ padding: '12px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', textAlign: 'center', width: '70px', whiteSpace: 'nowrap' }}>عملیات</th>
                   </tr>
-                ) : (
+                </thead>
+                <tbody>
+                  {smsLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '36px', textAlign: 'center', color: '#94a3b8' }}>
+                        هنوز پیامکی در سامانه ثبت نگردیده است.
+                      </td>
+                    </tr>
+                  ) : (
                   smsLogs.map(log => {
                     const rawDate = log.timestamp || log.created_at || log.date;
                     let formattedDate = '—';
@@ -1506,13 +1588,152 @@ export function GatewayAndSmsAdminView() {
                             </div>
                           )}
                         </td>
+
+                        <td style={{ padding: '11px 14px', textAlign: 'center', borderBottom: '1px solid #f1f5f9', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSingleLog(log.id)}
+                            style={{
+                              background: '#fff1f2',
+                              border: '1px solid #ffe4e6',
+                              color: '#e11d48',
+                              cursor: 'pointer',
+                              padding: '5px 8px',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                            title="حذف این رکورد پیامک"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
                 )}
               </tbody>
             </table>
+            </div>
+
+            {/* Scroll indicator footer when items exceed 5 */}
+            {smsLogs.length > 5 && (
+              <div style={{
+                background: '#f8fafc',
+                borderTop: '1px solid #e2e8f0',
+                padding: '9px 16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: '11.5px',
+                color: '#64748b',
+                flexWrap: 'wrap',
+                gap: '8px'
+              }}>
+                <span>
+                  ↕ نمایش ۵ پیامک اخیر در نما • برای مشاهده سایر لاگ‌ها در کادر بالا اسکرول نمایید
+                </span>
+                <span style={{ fontWeight: 700, color: '#334155' }}>
+                  مجموع: {smsLogs.length.toLocaleString('fa-IR')} پیامک
+                </span>
+              </div>
+            )}
           </div>
+
+          {/* Confirmation Modal for Clearing All SMS Logs */}
+          {confirmClearLogsOpen && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 9999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
+            }}>
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '16px',
+                padding: '26px',
+                maxWidth: '440px',
+                width: '100%',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                textAlign: 'center',
+                direction: 'rtl'
+              }}>
+                <div style={{
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  background: '#fee2e2',
+                  color: '#dc2626',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px'
+                }}>
+                  <Trash2 size={26} />
+                </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: '17px', fontWeight: 800, color: '#0f172a' }}>
+                  حذف و پاکسازی لاگ‌های پیامک
+                </h3>
+                <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#64748b', lineHeight: 1.6 }}>
+                  آیا از حذف و پاکسازی کامل تاریخچه پیامک‌ها ({smsLogs.length.toLocaleString('fa-IR')} رکورد) اطمینان دارید؟ این عملیات غیرقابل بازگشت است.
+                </p>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmClearLogsOpen(false)}
+                    disabled={deletingLogs}
+                    style={{
+                      flex: 1,
+                      padding: '9px 16px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearAllLogs}
+                    disabled={deletingLogs}
+                    style={{
+                      flex: 1,
+                      padding: '9px 16px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: '#dc2626',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: deletingLogs ? 'not-allowed' : 'pointer',
+                      opacity: deletingLogs ? 0.7 : 1,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {deletingLogs ? <RefreshCw size={14} className="spin" /> : <Trash2 size={14} />}
+                    <span>{deletingLogs ? 'در حال پاکسازی...' : 'بله، لاگ‌ها پاک شوند'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

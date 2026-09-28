@@ -33,6 +33,7 @@ import { UserPaymentsView } from './components/Payments/UserPaymentsView';
 import { ERPAdminPricingManagement } from './components/Admin/ERPAdminPricingManagement';
 import { AdminUsersManagement } from './components/Admin/AdminUsersManagement';
 import { AdminOrdersManagement } from './components/Admin/AdminOrdersManagement';
+import { AdminSubscriptionsManagement } from './components/Admin/AdminSubscriptionsManagement';
 import { ThemeToggle } from './components/Common/ThemeToggle';
 import { SalesPerformanceChart } from './components/Dashboard/SalesPerformanceChart';
 import './styles/app.css';
@@ -2154,11 +2155,20 @@ function Admin() {
 
   useEffect(() => {
     load(tab);
+    const handleRefresh = () => {
+      if (tab === 'overview') load('overview');
+    };
+    window.addEventListener('order-updated', handleRefresh);
+    window.addEventListener('payment-completed', handleRefresh);
+    return () => {
+      window.removeEventListener('order-updated', handleRefresh);
+      window.removeEventListener('payment-completed', handleRefresh);
+    };
   }, [tab]);
 
   return (
     <Shell admin tab={tab} setTab={setTab} name={isSupport ? 'کارشناس پشتیبانی' : 'مدیر سیستم'} role={isSupport ? 'support' : 'admin'}>
-      {tab !== 'tickets' && tab !== 'audit' && tab !== 'push' && tab !== 'errors' && (
+      {tab !== 'tickets' && tab !== 'audit' && tab !== 'push' && tab !== 'errors' && tab !== 'gateways' && tab !== 'subscriptions' && (
         <div className="page-head">
           <div>
             <h1>{adminTitle(tab)}</h1>
@@ -2216,52 +2226,7 @@ function AdminContent({ tab, data, reload }) {
     return <AdminOrdersManagement />;
   }
   if (tab === 'subscriptions') {
-    if (!list.length) return <Panel><Empty /></Panel>;
-    return (
-      <Panel>
-        <Table 
-          headers={['کاربر', 'اشتراک', 'نوع', 'دوره خرید', 'تاریخ انقضا', 'وضعیت اشتراک']}
-          rows={list.map(x => [
-            x.user_name || x.mobile || '—',
-            x.package_name || '—',
-            x.source === 'trial' ? 'آزمایشی' : 'خرید',
-            <select
-              key={`p_${x.id}`}
-              value={x.billing_period || '3_months'}
-              onChange={async e => {
-                await api('/admin/subscriptions', {
-                  method: 'PUT',
-                  body: JSON.stringify({ id: x.id, billing_period: e.target.value })
-                });
-                reload();
-              }}
-              style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}
-            >
-              <option value="3_months">۳ ماهه</option>
-              <option value="6_months">۶ ماهه</option>
-              <option value="yearly">سالانه</option>
-            </select>,
-            `${date(x.expires_at)} (${getRemainingDaysText(x.expires_at)})`,
-            <select
-              key={x.id}
-              value={x.status || 'active'}
-              onChange={async e => {
-                await api('/admin/subscriptions', {
-                  method: 'PUT',
-                  body: JSON.stringify({ id: x.id, status: e.target.value })
-                });
-                reload();
-              }}
-              style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}
-            >
-              <option value="active">فعال</option>
-              <option value="expired">منقضی</option>
-              <option value="cancelled">لغو شده</option>
-            </select>
-          ])} 
-        />
-      </Panel>
-    );
+    return <AdminSubscriptionsManagement onReloadParent={reload} />;
   }
   return null;
 }

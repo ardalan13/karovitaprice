@@ -83,15 +83,17 @@ export function UserPaymentsView() {
     };
   }, []);
 
-  const openOfficialInvoice = (id) => {
+  const openOfficialInvoice = (id, orderNum) => {
+    const target = id || orderNum;
     const token = localStorage.getItem('token') || '';
-    const url = token ? `/api/invoices/${id}?token=${encodeURIComponent(token)}` : `/api/invoices/${id}`;
+    const url = token ? `/api/invoices/${target}?token=${encodeURIComponent(token)}` : `/api/invoices/${target}`;
     window.open(url, '_blank');
   };
 
-  const openOfficialContract = (id) => {
+  const openOfficialContract = (id, orderNum) => {
+    const target = id || orderNum;
     const token = localStorage.getItem('token') || '';
-    const url = token ? `/api/invoices/${id}/contract?token=${encodeURIComponent(token)}` : `/api/invoices/${id}/contract`;
+    const url = token ? `/api/invoices/${target}/contract?token=${encodeURIComponent(token)}` : `/api/invoices/${target}/contract`;
     window.open(url, '_blank');
   };
 
@@ -351,7 +353,7 @@ export function UserPaymentsView() {
 
                     <button
                       type="button"
-                      onClick={() => openOfficialInvoice(order.id)}
+                      onClick={() => openOfficialInvoice(order.id, order.order_number)}
                       title="مشاهده و چاپ رسمی پیش‌فاکتور دارایی"
                       style={{
                         background: '#ffffff',
@@ -496,7 +498,7 @@ export function UserPaymentsView() {
                       <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                         <button
                           type="button"
-                          onClick={() => openOfficialInvoice(order.id)}
+                          onClick={() => openOfficialInvoice(order.id, order.order_number)}
                           style={{
                             background: '#0870d1',
                             color: '#ffffff',
@@ -518,7 +520,7 @@ export function UserPaymentsView() {
 
                         <button
                           type="button"
-                          onClick={() => openOfficialContract(order.id)}
+                          onClick={() => openOfficialContract(order.id, order.order_number)}
                           style={{
                             background: '#f8fafc',
                             color: '#334155',

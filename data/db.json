@@ -1,17 +1,17 @@
 {
-  "nextUserId": 41,
-  "nextCompanyId": 15,
+  "nextUserId": 43,
+  "nextCompanyId": 16,
   "nextPackageId": 5,
-  "nextOrderId": 42,
-  "nextTransactionId": 34,
+  "nextOrderId": 44,
+  "nextTransactionId": 40,
   "nextSubscriptionId": 48,
-  "nextOtpId": 38,
+  "nextOtpId": 40,
   "nextDepartmentId": 5,
-  "nextTicketId": 19,
-  "nextMessageId": 30,
+  "nextTicketId": 20,
+  "nextMessageId": 32,
   "nextAttachmentId": 1,
-  "nextHistoryId": 49,
-  "nextAuditLogId": 109,
+  "nextHistoryId": 54,
+  "nextAuditLogId": 134,
   "nextPushSubId": 1,
   "users": [
     {
@@ -28,7 +28,7 @@
       "avatar": null,
       "onboarding_step": 4,
       "onboarding_completed_at": "2026-09-16 05:44:55",
-      "mobile_verified_at": "2026-09-19T12:04:06.082Z",
+      "mobile_verified_at": "2026-09-20T09:39:09.460Z",
       "last_login_at": null,
       "created_at": "2026-08-30 10:01:55",
       "updated_at": "2026-09-16 05:44:55",
@@ -115,19 +115,34 @@
       "deleted_at": null
     },
     {
-      "id": 20,
+      "id": 41,
+      "mobile": "09990000002",
+      "first_name": null,
+      "last_name": null,
+      "email": null,
+      "job_title": null,
+      "national_code": null,
+      "role": "support",
+      "onboarding_step": 1,
+      "onboarding_completed_at": null,
+      "mobile_verified_at": "2026-09-20T11:04:42.990Z",
+      "created_at": "2026-09-20T11:04:42.990Z",
+      "updated_at": "2026-09-20T11:04:42.990Z"
+    },
+    {
+      "id": 42,
       "mobile": "09352913139",
       "first_name": "ظطزرظطز",
       "last_name": "رطر",
       "email": null,
       "job_title": "مدیرعامل",
       "national_code": null,
-      "role": "support",
+      "role": "user",
       "onboarding_step": 3,
-      "onboarding_completed_at": "2026-09-19T11:33:52.322Z",
-      "mobile_verified_at": "2026-09-19T11:52:54.628Z",
-      "created_at": "2026-09-19T11:33:42.331Z",
-      "updated_at": "2026-09-19T11:52:34.351Z"
+      "onboarding_completed_at": "2026-09-20T12:02:32.893Z",
+      "mobile_verified_at": "2026-09-20T12:02:30.925Z",
+      "created_at": "2026-09-20T12:02:30.925Z",
+      "updated_at": "2026-09-20T12:02:32.893Z"
     }
   ],
   "companies": [
@@ -201,13 +216,13 @@
       "deleted_at": null
     },
     {
-      "id": 14,
-      "user_id": 20,
+      "id": 15,
+      "user_id": 42,
       "name": "سیب",
       "industry": "کلینیک، سلامت و درمان",
       "employee_count": 45,
-      "created_at": "2026-09-19T11:33:52.319Z",
-      "updated_at": "2026-09-19T11:33:52.319Z"
+      "created_at": "2026-09-20T12:02:32.891Z",
+      "updated_at": "2026-09-20T12:02:32.891Z"
     }
   ],
   "packages": [
@@ -413,11 +428,13 @@
       "deleted_at": null
     },
     {
-      "id": 14,
-      "user_id": 20,
-      "order_number": "ORD-260919-BTMGAI",
-      "amount": 8500000,
-      "status": "cancelled",
+      "id": 40,
+      "user_id": 42,
+      "order_number": "ORD-260920-IYF6ZV",
+      "amount": 9350000,
+      "subtotal": 8500000,
+      "final_amount": 9350000,
+      "status": "pending",
       "module_ids": [
         "activities",
         "calendar",
@@ -442,11 +459,12 @@
         "base_monthly_total": 850000,
         "multiplier": 10,
         "discount_amount": 0,
-        "final_amount": 8500000
+        "subtotal": 8500000,
+        "vat_rate": 0.1,
+        "vat_amount": 850000,
+        "final_amount": 9350000
       },
-      "created_at": "2026-09-19T11:33:54.437Z",
-      "deleted_at": "2026-09-19T11:47:01.015Z",
-      "is_active": false
+      "created_at": "2026-09-20T12:02:34.467Z"
     },
     {
       "id": 99999,
@@ -462,7 +480,7 @@
       "order_type": "renewal",
       "is_renewal": true,
       "billing_period": "yearly",
-      "created_at": "2026-09-20T09:15:51.475Z"
+      "created_at": "2026-09-20T12:16:49.283Z"
     }
   ],
   "transactions": [
@@ -519,22 +537,6 @@
       "created_at": "2026-09-16 07:43:53",
       "updated_at": "2026-09-16 07:43:55",
       "deleted_at": null
-    },
-    {
-      "id": 17,
-      "order_id": 14,
-      "user_id": 20,
-      "gateway": "zibal",
-      "authority": "failed-1789817634978",
-      "reference_id": null,
-      "amount": 8500000,
-      "status": "failed",
-      "raw_response": {
-        "message": "invalid IP 93.117.121.48",
-        "result": 115
-      },
-      "paid_at": null,
-      "created_at": "2026-09-19T11:33:54.978Z"
     },
     {
       "id": 18,
@@ -685,6 +687,22 @@
       },
       "paid_at": "2026-09-20T05:29:43.686Z",
       "created_at": "2026-09-20T05:29:43.686Z"
+    },
+    {
+      "id": 39,
+      "order_id": 40,
+      "user_id": 42,
+      "gateway": "zibal",
+      "authority": "failed-1789905754605",
+      "reference_id": null,
+      "amount": 9350000,
+      "status": "failed",
+      "raw_response": {
+        "message": "invalid IP 93.117.122.221",
+        "result": 115
+      },
+      "paid_at": null,
+      "created_at": "2026-09-20T12:02:34.605Z"
     }
   ],
   "subscriptions": [
@@ -729,7 +747,7 @@
       "starts_at": "2026-09-14 08:42:28",
       "expires_at": "2027-09-19 08:42:28",
       "created_at": "2026-09-14 08:42:28",
-      "updated_at": "2026-09-20T05:28:59.451Z",
+      "updated_at": "2026-09-20T11:04:43.132Z",
       "deleted_at": null
     },
     {
@@ -829,13 +847,13 @@
       "deleted_at": null
     },
     {
-      "id": 9,
-      "user_id": 20,
+      "id": 43,
+      "user_id": 42,
       "order_id": null,
       "source": "trial",
       "status": "active",
-      "starts_at": "2026-09-19T11:33:59.614Z",
-      "expires_at": "2026-09-24T11:33:59.614Z",
+      "starts_at": "2026-09-20T12:02:37.134Z",
+      "expires_at": "2026-09-25T12:02:37.134Z",
       "usage_limit": null,
       "usage_used": 0,
       "module_ids": [
@@ -854,7 +872,7 @@
       "user_count": 1,
       "billing_period": "monthly",
       "title": "دوره ۵ روزه کارویتا",
-      "created_at": "2026-09-19T11:33:59.614Z"
+      "created_at": "2026-09-20T12:02:37.134Z"
     },
     {
       "id": 47,
@@ -862,8 +880,8 @@
       "order_id": 99999,
       "source": "purchase",
       "status": "active",
-      "starts_at": "2026-09-20T09:15:51.470Z",
-      "expires_at": "2028-03-18T09:15:51.435Z",
+      "starts_at": "2026-09-20T12:16:49.275Z",
+      "expires_at": "2028-03-18T12:16:49.217Z",
       "usage_limit": null,
       "usage_used": 0,
       "module_ids": [
@@ -873,7 +891,7 @@
       "user_count": 1,
       "billing_period": "yearly",
       "title": "اشتراک سازمانی کارویتا (2 ماژول)",
-      "created_at": "2026-09-20T09:15:51.470Z"
+      "created_at": "2026-09-20T12:16:49.275Z"
     }
   ],
   "otpCodes": [
@@ -1046,28 +1064,6 @@
       "created_at": 1789537355000
     },
     {
-      "id": 33,
-      "mobile": "09352913139",
-      "purpose": "login",
-      "code": "25091",
-      "code_hash": "25091",
-      "status": "verified",
-      "attempts": 0,
-      "expires_at": 1789817735419,
-      "created_at": 1789817615419
-    },
-    {
-      "id": 34,
-      "mobile": "09352913139",
-      "purpose": "login",
-      "code": "82836",
-      "code_hash": "82836",
-      "status": "sent",
-      "attempts": 0,
-      "expires_at": 1789818849705,
-      "created_at": 1789818729705
-    },
-    {
       "id": 35,
       "mobile": "09111273476",
       "purpose": "login",
@@ -1079,17 +1075,6 @@
       "created_at": 1789818736122
     },
     {
-      "id": 36,
-      "mobile": "09352913139",
-      "purpose": "login",
-      "code": "48232",
-      "code_hash": "48232",
-      "status": "verified",
-      "attempts": 0,
-      "expires_at": 1789818885858,
-      "created_at": 1789818765858
-    },
-    {
       "id": 37,
       "mobile": "09111273476",
       "purpose": "login",
@@ -1099,6 +1084,28 @@
       "attempts": 0,
       "expires_at": 1789819553025,
       "created_at": 1789819433025
+    },
+    {
+      "id": 38,
+      "mobile": "09111273476",
+      "purpose": "login",
+      "code": "74074",
+      "code_hash": "74074",
+      "status": "verified",
+      "attempts": 0,
+      "expires_at": 1789897261691,
+      "created_at": 1789897141691
+    },
+    {
+      "id": 39,
+      "mobile": "09352913139",
+      "purpose": "login",
+      "code": "53383",
+      "code_hash": "53383",
+      "status": "verified",
+      "attempts": 0,
+      "expires_at": 1789905858136,
+      "created_at": 1789905738136
     }
   ],
   "departments": [
@@ -1540,6 +1547,539 @@
     }
   ],
   "auditLogs": [
+    {
+      "id": 133,
+      "timestamp": "2026-09-20T11:04:44.879Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "فعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)",
+      "resource_type": "PWA_SERVICE_SETTINGS",
+      "resource_id": "PWA_SETTINGS",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "old_value": {
+          "enabled": false
+        },
+        "new_value": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": 132,
+      "timestamp": "2026-09-20T11:04:44.767Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "غیرفعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)",
+      "resource_type": "PWA_SERVICE_SETTINGS",
+      "resource_id": "PWA_SETTINGS",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "old_value": {
+          "enabled": true
+        },
+        "new_value": {
+          "enabled": false
+        }
+      }
+    },
+    {
+      "id": 131,
+      "timestamp": "2026-09-20T11:04:44.718Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "فعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)",
+      "resource_type": "PWA_SERVICE_SETTINGS",
+      "resource_id": "PWA_SETTINGS",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "old_value": {
+          "enabled": false
+        },
+        "new_value": {
+          "enabled": true
+        }
+      }
+    },
+    {
+      "id": 130,
+      "timestamp": "2026-09-20T11:04:43.237Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "حذف تیکت شماره 19",
+      "resource_type": "TICKET_DELETION",
+      "resource_id": 19,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "ticket_id": 19
+      }
+    },
+    {
+      "id": 129,
+      "timestamp": "2026-09-20T11:04:43.231Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "FINANCIAL_TRANSACTION",
+      "action_description": "تغییر وضعیت سفارش #ORD-20260914-9656 توسط مدیر سیستم از «completed» به «completed»",
+      "resource_type": "ORDER_INVOICE",
+      "resource_id": 6,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "action_type": "ADMIN_ORDER_STATUS_MODIFIED",
+        "order_id": 6,
+        "transaction_id": 9,
+        "amount": 12300000,
+        "reference_id": "ZBL-1789375415-4692",
+        "user_id": 6,
+        "previousStatus": "completed",
+        "newStatus": "completed"
+      }
+    },
+    {
+      "id": 128,
+      "timestamp": "2026-09-20T11:04:43.198Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "انتقال دپارتمان تیکت ##99287622 به «پشتیبانی فنی»",
+      "resource_type": "TICKET_DEPARTMENT",
+      "resource_id": 19,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "new_department_id": 2,
+        "department_name": "پشتیبانی فنی"
+      }
+    },
+    {
+      "id": 127,
+      "timestamp": "2026-09-20T11:04:43.184Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "تغییر وضعیت تیکت ##99287622 به «in_progress»",
+      "resource_type": "TICKET_STATUS",
+      "resource_id": 19,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "new_status": "in_progress",
+        "ticket_number": "#99287622"
+      }
+    },
+    {
+      "id": 126,
+      "timestamp": "2026-09-20T11:04:43.167Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "ارجاع تیکت ##99287622 به کارشناس پشتیبانی «پشتیبانی فنی»",
+      "resource_type": "TICKET_ASSIGNMENT",
+      "resource_id": 19,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "staff_id": 1,
+        "staff_name": "پشتیبانی فنی",
+        "ticket_number": "#99287622"
+      }
+    },
+    {
+      "id": 125,
+      "timestamp": "2026-09-20T11:04:43.134Z",
+      "user_id": 41,
+      "user_name": "09990000002",
+      "user_mobile": "09990000002",
+      "user_role": "user",
+      "action_type": "SUBSCRIPTION_CHANGE",
+      "action_description": "بروزرسانی اشتراک #4 (وضعیت: active)",
+      "resource_type": "SUBSCRIPTION",
+      "resource_id": 4,
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "subscription_id": 4,
+        "old_status": "active",
+        "new_status": "active",
+        "old_period": "yearly",
+        "new_period": "yearly",
+        "user_count": 5,
+        "expires_at": "2027-09-19 08:42:28"
+      }
+    },
+    {
+      "id": 124,
+      "timestamp": "2026-09-20T11:04:41.450Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "بروزرسانی و ذخیره پیکربندی درگاه پرداخت شاپرک زیبال و وب‌سرویس پیامکی SMS.ir توسط مدیر",
+      "resource_type": "GATEWAY_SETTINGS",
+      "resource_id": "GATEWAYS",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "zibal_updated": true,
+        "sms_updated": false
+      }
+    },
+    {
+      "id": 123,
+      "timestamp": "2026-09-20T11:04:41.427Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "بروزرسانی و ذخیره پیکربندی درگاه پرداخت شاپرک زیبال و وب‌سرویس پیامکی SMS.ir توسط مدیر",
+      "resource_type": "GATEWAY_SETTINGS",
+      "resource_id": "GATEWAYS",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "SUCCESS",
+      "details": {
+        "zibal_updated": true,
+        "sms_updated": false
+      }
+    },
+    {
+      "id": 122,
+      "timestamp": "2026-09-20T11:04:35.013Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "SECURITY_EVENT",
+      "action_description": "پاکسازی و حذف کامل کلیه لاگ‌های پیامک (2 رکورد) توسط مدیر",
+      "resource_type": "SMS_LOGS",
+      "resource_id": "ALL",
+      "ip_address": "::ffff:127.0.0.1",
+      "user_agent": "node",
+      "status": "WARNING",
+      "details": {}
+    },
+    {
+      "id": 121,
+      "timestamp": "2026-09-20T09:42:15.615Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "SENSITIVE_DATA_ACCESS",
+      "action_description": "مشاهده و بازبینی فهرست کاربران، اطلاعات هویتی و شماره‌های تماس توسط مدیر",
+      "resource_type": "USER_PII",
+      "resource_id": "USER_DIRECTORY",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "total_users_returned": 5
+      }
+    },
+    {
+      "id": 120,
+      "timestamp": "2026-09-20T09:42:15.605Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "PRIVILEGE_ESCALATION",
+      "action_description": "حذف کامل و پاکسازی کلیه اطلاعات کاربر 09352913139 (ظطزرظطز رطر) توسط مدیر - کاربر می‌تواند مجدداً از ابتدا ثبت‌نام کند",
+      "resource_type": "USER_ROLE",
+      "resource_id": 20,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "target_user_id": 20,
+        "target_user_name": "ظطزرظطز رطر",
+        "old_role": "support",
+        "new_role": "deleted"
+      }
+    },
+    {
+      "id": 119,
+      "timestamp": "2026-09-20T09:42:08.897Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "SENSITIVE_DATA_ACCESS",
+      "action_description": "مشاهده و بازبینی فهرست کاربران، اطلاعات هویتی و شماره‌های تماس توسط مدیر",
+      "resource_type": "USER_PII",
+      "resource_id": "USER_DIRECTORY",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "total_users_returned": 6
+      }
+    },
+    {
+      "id": 118,
+      "timestamp": "2026-09-20T09:42:02.601Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "SENSITIVE_DATA_ACCESS",
+      "action_description": "مشاهده و بازبینی لاگ‌های خطای محلی سامانه",
+      "resource_type": "ERROR_LOGS",
+      "resource_id": "VIEWER",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "filters": {
+          "level": "all",
+          "source": "all",
+          "search": ""
+        },
+        "returned_count": 100
+      }
+    },
+    {
+      "id": 117,
+      "timestamp": "2026-09-20T09:42:01.159Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "غیرفعال‌سازی سراسری سرویس PWA، سرویس‌ورکر و اعلان‌های وب (Web Push)",
+      "resource_type": "PWA_SERVICE_SETTINGS",
+      "resource_id": "PWA_SETTINGS",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "old_value": {
+          "enabled": true
+        },
+        "new_value": {
+          "enabled": false
+        }
+      }
+    },
+    {
+      "id": 116,
+      "timestamp": "2026-09-20T09:41:57.671Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "بروزرسانی و ذخیره پیکربندی درگاه پرداخت شاپرک زیبال و وب‌سرویس پیامکی SMS.ir توسط مدیر",
+      "resource_type": "GATEWAY_SETTINGS",
+      "resource_id": "GATEWAYS",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "zibal_updated": true,
+        "sms_updated": true
+      }
+    },
+    {
+      "id": 115,
+      "timestamp": "2026-09-20T09:40:55.693Z",
+      "user_id": 20,
+      "user_name": "ظطزرظطز رطر",
+      "user_mobile": "09352913139",
+      "user_role": "user",
+      "action_type": "SENSITIVE_DATA_ACCESS",
+      "action_description": "مشاهده و دریافت صورتحساب رسمی استاندارد مالیاتی برای سفارش ORD-260920-IETBO8",
+      "resource_type": "FINANCIAL_INVOICE",
+      "resource_id": 34,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "order_id": 33,
+        "amount": 6820000,
+        "is_paid": true
+      }
+    },
+    {
+      "id": 114,
+      "timestamp": "2026-09-20T09:40:46.278Z",
+      "user_id": 20,
+      "user_name": "ظطزرظطز رطر",
+      "user_mobile": "09352913139",
+      "user_role": "user",
+      "action_type": "SENSITIVE_DATA_ACCESS",
+      "action_description": "مشاهده و دریافت صورتحساب رسمی استاندارد مالیاتی برای سفارش ORD-260920-DSLDOO",
+      "resource_type": "FINANCIAL_INVOICE",
+      "resource_id": 36,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "order_id": 34,
+        "amount": 1056000,
+        "is_paid": true
+      }
+    },
+    {
+      "id": 113,
+      "timestamp": "2026-09-20T09:40:38.669Z",
+      "user_id": null,
+      "user_name": "سیستم",
+      "user_mobile": null,
+      "user_role": "system",
+      "action_type": "FINANCIAL_TRANSACTION",
+      "action_description": "تأییدیه موفق پرداخت آنلاین درگاه شاپرک زیبال برای سفارش #ORD-260920-CUYVT3 به مبلغ ۴٬۶۲۰٬۰۰۰ تومان با شماره پیگیری شاپرک 4797979884",
+      "resource_type": "ORDER_INVOICE",
+      "resource_id": 36,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "action_type": "ZIBAL_ONLINE_PAYMENT_VERIFIED",
+        "order_id": 36,
+        "transaction_id": 38,
+        "amount": 4620000,
+        "reference_id": "4797979884",
+        "user_id": 20,
+        "trackId": "4797979884",
+        "shaparakRef": "4797979884",
+        "gateway": "zibal"
+      }
+    },
+    {
+      "id": 112,
+      "timestamp": "2026-09-20T09:40:16.759Z",
+      "user_id": null,
+      "user_name": "سیستم",
+      "user_mobile": null,
+      "user_role": "system",
+      "action_type": "FINANCIAL_TRANSACTION",
+      "action_description": "تأییدیه موفق پرداخت آنلاین درگاه شاپرک زیبال برای سفارش #ORD-260920-4ISURO به مبلغ ۱٬۳۲۰٬۰۰۰ تومان با شماره پیگیری شاپرک 4797979099",
+      "resource_type": "ORDER_INVOICE",
+      "resource_id": 35,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "action_type": "ZIBAL_ONLINE_PAYMENT_VERIFIED",
+        "order_id": 35,
+        "transaction_id": 37,
+        "amount": 1320000,
+        "reference_id": "4797979099",
+        "user_id": 20,
+        "trackId": "4797979099",
+        "shaparakRef": "4797979099",
+        "gateway": "zibal"
+      }
+    },
+    {
+      "id": 111,
+      "timestamp": "2026-09-20T09:39:58.781Z",
+      "user_id": null,
+      "user_name": "سیستم",
+      "user_mobile": null,
+      "user_role": "system",
+      "action_type": "FINANCIAL_TRANSACTION",
+      "action_description": "تأییدیه موفق پرداخت آنلاین درگاه شاپرک زیبال برای سفارش #ORD-260920-DSLDOO به مبلغ ۱٬۰۵۶٬۰۰۰ تومان با شماره پیگیری شاپرک 4797978382",
+      "resource_type": "ORDER_INVOICE",
+      "resource_id": 34,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "action_type": "ZIBAL_ONLINE_PAYMENT_VERIFIED",
+        "order_id": 34,
+        "transaction_id": 36,
+        "amount": 1056000,
+        "reference_id": "4797978382",
+        "user_id": 20,
+        "trackId": "4797978382",
+        "shaparakRef": "4797978382",
+        "gateway": "zibal"
+      }
+    },
+    {
+      "id": 110,
+      "timestamp": "2026-09-20T09:39:38.713Z",
+      "user_id": null,
+      "user_name": "سیستم",
+      "user_mobile": null,
+      "user_role": "system",
+      "action_type": "FINANCIAL_TRANSACTION",
+      "action_description": "تأییدیه موفق پرداخت آنلاین درگاه شاپرک زیبال برای سفارش #ORD-260920-IETBO8 به مبلغ ۶٬۸۲۰٬۰۰۰ تومان با شماره پیگیری شاپرک 4797977736",
+      "resource_type": "ORDER_INVOICE",
+      "resource_id": 33,
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "action_type": "ZIBAL_ONLINE_PAYMENT_VERIFIED",
+        "order_id": 33,
+        "transaction_id": 35,
+        "amount": 6820000,
+        "reference_id": "4797977736",
+        "user_id": 20,
+        "trackId": "4797977736",
+        "shaparakRef": "4797977736",
+        "gateway": "zibal"
+      }
+    },
+    {
+      "id": 109,
+      "timestamp": "2026-09-20T09:39:20.279Z",
+      "user_id": 1,
+      "user_name": "اردلان داوودی",
+      "user_mobile": "09111273476",
+      "user_role": "admin",
+      "action_type": "CONFIGURATION_CHANGE",
+      "action_description": "بروزرسانی و ذخیره پیکربندی درگاه پرداخت شاپرک زیبال و وب‌سرویس پیامکی SMS.ir توسط مدیر",
+      "resource_type": "GATEWAY_SETTINGS",
+      "resource_id": "GATEWAYS",
+      "ip_address": "127.0.0.1",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0",
+      "status": "SUCCESS",
+      "details": {
+        "zibal_updated": true,
+        "sms_updated": true
+      }
+    },
     {
       "id": 108,
       "timestamp": "2026-09-20T06:51:57.027Z",
@@ -5054,19 +5594,81 @@
             "REF"
           ]
         },
-        "sub_expiring_7days": null,
-        "sub_expiring_3days": null
+        "sub_expiring_7days": {
+          "id": 0,
+          "enabled": false,
+          "title": "یادآوری ۷ روز مانده به انقضا",
+          "description": "",
+          "pattern": "کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.",
+          "required_params": []
+        },
+        "sub_expiring_3days": {
+          "id": 0,
+          "enabled": false,
+          "title": "یادآوری ۳ روز مانده به انقضا",
+          "description": "",
+          "pattern": "هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.",
+          "required_params": []
+        }
       },
-      "sandbox": false
+      "sandbox": false,
+      "templateTexts": {
+        "otp": "کد ورود شما به پنل کارویتا: #CODE#",
+        "invoice_issued": "کاربر گرامی #CUSTOMER#، پیش‌فاکتور سفارش ##ORDER# به مبلغ #AMOUNT# تومان صادر شد. لینک پرداخت: #LINK#",
+        "sub_expiring_7days": "کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.",
+        "sub_expiring_3days": "هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.",
+        "ticket_created": "کاربر گرامی #CUSTOMER#، تیکت پشتیبانی شما با شماره #TICKET# و موضوع «#SUBJECT#» با موفقیت ثبت شد.",
+        "payment_success": "کاربر گرامی #CUSTOMER#، پرداخت فاکتور ##ORDER# به مبلغ #AMOUNT# تومان با شماره پیگیری #REF# با موفقیت تایید شد."
+      },
+      "template_texts": {
+        "otp": "کد ورود شما به پنل کارویتا: #CODE#",
+        "invoice_issued": "کاربر گرامی #CUSTOMER#، پیش‌فاکتور سفارش ##ORDER# به مبلغ #AMOUNT# تومان صادر شد. لینک پرداخت: #LINK#",
+        "sub_expiring_7days": "کاربر گرامی #CUSTOMER#، تنها #DAYS# روز از اشتراک #TITLE# شما باقی مانده است. جهت تمدید اقدام فرمایید.",
+        "sub_expiring_3days": "هشدار مهم: کاربر گرامی #CUSTOMER#، اشتراک شما #TITLE# ظرف #DAYS# روز آینده منقضی می‌شود.",
+        "ticket_created": "کاربر گرامی #CUSTOMER#، تیکت پشتیبانی شما با شماره #TICKET# و موضوع «#SUBJECT#» با موفقیت ثبت شد.",
+        "payment_success": "کاربر گرامی #CUSTOMER#، پرداخت فاکتور ##ORDER# به مبلغ #AMOUNT# تومان با شماره پیگیری #REF# با موفقیت تایید شد."
+      }
     },
     "subscription_reminder_log": []
   },
   "pwaSettings": {
     "enabled": true,
-    "updated_at": "2026-09-20T05:29:07.617Z",
+    "updated_at": "2026-09-20T11:04:44.878Z",
     "updated_by": 1
   },
   "smsLogs": [
+    {
+      "id": "SMS-1789905738349-602",
+      "timestamp": "2026-09-20T12:02:18.349Z",
+      "mobile": "09352913139",
+      "event_type": "otp",
+      "template_id": 418155,
+      "template_title": "کد احراز هویت و ورود یکبار مصرف (OTP)",
+      "parameters": {
+        "CODE": "53383"
+      },
+      "status": "sent",
+      "provider": "sms_ir (REST API v1)",
+      "message_id": 727696159,
+      "cost": 1,
+      "message": "کد ورود شما به پنل کارویتا: 53383"
+    },
+    {
+      "id": "SMS-1789897141812-114",
+      "timestamp": "2026-09-20T09:39:01.812Z",
+      "mobile": "09111273476",
+      "event_type": "otp",
+      "template_id": 418155,
+      "template_title": "کد احراز هویت و ورود یکبار مصرف (OTP)",
+      "parameters": {
+        "CODE": "74074"
+      },
+      "status": "sent",
+      "provider": "sms_ir (REST API v1)",
+      "message_id": 727388504,
+      "cost": 1,
+      "message": "کد ورود شما به پنل کارویتا: 74074"
+    },
     {
       "id": "SMS-1789819433184-570",
       "timestamp": "2026-09-19T12:03:53.184Z",

@@ -1,5 +1,814 @@
 [
   {
+    "id": "vit_1790072625347_lmrkk",
+    "timestamp": "2026-09-22T10:23:45.347Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 622516,
+      "cls": 0.005,
+      "fid": null,
+      "inp": null,
+      "fcp": 622516,
+      "ttfb": 69,
+      "domComplete": 1341,
+      "loadTime": 1341
+    },
+    "ratings": {
+      "lcp": "poor",
+      "cls": "good",
+      "fcp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 1.25,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 24.64,
+      "totalJSHeapSize": 25.36,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1790072008322_0dy2f",
+    "timestamp": "2026-09-22T10:13:28.322Z",
+    "url": "/",
+    "metrics": {
+      "lcp": null,
+      "cls": 0,
+      "fid": null,
+      "inp": null,
+      "fcp": null,
+      "ttfb": 69,
+      "domComplete": 1341,
+      "loadTime": 1341
+    },
+    "ratings": {
+      "cls": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 1.25,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 25.59,
+      "totalJSHeapSize": 30.88,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1790063131113_qcifm",
+    "timestamp": "2026-09-22T07:45:31.113Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 2376,
+      "cls": 0.005,
+      "fid": null,
+      "inp": null,
+      "fcp": 2376,
+      "ttfb": 113,
+      "domComplete": 2400,
+      "loadTime": 2400
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fcp": "needs-improvement",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "3g",
+      "rtt": 350,
+      "downlink": 1.25,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 25.97,
+      "totalJSHeapSize": 32.39,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1790058308494_sk4ks",
+    "timestamp": "2026-09-22T06:25:08.494Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 6168,
+      "cls": 0.005,
+      "fid": 1,
+      "inp": null,
+      "fcp": 6168,
+      "ttfb": 132,
+      "domComplete": 6150,
+      "loadTime": 6150
+    },
+    "ratings": {
+      "lcp": "poor",
+      "cls": "good",
+      "fid": "good",
+      "fcp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 250,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 24.21,
+      "totalJSHeapSize": 25.56,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1790057172337_t6tak",
+    "timestamp": "2026-09-22T06:06:12.337Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 6168,
+      "cls": 0.005,
+      "fid": null,
+      "inp": null,
+      "fcp": 6168,
+      "ttfb": 132,
+      "domComplete": 6150,
+      "loadTime": 6150
+    },
+    "ratings": {
+      "lcp": "poor",
+      "cls": "good",
+      "fcp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 50,
+      "downlink": 7.15,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 24.62,
+      "totalJSHeapSize": 25.81,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1790057142215_qbdo0",
+    "timestamp": "2026-09-22T06:05:42.215Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 6168,
+      "cls": 0.005,
+      "fid": null,
+      "inp": null,
+      "fcp": 6168,
+      "ttfb": 132,
+      "domComplete": 6150,
+      "loadTime": 6150
+    },
+    "ratings": {
+      "lcp": "poor",
+      "cls": "good",
+      "fcp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 50,
+      "downlink": 7.15,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 25.76,
+      "totalJSHeapSize": 32.09,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789909610733_kphw2",
+    "timestamp": "2026-09-20T13:06:50.733Z",
+    "url": "/",
+    "metrics": {
+      "lcp": null,
+      "cls": 0,
+      "fid": null,
+      "inp": null,
+      "fcp": null,
+      "ttfb": 44,
+      "domComplete": 2119,
+      "loadTime": 2120
+    },
+    "ratings": {
+      "cls": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 6.1,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 25.78,
+      "totalJSHeapSize": 30.83,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789905988844_q7qwm",
+    "timestamp": "2026-09-20T12:06:28.844Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 6984,
+      "cls": 0.004,
+      "fid": null,
+      "inp": 552,
+      "fcp": 6984,
+      "ttfb": 282,
+      "domComplete": 6966,
+      "loadTime": 6966
+    },
+    "ratings": {
+      "lcp": "poor",
+      "cls": "good",
+      "inp": "poor",
+      "fcp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 1.9,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 24.97,
+      "totalJSHeapSize": 39.82,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789905754563_nnddm",
+    "timestamp": "2026-09-20T12:02:34.563Z",
+    "url": "/plans",
+    "metrics": {
+      "lcp": 1120,
+      "cls": 0,
+      "fid": 2,
+      "inp": 64,
+      "fcp": 1120,
+      "ttfb": 43,
+      "domComplete": 662,
+      "loadTime": 663
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 1.9,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 26.42,
+      "totalJSHeapSize": 28.78,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789901404739_vhvbi",
+    "timestamp": "2026-09-20T10:50:04.739Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 1120,
+      "cls": 0,
+      "fid": null,
+      "inp": null,
+      "fcp": 1120,
+      "ttfb": 43,
+      "domComplete": 662,
+      "loadTime": 663
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 50,
+      "downlink": 3.35,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 24.8,
+      "totalJSHeapSize": 26.51,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789901346201_jvzka",
+    "timestamp": "2026-09-20T10:49:06.201Z",
+    "url": "/",
+    "metrics": {
+      "lcp": 1120,
+      "cls": 0,
+      "fid": null,
+      "inp": null,
+      "fcp": 1120,
+      "ttfb": 43,
+      "domComplete": 662,
+      "loadTime": 663
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 50,
+      "downlink": 3.35,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 40.55,
+      "totalJSHeapSize": 45.74,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897347424_p716l",
+    "timestamp": "2026-09-20T09:42:27.424Z",
+    "url": "/admin",
+    "metrics": {
+      "lcp": 444,
+      "cls": 0.105,
+      "fid": 2,
+      "inp": 320,
+      "fcp": 444,
+      "ttfb": 3,
+      "domComplete": 353,
+      "loadTime": 353
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "needs-improvement",
+      "fid": "good",
+      "inp": "needs-improvement",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 22.3,
+      "totalJSHeapSize": 23.14,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897243980_76nbx",
+    "timestamp": "2026-09-20T09:40:43.980Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": 624,
+      "cls": 0,
+      "fid": 1,
+      "inp": null,
+      "fcp": 476,
+      "ttfb": 7,
+      "domComplete": 492,
+      "loadTime": 492
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 26.73,
+      "totalJSHeapSize": 32.29,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897222071_5gkc9",
+    "timestamp": "2026-09-20T09:40:22.071Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": 608,
+      "cls": 0,
+      "fid": 2,
+      "inp": 64,
+      "fcp": 460,
+      "ttfb": 6,
+      "domComplete": 466,
+      "loadTime": 466
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 27.3,
+      "totalJSHeapSize": 32.55,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897204089_rs0x4",
+    "timestamp": "2026-09-20T09:40:04.089Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": 644,
+      "cls": 0,
+      "fid": 1,
+      "inp": 56,
+      "fcp": 480,
+      "ttfb": 7,
+      "domComplete": 492,
+      "loadTime": 492
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 27.56,
+      "totalJSHeapSize": 32.55,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897197827_3mpjv",
+    "timestamp": "2026-09-20T09:39:57.827Z",
+    "url": "/admin",
+    "metrics": {
+      "lcp": 444,
+      "cls": 0.005,
+      "fid": 2,
+      "inp": 320,
+      "fcp": 444,
+      "ttfb": 3,
+      "domComplete": 353,
+      "loadTime": 353
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "needs-improvement",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 21.19,
+      "totalJSHeapSize": 22.64,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897184035_cse5o",
+    "timestamp": "2026-09-20T09:39:44.035Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": 640,
+      "cls": 0,
+      "fid": 1,
+      "inp": 64,
+      "fcp": 476,
+      "ttfb": 10,
+      "domComplete": 487,
+      "loadTime": 487
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 26.23,
+      "totalJSHeapSize": 32.28,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897142434_7zfin",
+    "timestamp": "2026-09-20T09:39:02.434Z",
+    "url": "/login",
+    "metrics": {
+      "lcp": 444,
+      "cls": 0.004,
+      "fid": 2,
+      "inp": 320,
+      "fcp": 444,
+      "ttfb": 3,
+      "domComplete": 353,
+      "loadTime": 353
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "needs-improvement",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 21.52,
+      "totalJSHeapSize": 24.65,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897132218_xkeqs",
+    "timestamp": "2026-09-20T09:38:52.218Z",
+    "url": "/plans",
+    "metrics": {
+      "lcp": 384,
+      "cls": 0.012,
+      "fid": 1,
+      "inp": 80,
+      "fcp": 284,
+      "ttfb": 9,
+      "domComplete": 260,
+      "loadTime": 260
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 36.16,
+      "totalJSHeapSize": 37.52,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897101767_gk3g6",
+    "timestamp": "2026-09-20T09:38:21.767Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": 384,
+      "cls": 0.012,
+      "fid": 1,
+      "inp": 56,
+      "fcp": 284,
+      "ttfb": 9,
+      "domComplete": 260,
+      "loadTime": 260
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "inp": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 37.15,
+      "totalJSHeapSize": 44.28,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897096563_vi16j",
+    "timestamp": "2026-09-20T09:38:16.563Z",
+    "url": "/admin",
+    "metrics": {
+      "lcp": 316,
+      "cls": 0.011,
+      "fid": 1,
+      "inp": null,
+      "fcp": 316,
+      "ttfb": 9,
+      "domComplete": 309,
+      "loadTime": 309
+    },
+    "ratings": {
+      "lcp": "good",
+      "cls": "good",
+      "fid": "good",
+      "fcp": "good",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 30.2,
+      "totalJSHeapSize": 38.76,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
+    "id": "vit_1789897088499_o1tuo",
+    "timestamp": "2026-09-20T09:38:08.499Z",
+    "url": "/dashboard",
+    "metrics": {
+      "lcp": null,
+      "cls": 0,
+      "fid": null,
+      "inp": 520,
+      "fcp": null,
+      "ttfb": 42,
+      "domComplete": 2053,
+      "loadTime": 2053
+    },
+    "ratings": {
+      "cls": "good",
+      "inp": "poor",
+      "ttfb": "good"
+    },
+    "connection": {
+      "effectiveType": "4g",
+      "rtt": 100,
+      "downlink": 10,
+      "saveData": false
+    },
+    "memory": {
+      "usedJSHeapSize": 27.3,
+      "totalJSHeapSize": 30.53,
+      "jsHeapSizeLimit": 4192
+    },
+    "user_id": null,
+    "user_mobile": null,
+    "ip_address": "127.0.0.1",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+  },
+  {
     "id": "vit_1789887868744_s3bb8",
     "timestamp": "2026-09-20T07:04:28.744Z",
     "url": "/dashboard",
@@ -17129,814 +17938,6 @@
     "memory": {
       "usedJSHeapSize": 23.27,
       "totalJSHeapSize": 39.38,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788860317905_9rpgh",
-    "timestamp": "2026-09-08T09:38:37.905Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 29472,
-      "cls": 0,
-      "fid": 2,
-      "inp": 48,
-      "fcp": 29472,
-      "ttfb": 927,
-      "domComplete": 1820,
-      "loadTime": 1824
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "needs-improvement"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 0,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 25.78,
-      "totalJSHeapSize": 27.89,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858809678_he3me",
-    "timestamp": "2026-09-08T09:13:29.678Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 29472,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": 29472,
-      "ttfb": 927,
-      "domComplete": 1820,
-      "loadTime": 1824
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fcp": "poor",
-      "ttfb": "needs-improvement"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 27.53,
-      "totalJSHeapSize": 30.57,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858754322_ibr8a",
-    "timestamp": "2026-09-08T09:12:34.322Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": null,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": null,
-      "ttfb": 927,
-      "domComplete": 1820,
-      "loadTime": 1824
-    },
-    "ratings": {
-      "cls": "good",
-      "ttfb": "needs-improvement"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 33.08,
-      "totalJSHeapSize": 34.63,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858736319_yp6fq",
-    "timestamp": "2026-09-08T09:12:16.319Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": null,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": null,
-      "ttfb": 400,
-      "domComplete": 1835,
-      "loadTime": 1837
-    },
-    "ratings": {
-      "cls": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 35.02,
-      "totalJSHeapSize": 36.47,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858621244_zmfzl",
-    "timestamp": "2026-09-08T09:10:21.244Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 576,
-      "cls": 0.03,
-      "fid": 1,
-      "inp": 64,
-      "fcp": 460,
-      "ttfb": 20,
-      "domComplete": 475,
-      "loadTime": 475
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 33.04,
-      "totalJSHeapSize": 34.32,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858565934_um2bb",
-    "timestamp": "2026-09-08T09:09:25.934Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 576,
-      "cls": 0.03,
-      "fid": 1,
-      "inp": 56,
-      "fcp": 460,
-      "ttfb": 20,
-      "domComplete": 475,
-      "loadTime": 475
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 33.14,
-      "totalJSHeapSize": 44.53,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858535015_8lp50",
-    "timestamp": "2026-09-08T09:08:55.015Z",
-    "url": "/dashboard",
-    "metrics": {
-      "lcp": 500,
-      "cls": 0.011,
-      "fid": 1,
-      "inp": 56,
-      "fcp": 368,
-      "ttfb": 13,
-      "domComplete": 374,
-      "loadTime": 374
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 33.31,
-      "totalJSHeapSize": 37.79,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858497657_x0qsn",
-    "timestamp": "2026-09-08T09:08:17.657Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 536,
-      "cls": 0.032,
-      "fid": 1,
-      "inp": 64,
-      "fcp": 436,
-      "ttfb": 18,
-      "domComplete": 458,
-      "loadTime": 458
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 32.48,
-      "totalJSHeapSize": 45.76,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788858477543_cy7cf",
-    "timestamp": "2026-09-08T09:07:57.543Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 3276,
-      "cls": 0.032,
-      "fid": 1,
-      "inp": 40,
-      "fcp": 3040,
-      "ttfb": 37,
-      "domComplete": 3160,
-      "loadTime": 3161
-    },
-    "ratings": {
-      "lcp": "needs-improvement",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 50,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 27.03,
-      "totalJSHeapSize": 45.26,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788857813730_8mhjj",
-    "timestamp": "2026-09-08T08:56:53.730Z",
-    "url": "/login",
-    "metrics": {
-      "lcp": 940,
-      "cls": 0.004,
-      "fid": 1,
-      "inp": 72,
-      "fcp": 940,
-      "ttfb": 21,
-      "domComplete": 800,
-      "loadTime": 801
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 250,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 30.84,
-      "totalJSHeapSize": 40.38,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788857805396_c37no",
-    "timestamp": "2026-09-08T08:56:45.396Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 9256,
-      "cls": 0.087,
-      "fid": null,
-      "inp": 520,
-      "fcp": 6268,
-      "ttfb": 316,
-      "domComplete": 7576,
-      "loadTime": 7576
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "inp": "poor",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 250,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 28.65,
-      "totalJSHeapSize": 34.88,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788856163201_jsvpz",
-    "timestamp": "2026-09-08T08:29:23.201Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 6560,
-      "cls": 0,
-      "fid": 1,
-      "inp": 72,
-      "fcp": 6560,
-      "ttfb": 346,
-      "domComplete": 3991,
-      "loadTime": 3991
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 26.48,
-      "totalJSHeapSize": 31.89,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788856133252_nrszq",
-    "timestamp": "2026-09-08T08:28:53.252Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 6560,
-      "cls": 0,
-      "fid": 1,
-      "inp": 64,
-      "fcp": 6560,
-      "ttfb": 346,
-      "domComplete": 3991,
-      "loadTime": 3991
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 27.69,
-      "totalJSHeapSize": 30.14,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788856078208_ly1oh",
-    "timestamp": "2026-09-08T08:27:58.208Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 6560,
-      "cls": 0,
-      "fid": 1,
-      "inp": null,
-      "fcp": 6560,
-      "ttfb": 346,
-      "domComplete": 3991,
-      "loadTime": 3991
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 28.19,
-      "totalJSHeapSize": 36.15,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788851253325_j77gp",
-    "timestamp": "2026-09-08T07:07:33.325Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": null,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": null,
-      "ttfb": 446,
-      "domComplete": 2572,
-      "loadTime": 2573
-    },
-    "ratings": {
-      "cls": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 25.94,
-      "totalJSHeapSize": 33.63,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788848073943_lydpg",
-    "timestamp": "2026-09-08T06:14:33.943Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 256788,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": 256788,
-      "ttfb": 446,
-      "domComplete": 9419,
-      "loadTime": 9419
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 25.41,
-      "totalJSHeapSize": 28.37,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788847829459_di6bj",
-    "timestamp": "2026-09-08T06:10:29.459Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": null,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": null,
-      "ttfb": 446,
-      "domComplete": 9419,
-      "loadTime": 9419
-    },
-    "ratings": {
-      "cls": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 25.93,
-      "totalJSHeapSize": 33.63,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788779692627_4rvxl",
-    "timestamp": "2026-09-07T11:14:52.627Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 141208,
-      "cls": 0,
-      "fid": 1,
-      "inp": 128,
-      "fcp": 141208,
-      "ttfb": 23,
-      "domComplete": 1049,
-      "loadTime": 1050
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 48.78,
-      "totalJSHeapSize": 52.52,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788779662624_6dafo",
-    "timestamp": "2026-09-07T11:14:22.624Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 141208,
-      "cls": 0,
-      "fid": 1,
-      "inp": 64,
-      "fcp": 141208,
-      "ttfb": 23,
-      "domComplete": 1049,
-      "loadTime": 1050
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 100,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 46.36,
-      "totalJSHeapSize": 50,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788779623956_ncc0h",
-    "timestamp": "2026-09-07T11:13:43.956Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 141208,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": 141208,
-      "ttfb": 23,
-      "domComplete": 1049,
-      "loadTime": 1050
-    },
-    "ratings": {
-      "lcp": "poor",
-      "cls": "good",
-      "fcp": "poor",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "3g",
-      "rtt": 350,
-      "downlink": 1.3,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 45.78,
-      "totalJSHeapSize": 48.5,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788779487731_41uji",
-    "timestamp": "2026-09-07T11:11:27.731Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": null,
-      "cls": 0,
-      "fid": null,
-      "inp": null,
-      "fcp": null,
-      "ttfb": 23,
-      "domComplete": 1049,
-      "loadTime": 1050
-    },
-    "ratings": {
-      "cls": "good",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 200,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 53.3,
-      "totalJSHeapSize": 55.16,
-      "jsHeapSizeLimit": 4192
-    },
-    "user_id": null,
-    "user_mobile": null,
-    "ip_address": "127.0.0.1",
-    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36 Edg/152.0.0.0"
-  },
-  {
-    "id": "vit_1788779445266_dhnqq",
-    "timestamp": "2026-09-07T11:10:45.266Z",
-    "url": "/admin",
-    "metrics": {
-      "lcp": 2264,
-      "cls": 0.059,
-      "fid": 1,
-      "inp": 88,
-      "fcp": 2180,
-      "ttfb": 42,
-      "domComplete": 2184,
-      "loadTime": 2185
-    },
-    "ratings": {
-      "lcp": "good",
-      "cls": "good",
-      "fid": "good",
-      "inp": "good",
-      "fcp": "needs-improvement",
-      "ttfb": "good"
-    },
-    "connection": {
-      "effectiveType": "4g",
-      "rtt": 200,
-      "downlink": 10,
-      "saveData": false
-    },
-    "memory": {
-      "usedJSHeapSize": 50.21,
-      "totalJSHeapSize": 55.81,
       "jsHeapSizeLimit": 4192
     },
     "user_id": null,

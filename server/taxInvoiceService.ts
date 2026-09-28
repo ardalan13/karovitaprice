@@ -8,32 +8,32 @@ export interface SellerInfo {
   brand_name: string;
   registration_number: string;
   national_id: string;
-  economic_code: string;
-  tax_payer_code: string;
+  tracking_number: string;
+  economic_code?: string;
+  tax_payer_code?: string;
   postal_code: string;
   province: string;
   city: string;
   address: string;
   phone: string;
-  fax: string;
+  fax?: string;
   email: string;
   website: string;
 }
 
 export const OFFICIAL_SELLER_INFO: SellerInfo = {
-  company_name: 'شرکت معماران رشد و تحول کسب و کار (سهامی خاص)',
-  brand_name: 'کارویتا ابری (Karovita Cloud ERP)',
+  company_name: 'معماران رشد و تحول کسب و کار (کارویتا)',
+  brand_name: 'معماران رشد و تحول کسب و کار (کارویتا)',
   registration_number: '10506',
   national_id: '14015285185',
+  tracking_number: '3880354536',
   economic_code: '3880354536',
-  tax_payer_code: 'TP-10506-TX',
-  postal_code: '۱۹۹۷۹۸۵۶۱۴',
+  postal_code: '4713998571',
   province: 'مازندران',
   city: 'بابل',
-  address: 'مازندران - بابل - خیابان نواب صفوی - کوچه اشرفی ۲۷',
-  phone: '۰۲۱-۸۸۹۹۰۰۱۱',
-  fax: '۰۲۱-۸۸۹۹۰۰۱۲',
-  email: 'finance@karovita.ir',
+  address: 'خیابان نواب صفوی - اشرفی۲۷ - پلاک 5',
+  phone: '01132250771',
+  email: 'info@karovota.ir',
   website: 'https://karovita.ir',
 };
 
@@ -129,7 +129,7 @@ export function generateOfficialTaxInvoiceHtml(params: {
   const buyerRegNo = company?.registration_number || '—';
   const buyerPostalCode = company?.postal_code || '—';
   const buyerPhone = company?.phone || user.mobile;
-  const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'تهران، اقامتگاه قانونی ثبت شده در سامانه');
+  const buyerAddress = company?.address?.trim() || (company?.province ? `${company.province}، ${company.city || ''}`.trim() : '—');
 
   // Check if this is a resource addon for an active subscription
   const isResourceAddon = Boolean(
@@ -159,7 +159,7 @@ export function generateOfficialTaxInvoiceHtml(params: {
         ? '۶ ماهه'
         : ((period === '3_months' || period === 'quarterly') ? '۳ ماهه' : 'ماهانه')));
 
-  const finalAmount = Number(tx?.amount || order?.final_amount || order?.amount || 0);
+  const finalAmount = Number(order?.final_amount || tx?.amount || order?.amount || 0);
   const vatRate = 0.10;
 
   // Breakdown calculations
@@ -167,10 +167,31 @@ export function generateOfficialTaxInvoiceHtml(params: {
   const monthlyExtraCost = Number(order?.breakdown?.extra_users_cost || 0);
   const extraUsersPeriodTotal = isResourceAddon ? monthlyExtraCost : (monthlyExtraCost * unitMultiplier);
 
+  // Safely parse module_ids (handle JSON string, array of strings, or array of objects)
+  let rawModuleIds: any[] = [];
+  if (Array.isArray(order?.module_ids)) {
+    rawModuleIds = order.module_ids;
+  } else if (typeof order?.module_ids === 'string') {
+    try {
+      const parsed = JSON.parse(order.module_ids);
+      if (Array.isArray(parsed)) rawModuleIds = parsed;
+      else if (parsed) rawModuleIds = [parsed];
+    } catch {
+      rawModuleIds = order.module_ids ? [order.module_ids] : [];
+    }
+  }
+
+  const cleanModuleIds = rawModuleIds.map(m => {
+    if (typeof m === 'object' && m !== null) {
+      return String(m.id || m.name || m.title || '').trim();
+    }
+    return String(m || '').trim();
+  }).filter(Boolean);
+
   let calculatedModulesPeriodTotal = 0;
-  if (order?.module_ids && order.module_ids.length > 0) {
-    calculatedModulesPeriodTotal = order.module_ids.reduce((sum: number, modId: string) => {
-      const m = modulesList.find(x => x.id === modId);
+  if (cleanModuleIds.length > 0) {
+    calculatedModulesPeriodTotal = cleanModuleIds.reduce((sum: number, modId: string) => {
+      const m = modulesList.find(x => x.id?.toLowerCase() === modId.toLowerCase());
       return sum + (m ? (Number(m.price) || 0) * unitMultiplier : 0);
     }, 0);
   } else {
@@ -182,49 +203,87 @@ export function generateOfficialTaxInvoiceHtml(params: {
     : finalAmount);
 
   const discountAmount = Math.max(rawTotal - (order?.subtotal || finalAmount), 0);
-  const baseBeforeVat = order?.subtotal || Math.round(finalAmount / (1 + vatRate));
-  const vatAmount = (order?.breakdown?.vat_amount !== undefined) ? order.breakdown.vat_amount : (finalAmount - baseBeforeVat);
+  const baseBeforeVat = Number(order?.subtotal) > 0 
+    ? Number(order.subtotal) 
+    : Math.round(finalAmount / (1 + vatRate));
+  const vatAmount = (order?.breakdown?.vat_amount !== undefined && order?.breakdown?.vat_amount !== null) 
+    ? Number(order.breakdown.vat_amount) 
+    : (finalAmount - baseBeforeVat);
   const amountInWords = numberToWordsPersian(finalAmount);
 
   // Items table
   let itemRowsHtml = '';
   let rowIdx = 1;
 
-  if (order?.module_ids && order.module_ids.length > 0) {
-    order.module_ids.forEach((modId: string) => {
-      const m = modulesList.find(x => x.id === modId);
-      const title = m ? m.title : modId;
-      const modBasePrice = m ? Number(m.price) || 0 : 0;
-      const rowItemTotal = modBasePrice * unitMultiplier;
-      const rowItemBase = Math.round(rowItemTotal / (1 + vatRate));
-      const rowVat = rowItemTotal - rowItemBase;
+  if (cleanModuleIds.length > 0) {
+    // Proportional base allocation ensuring row prices always accurately match order payment and never show 0
+    let allocatedUsersBase = 0;
+    if (extraUsersCount > 0 && monthlyExtraCost > 0) {
+      allocatedUsersBase = Math.min(extraUsersPeriodTotal, Math.round(baseBeforeVat * 0.5));
+    }
+    const modulesAvailableBase = Math.max(baseBeforeVat - allocatedUsersBase, 0);
+
+    const modDetails = cleanModuleIds.map(modId => {
+      const found = modulesList.find(x => x.id?.toLowerCase() === modId.toLowerCase());
+      const p = found ? (Number(found.price) || 0) : 0;
+      return {
+        id: modId,
+        title: found?.title || modId,
+        catalogPrice: p > 0 ? p : 250000
+      };
+    });
+
+    const sumCatalog = modDetails.reduce((sum, m) => sum + m.catalogPrice, 0);
+    let cumulativeBase = 0;
+    let cumulativeVat = 0;
+
+    modDetails.forEach((mod, idx) => {
+      const isLast = idx === modDetails.length - 1;
+      let rowBase = 0;
+      if (isLast) {
+        rowBase = Math.max(modulesAvailableBase - cumulativeBase, 0);
+      } else {
+        const ratio = sumCatalog > 0 ? (mod.catalogPrice / sumCatalog) : (1 / modDetails.length);
+        rowBase = Math.round(modulesAvailableBase * ratio);
+        cumulativeBase += rowBase;
+      }
+
+      let rowVat = 0;
+      if (isLast && allocatedUsersBase === 0) {
+        rowVat = Math.max(vatAmount - cumulativeVat, 0);
+      } else {
+        rowVat = Math.round(rowBase * vatRate);
+        cumulativeVat += rowVat;
+      }
+
+      const rowTotalWithVat = rowBase + rowVat;
+      const unitPrice = unitMultiplier > 0 ? Math.round(rowBase / unitMultiplier) : rowBase;
 
       itemRowsHtml += `
         <tr>
           <td style="text-align:center;">${rowIdx++}</td>
-          <td style="font-family:monospace; text-align:center;">KAR-${modId.toUpperCase()}</td>
+          <td style="font-family:monospace; text-align:center;">KAR-${mod.id.toUpperCase()}</td>
           <td>
-            <strong>حق بهره‌برداری ماژول نرم‌افزاری: ${title}</strong>
+            <strong>حق بهره‌برداری ماژول نرم‌افزاری: ${mod.title}</strong>
             <div style="font-size:10px; color:#64748b; margin-top:2px;">لایسنس ابری ${periodTitleFa} - پشتیبانی و نگهداری تخصصی</div>
           </td>
           <td style="text-align:center;">${unitMultiplier}</td>
           <td style="text-align:center;">ماه</td>
-          <td style="text-align:left; font-family:monospace;">${modBasePrice.toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace;">${rowItemTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${unitPrice.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${rowBase.toLocaleString('fa-IR')}</td>
           <td style="text-align:left; font-family:monospace;">۰</td>
-          <td style="text-align:left; font-family:monospace;">${rowItemTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${rowBase.toLocaleString('fa-IR')}</td>
           <td style="text-align:center;">۱۰٪</td>
           <td style="text-align:left; font-family:monospace;">${rowVat.toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace; font-weight:bold;">${rowItemTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace; font-weight:bold;">${rowTotalWithVat.toLocaleString('fa-IR')}</td>
         </tr>
       `;
     });
 
-    if (extraUsersCount > 0 && monthlyExtraCost > 0) {
-      const extraUserUnitPrice = Math.round(monthlyExtraCost / extraUsersCount);
-      const extraUsersRowTotal = extraUsersPeriodTotal;
-      const extraUsersRowBase = Math.round(extraUsersRowTotal / (1 + vatRate));
-      const extraUsersRowVat = extraUsersRowTotal - extraUsersRowBase;
+    if (allocatedUsersBase > 0 && extraUsersCount > 0) {
+      const userVat = Math.max(vatAmount - cumulativeVat, 0);
+      const userTotal = allocatedUsersBase + userVat;
+      const extraUserUnitPrice = Math.round(allocatedUsersBase / (extraUsersCount * Math.max(unitMultiplier, 1)));
 
       itemRowsHtml += `
         <tr>
@@ -237,12 +296,12 @@ export function generateOfficialTaxInvoiceHtml(params: {
           <td style="text-align:center;">${extraUsersCount}</td>
           <td style="text-align:center;">کاربر (${unitMultiplier} ماه)</td>
           <td style="text-align:left; font-family:monospace;">${(extraUserUnitPrice * unitMultiplier).toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${allocatedUsersBase.toLocaleString('fa-IR')}</td>
           <td style="text-align:left; font-family:monospace;">۰</td>
-          <td style="text-align:left; font-family:monospace;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${allocatedUsersBase.toLocaleString('fa-IR')}</td>
           <td style="text-align:center;">۱۰٪</td>
-          <td style="text-align:left; font-family:monospace;">${extraUsersRowVat.toLocaleString('fa-IR')}</td>
-          <td style="text-align:left; font-family:monospace; font-weight:bold;">${extraUsersRowTotal.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace;">${userVat.toLocaleString('fa-IR')}</td>
+          <td style="text-align:left; font-family:monospace; font-weight:bold;">${userTotal.toLocaleString('fa-IR')}</td>
         </tr>
       `;
     }
@@ -261,10 +320,10 @@ export function generateOfficialTaxInvoiceHtml(params: {
         </td>
         <td style="text-align:center;">۱</td>
         <td style="text-align:center;">دوره ${periodTitleFa}</td>
-        <td style="text-align:left; font-family:monospace;">${rawTotal.toLocaleString('fa-IR')}</td>
-        <td style="text-align:left; font-family:monospace;">${rawTotal.toLocaleString('fa-IR')}</td>
+        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
+        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
         <td style="text-align:left; font-family:monospace;">${discountAmount.toLocaleString('fa-IR')}</td>
-        <td style="text-align:left; font-family:monospace;">${finalAmount.toLocaleString('fa-IR')}</td>
+        <td style="text-align:left; font-family:monospace;">${baseBeforeVat.toLocaleString('fa-IR')}</td>
         <td style="text-align:center;">۱۰٪</td>
         <td style="text-align:left; font-family:monospace;">${vatAmount.toLocaleString('fa-IR')}</td>
         <td style="text-align:left; font-family:monospace; font-weight:bold;">${finalAmount.toLocaleString('fa-IR')}</td>
@@ -628,8 +687,8 @@ export function generateOfficialTaxInvoiceHtml(params: {
         <td class="val"><strong style="font-family:monospace;">${OFFICIAL_SELLER_INFO.national_id}</strong></td>
       </tr>
       <tr>
-        <td class="label">شماره اقتصادی:</td>
-        <td class="val"><strong style="font-family:monospace;">${OFFICIAL_SELLER_INFO.economic_code}</strong></td>
+        <td class="label">شماره رهگیری:</td>
+        <td class="val"><strong style="font-family:monospace;">${OFFICIAL_SELLER_INFO.tracking_number || OFFICIAL_SELLER_INFO.economic_code}</strong></td>
         <td class="label">شماره ثبت:</td>
         <td class="val"><strong style="font-family:monospace;">${OFFICIAL_SELLER_INFO.registration_number}</strong></td>
         <td class="label">کد پستی:</td>
@@ -642,12 +701,10 @@ export function generateOfficialTaxInvoiceHtml(params: {
         <td class="val" colspan="3">${OFFICIAL_SELLER_INFO.address}</td>
       </tr>
       <tr>
-        <td class="label">تلفن / دورنگار:</td>
+        <td class="label">تلفن:</td>
         <td class="val" dir="ltr">${OFFICIAL_SELLER_INFO.phone}</td>
         <td class="label">پست الکترونیک:</td>
-        <td class="val" dir="ltr">${OFFICIAL_SELLER_INFO.email}</td>
-        <td class="label">کد مودیان:</td>
-        <td class="val" style="font-family:monospace;">${OFFICIAL_SELLER_INFO.tax_payer_code}</td>
+        <td class="val" colspan="3" dir="ltr">${OFFICIAL_SELLER_INFO.email}</td>
       </tr>
     </table>
 
@@ -670,7 +727,7 @@ export function generateOfficialTaxInvoiceHtml(params: {
       </tr>
       <tr>
         <td class="label">استان و شهر:</td>
-        <td class="val">${company?.province || 'تهران'} / ${company?.city || 'تهران'}</td>
+        <td class="val">${company?.province && company?.city ? `${company.province} / ${company.city}` : (company?.province || company?.city || '—')}</td>
         <td class="label">نشانی خریدار:</td>
         <td class="val" colspan="3">${buyerAddress}</td>
       </tr>
@@ -744,10 +801,9 @@ export function generateOfficialTaxInvoiceHtml(params: {
           <div style="font-size:10px; color:#64748b; margin-top:2px;">${OFFICIAL_SELLER_INFO.company_name}</div>
           
           <div class="stamp-box">
-            شرکت معماران رشد و تحول<br>
-            کسب و کار (سهامی خاص)<br>
-            ثبت: ${OFFICIAL_SELLER_INFO.registration_number}<br>
-            امور مالی
+            ${OFFICIAL_SELLER_INFO.brand_name || OFFICIAL_SELLER_INFO.company_name}<br>
+            امور مالی و قراردادها<br>
+            ثبت: ${OFFICIAL_SELLER_INFO.registration_number}
           </div>
         </td>
         <td>
@@ -800,7 +856,7 @@ export function generateOfficialContractHtml(params: {
   const buyerName = company?.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.mobile;
   const buyerNationalId = company?.national_id?.trim() || user.national_code?.trim() || user.national_id?.trim() || user.mobile;
   const buyerPhone = company?.phone || user.mobile;
-  const buyerAddress = company?.address || (company?.province ? `${company.province}، ${company.city || ''}` : 'اقامتگاه قانونی ثبت شده در سامانه');
+  const buyerAddress = company?.address?.trim() || (company?.province ? `${company.province}، ${company.city || ''}`.trim() : '—');
   const finalAmount = Number(tx?.amount || order?.final_amount || order?.amount || 0);
   const amountInWords = numberToWordsPersian(finalAmount);
 
@@ -965,7 +1021,7 @@ export function generateOfficialContractHtml(params: {
 
     <div class="clause">
       <div class="clause-title">ماده ۱: طرفین قرارداد</div>
-      این قرارداد فی‌مابین <strong>${OFFICIAL_SELLER_INFO.company_name}</strong> به شناسه ملی ${OFFICIAL_SELLER_INFO.national_id}، شماره ثبت ${OFFICIAL_SELLER_INFO.registration_number} و کد اقتصادی ${OFFICIAL_SELLER_INFO.economic_code} به نشانی ${OFFICIAL_SELLER_INFO.address} به عنوان <strong>«مجری / ارائه‌دهنده خدمت»</strong> از یک طرف، و <strong>${buyerName}</strong> به شماره/شناسه ملی ${buyerNationalId} به نشانی ${buyerAddress} و شماره تماس ${buyerPhone} به عنوان <strong>«کارفرما / مشترک»</strong> از طرف دیگر، منعقد گردید.
+      این قرارداد فی‌مابین <strong>${OFFICIAL_SELLER_INFO.company_name}</strong> به شناسه ملی ${OFFICIAL_SELLER_INFO.national_id}، شماره ثبت ${OFFICIAL_SELLER_INFO.registration_number} و شماره رهگیری ${OFFICIAL_SELLER_INFO.tracking_number || OFFICIAL_SELLER_INFO.economic_code} به نشانی ${OFFICIAL_SELLER_INFO.address} به عنوان <strong>«مجری / ارائه‌دهنده خدمت»</strong> از یک طرف، و <strong>${buyerName}</strong> به شماره/شناسه ملی ${buyerNationalId} به نشانی ${buyerAddress} و شماره تماس ${buyerPhone} به عنوان <strong>«کارفرما / مشترک»</strong> از طرف دیگر، منعقد گردید.
     </div>
 
     <div class="clause">

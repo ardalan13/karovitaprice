@@ -1036,34 +1036,44 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
     // -------------------------------------------------------------------------
     try {
         $activeSub = null;
-        $isResourceUpgrade = (!empty($order['order_type']) && $order['order_type'] === 'resource_upgrade') 
-            || !empty($order['is_resource_addon']);
         $isRenewal = (!empty($order['order_type']) && $order['order_type'] === 'renewal') || !empty($order['is_renewal']);
+        $isExplicitResourceUpgrade = (!empty($order['order_type']) && in_array($order['order_type'], ['resource_upgrade', 'addon', 'module_addon', 'module'])) 
+            || !empty($order['is_resource_addon']);
 
         if (!empty($order['subscription_id'])) {
             $subStmt = $pdo->prepare("SELECT * FROM subscriptions WHERE id = ? AND user_id = ? AND status = 'active' AND source != 'trial' AND title NOT LIKE '%آزمایشی%' LIMIT 1");
             $subStmt->execute([(int)$order['subscription_id'], $userId]);
             $activeSub = $subStmt->fetch(PDO::FETCH_ASSOC);
         }
-        // Only merge into existing active subscription if explicitly a resource upgrade or renewal of an existing commercial subscription
-        if (!$activeSub && ($isResourceUpgrade || $isRenewal)) {
+        if (!$activeSub) {
             $stmt = $pdo->prepare("SELECT * FROM subscriptions WHERE user_id = ? AND status = 'active' AND source != 'trial' AND title NOT LIKE '%آزمایشی%' ORDER BY id DESC LIMIT 1");
             $stmt->execute([$userId]);
             $activeSub = $stmt->fetch(PDO::FETCH_ASSOC);
         }
 
+        // CRITICAL BUSINESS RULE: If user already has an active subscription and did not explicitly select renewal,
+        // any purchased modules or resources are strictly treated as an ADD-ON upgrade to the active subscription.
+        $isResourceUpgrade = $isExplicitResourceUpgrade || ($activeSub && !$isRenewal);
+
         if ($activeSub) {
             $activeSubId = (int)$activeSub['id'];
 
             // 1. Calculate expiration date
-            // CRITICAL RULE: Resource upgrades (adding modules/users) do NOT change expiration date!
+            // STRICT BUSINESS RULE: Adding new modules or purchasing resources to an existing active subscription
+            // MUST NEVER extend or increase expires_at! The original expiration date remains strictly unchanged.
             $currentExpiresAt = !empty($activeSub['expires_at']) ? strtotime($activeSub['expires_at']) : 0;
             $now = time();
 
-            if ($isResourceUpgrade && $currentExpiresAt > $now) {
-                // Keep expiration date intact
-                $newExpiresAt = $activeSub['expires_at'];
+            if ($isResourceUpgrade || !$isRenewal) {
+                // If it is an addon/module upgrade or any non-renewal, PRESERVE current expiration strictly!
+                if ($currentExpiresAt > $now) {
+                    $newExpiresAt = $activeSub['expires_at'];
+                } else {
+                    // Subscription was already expired in the past, activate starting from now
+                    $newExpiresAt = date('Y-m-d H:i:s', $now + ($days * 86400));
+                }
             } else {
+                // Explicit Renewal ONLY: extend expiration date by durationDays from current expiration (or now)
                 $baseTime = ($currentExpiresAt > $now) ? $currentExpiresAt : $now;
                 $newExpiresAt = date('Y-m-d H:i:s', $baseTime + ($days * 86400));
             }
@@ -1074,7 +1084,7 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 $dec = is_string($activeSub['module_ids']) ? json_decode($activeSub['module_ids'], true) : $activeSub['module_ids'];
                 if (is_array($dec)) $existingModIds = $dec;
             }
-            if ($isResourceUpgrade) {
+            if ($isResourceUpgrade || !$isRenewal) {
                 $mergedModIds = array_values(array_unique(array_merge($existingModIds, $orderModIds)));
             } else {
                 $mergedModIds = array_values(array_unique($orderModIds));
@@ -1090,6 +1100,12 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
             $newTotalPrice = $existingTotalPrice + $orderAmount;
 
             $updatedPkgName = "اشتراک اختصاصی ابری (" . count($mergedModIds) . " ماژول)";
+
+            $savedBillingPeriod = ($isResourceUpgrade && !empty($activeSub['billing_period'])) ? $activeSub['billing_period'] : $period;
+
+            // Preserve original base order on the subscription so we don't sever the link to the initial order
+            $preservedOrderId = (!empty($activeSub['order_id']) && $isResourceUpgrade) ? $activeSub['order_id'] : $order['id'];
+            $preservedOrderNum = (!empty($activeSub['order_number']) && $isResourceUpgrade) ? $activeSub['order_number'] : $ordNum;
 
             // 5. Update existing active subscription
             try {
@@ -1110,11 +1126,11 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                     updated_at = NOW() 
                     WHERE id = ?");
                 $upStmt->execute([
-                    $order['id'],
-                    $ordNum,
+                    $preservedOrderId,
+                    $preservedOrderNum,
                     $updatedPkgName,
                     $updatedPkgName,
-                    $period,
+                    $savedBillingPeriod,
                     $newUserCount,
                     $newUserCount,
                     $orderAmount,
@@ -1125,7 +1141,6 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 ]);
             } catch (Exception $eUp) {
                 $upStmtFallback = $pdo->prepare("UPDATE subscriptions SET 
-                    order_id = ?, 
                     status = 'active',
                     user_count = ?, 
                     expires_at = ?, 
@@ -1133,7 +1148,6 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                     updated_at = NOW()
                     WHERE id = ?");
                 $upStmtFallback->execute([
-                    $order['id'],
                     $newUserCount,
                     $newExpiresAt,
                     $mergedModIdsStr,
@@ -1141,9 +1155,10 @@ function createSubscriptionForOrder($pdo, $order, $source = 'purchase') {
                 ]);
             }
 
-            // Link order to the updated subscription
+            // Link order to the updated subscription and persist is_resource_addon flag
             try {
-                $pdo->prepare("UPDATE orders SET subscription_id = ? WHERE id = ?")->execute([$activeSubId, $order['id']]);
+                $pdo->prepare("UPDATE orders SET subscription_id = ?, is_resource_addon = ? WHERE id = ?")
+                    ->execute([$activeSubId, $isResourceUpgrade ? 1 : 0, $order['id']]);
             } catch (Exception $eOrdLink) {}
 
             // 6. Deactivate / mark redundant duplicate active subscriptions as merged
@@ -1979,10 +1994,10 @@ if ($path === '/onboarding/company' && $method === 'POST') {
 if ($path === '/user/company') {
     $user = getCurrentUser($pdo);
     if ($method === 'PUT' || $method === 'POST') {
-        $compName = trim($body['company_name'] ?? $body['name'] ?? '');
+        $compName = trim($body['company_name'] ?? ($body['name'] ?? ''));
         $economicCode = trim($body['economic_code'] ?? '');
         $nationalId = trim($body['national_id'] ?? '');
-        $regNum = trim($body['registration_num'] ?? '');
+        $regNum = trim($body['registration_number'] ?? ($body['registration_num'] ?? ''));
         $postalCode = trim($body['postal_code'] ?? '');
         $province = trim($body['province'] ?? '');
         $city = trim($body['city'] ?? '');
@@ -1996,8 +2011,8 @@ if ($path === '/user/company') {
         if (!empty($cleanNationalId) && strlen($cleanNationalId) !== 10 && strlen($cleanNationalId) !== 11) {
             sendError('کد ملی باید ۱۰ رقم و شناسه ملی شرکت باید ۱۱ رقم باشد.', 422);
         }
-        if (!empty($cleanEconomicCode) && strlen($cleanEconomicCode) !== 11) {
-            sendError('شماره اقتصادی باید ۱۱ رقمی باشد.', 422);
+        if (!empty($cleanEconomicCode) && strlen($cleanEconomicCode) !== 11 && strlen($cleanEconomicCode) !== 12) {
+            // Optional/flexible economic code
         }
         if (!empty($cleanPostalCode) && strlen($cleanPostalCode) !== 10) {
             sendError('کد پستی باید ۱۰ رقمی باشد.', 422);
@@ -2013,11 +2028,11 @@ if ($path === '/user/company') {
                 $stmt->execute([$user['id']]);
                 $ex = $stmt->fetch();
                 if ($ex) {
-                    $stmt = $pdo->prepare("UPDATE companies SET company_name = ?, name = ?, economic_code = ?, national_id = ?, registration_num = ?, postal_code = ?, province = ?, city = ?, address = ?, phone = ?, updated_at = NOW() WHERE id = ?");
-                    $stmt->execute([$compName, $compName, $economicCode, $nationalId, $regNum, $postalCode, $province, $city, $address, $phone, $ex['id']]);
+                    $stmt = $pdo->prepare("UPDATE companies SET company_name = ?, name = ?, economic_code = ?, national_id = ?, registration_num = ?, registration_number = ?, postal_code = ?, province = ?, city = ?, address = ?, phone = ?, updated_at = NOW() WHERE id = ?");
+                    $stmt->execute([$compName, $compName, $economicCode, $nationalId, $regNum, $regNum, $postalCode, $province, $city, $address, $phone, $ex['id']]);
                 } else {
-                    $stmt = $pdo->prepare("INSERT INTO companies (user_id, company_name, name, economic_code, national_id, registration_num, postal_code, province, city, address, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->execute([$user['id'], $compName, $compName, $economicCode, $nationalId, $regNum, $postalCode, $province, $city, $address, $phone]);
+                    $stmt = $pdo->prepare("INSERT INTO companies (user_id, company_name, name, economic_code, national_id, registration_num, registration_number, postal_code, province, city, address, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$user['id'], $compName, $compName, $economicCode, $nationalId, $regNum, $regNum, $postalCode, $province, $city, $address, $phone]);
                 }
             } catch (Exception $e) {}
         }
@@ -2053,7 +2068,7 @@ if ($path === '/dashboard') {
             $stmt->execute([$user['id']]);
             $company = $stmt->fetch();
 
-            // Auto-heal / Auto-recover missing subscriptions for any completed or paid orders of this user
+            // Auto-heal / Auto-recover missing subscriptions for any completed or paid primary orders of this user
             try {
                 $missingSubsStmt = $pdo->prepare("
                     SELECT o.* 
@@ -2061,6 +2076,10 @@ if ($path === '/dashboard') {
                     LEFT JOIN subscriptions s ON o.id = s.order_id 
                     WHERE o.user_id = ? 
                       AND (o.is_paid = 1 OR o.status IN ('completed', 'paid'))
+                      AND (o.deleted_at IS NULL)
+                      AND (o.is_resource_addon = 0 OR o.is_resource_addon IS NULL)
+                      AND (o.order_type NOT IN ('resource_upgrade', 'addon', 'module_addon', 'module') OR o.order_type IS NULL)
+                      AND (o.subscription_id IS NULL OR o.subscription_id = 0)
                       AND s.id IS NULL
                 ");
                 $missingSubsStmt->execute([$user['id']]);
@@ -2227,9 +2246,12 @@ if ($path === '/user/purchased-packages') {
 if ($path === '/user/orders') {
     $user = getCurrentUser($pdo);
     $orders = [];
+    $allModules = getDefaultModules();
+    $modMap = [];
+    foreach ($allModules as $m) { $modMap[strtolower($m['id'])] = $m['title']; }
     if ($pdo && isset($user['id'])) {
         try {
-            $stmt = $pdo->prepare("SELECT o.*, t.reference_id, t.tracking_code, t.status as tx_status, t.gateway as tx_gateway 
+            $stmt = $pdo->prepare("SELECT o.*, t.reference_id, t.tracking_code, t.status as tx_status, t.gateway as tx_gateway, t.amount as tx_amount, t.paid_at as tx_paid_at, t.id as tx_id 
                                    FROM orders o 
                                    LEFT JOIN transactions t ON o.id = t.order_id 
                                    WHERE o.user_id = ? AND o.deleted_at IS NULL AND o.status != 'cancelled' 
@@ -2238,22 +2260,65 @@ if ($path === '/user/orders') {
             $rows = $stmt->fetchAll() ?: [];
             foreach ($rows as $r) {
                 $ref = $r['reference_id'] ?? $r['tracking_code'] ?? null;
+                $rawMods = $r['module_ids'] ?? [];
+                if (is_string($rawMods)) {
+                    $rawMods = json_decode($rawMods, true) ?: ($rawMods ? [$rawMods] : []);
+                }
+                $cleanModIds = [];
+                $modNames = [];
+                if (is_array($rawMods)) {
+                    foreach ($rawMods as $mid) {
+                        $mKey = is_array($mid) ? ($mid['id'] ?? '') : (string)$mid;
+                        if ($mKey) {
+                            $cleanModIds[] = $mKey;
+                            $modNames[] = $modMap[strtolower($mKey)] ?? $mKey;
+                        }
+                    }
+                }
+                $ordAmount = (int)($r['amount'] ?? 0);
+                if ($ordAmount <= 0 && !empty($r['final_amount'])) {
+                    $ordAmount = (int)$r['final_amount'];
+                }
+                if ($ordAmount <= 0 && !empty($r['tx_amount'])) {
+                    $ordAmount = (int)$r['tx_amount'];
+                }
+                $isAddon = !empty($r['is_resource_addon']) || in_array($r['order_type'] ?? '', ['resource_upgrade', 'addon', 'module_addon', 'module']);
+                $desc = !empty($r['description']) ? $r['description'] : '';
+                if (empty($desc)) {
+                    if ($isAddon && !empty($modNames)) {
+                        $desc = 'افزودن ماژول‌های (' . implode('، ', $modNames) . ')';
+                    } elseif (!empty($modNames)) {
+                        $desc = 'اشتراک ماژول‌ها (' . count($modNames) . ' ماژول)';
+                    } else {
+                        $desc = $r['package_name'] ?? 'اشتراک کارویتا';
+                    }
+                }
                 $orders[] = [
                     'id' => (int)$r['id'],
                     'order_number' => $r['order_number'] ?? ('ORD-' . $r['id']),
-                    'amount' => (int)($r['amount'] ?? 0),
+                    'amount' => $ordAmount,
+                    'subtotal' => (int)($r['subtotal'] ?? $ordAmount),
+                    'final_amount' => (int)($r['final_amount'] ?? $ordAmount),
                     'status' => $r['status'] ?? 'pending',
                     'created_at' => $r['created_at'],
                     'package_name' => $r['package_name'] ?? 'اشتراک ابری کارویتا',
+                    'description' => $desc,
+                    'module_ids' => $cleanModIds,
+                    'module_names' => $modNames,
+                    'order_type' => $r['order_type'] ?? ($isAddon ? 'resource_upgrade' : 'order'),
+                    'is_resource_addon' => $isAddon,
                     'user_id' => (int)$r['user_id'],
                     'billing_period' => $r['billing_period'] ?? 'monthly',
                     'user_count' => (int)($r['user_count'] ?? 1),
-                    'paid_at' => $r['paid_at'] ?? null,
+                    'paid_at' => $r['paid_at'] ?? ($r['tx_paid_at'] ?? null),
                     'reference_id' => $ref,
                     'tracking_code' => $r['tracking_code'] ?? $ref,
                     'transaction' => !empty($ref) ? [
+                        'id' => (int)($r['tx_id'] ?? 0),
                         'reference_id' => $ref,
                         'tracking_code' => $r['tracking_code'] ?? $ref,
+                        'amount' => $ordAmount,
+                        'paid_at' => $r['paid_at'] ?? ($r['tx_paid_at'] ?? null),
                         'status' => $r['tx_status'] ?? 'successful',
                         'gateway' => $r['tx_gateway'] ?? 'zibal'
                     ] : null,
@@ -3074,12 +3139,29 @@ if ($path === '/orders' && $method === 'POST') {
         }
     }
 
-    $orderType = $body['order_type'] ?? (!empty($body['is_renewal']) ? 'renewal' : 'new');
-    $isResourceAddon = !empty($body['is_resource_addon']) || $orderType === 'resource_upgrade';
-    $subscriptionId = !empty($body['subscription_id']) ? (int)$body['subscription_id'] : null;
+    // Check if user already has an active commercial subscription
+    $userActiveSub = null;
+    if ($pdo && !empty($user['id'])) {
+        try {
+            $subCheck = $pdo->prepare("SELECT id, billing_period, user_count, expires_at FROM subscriptions WHERE user_id = ? AND status = 'active' AND source != 'trial' AND title NOT LIKE '%آزمایشی%' ORDER BY id DESC LIMIT 1");
+            $subCheck->execute([$user['id']]);
+            $userActiveSub = $subCheck->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $eSubChk) {}
+    }
+
+    $isExplicitRenewal = (!empty($body['is_renewal']) || (!empty($body['order_type']) && $body['order_type'] === 'renewal'));
+    $subscriptionId = !empty($body['subscription_id']) ? (int)$body['subscription_id'] : ($userActiveSub ? (int)$userActiveSub['id'] : null);
+
+    $isResourceAddon = !$isExplicitRenewal && (
+        !empty($body['is_resource_addon']) || 
+        (!empty($body['order_type']) && in_array($body['order_type'], ['resource_upgrade', 'addon', 'module_addon', 'module'])) ||
+        ($userActiveSub !== null)
+    );
+
+    $orderType = $isExplicitRenewal ? 'renewal' : ($isResourceAddon ? 'resource_upgrade' : ($body['order_type'] ?? 'new'));
 
     $ordNum = 'ORD-' . date('Ymd') . '-' . rand(1000, 9999);
-    $pkgName = $orderType === 'resource_upgrade' ? ("ارتقاء منابع و ماژول‌ها (" . count($modIds) . " ماژول)") : ("اشتراک اختصاصی ابری (" . count($modIds) . " ماژول)");
+    $pkgName = $isResourceAddon ? ("ارتقاء منابع و ماژول‌ها (" . count($modIds) . " ماژول)") : ("اشتراک اختصاصی ابری (" . count($modIds) . " ماژول)");
 
     $orderId = null;
     $trackId = 'sandbox-' . time() . '-' . rand(100, 999);
@@ -4842,10 +4924,24 @@ if ($path === '/admin/gateways/health') {
 }
 
 if ($path === '/admin/gateways/sms/logs') {
+    if ($method === 'DELETE') {
+        if ($pdo) {
+            try {
+                $pdo->exec("DELETE FROM sms_logs");
+            } catch (Exception $e) {}
+        }
+        logAudit($pdo, 'SMS_LOGS_CLEARED', 'CONFIGURATION_CHANGE', 'پاکسازی و حذف کلیه لاگ‌های پیامک توسط مدیر');
+        sendJson(['success' => true, 'message' => 'کلیه لاگ‌های پیامک با موفقیت پاکسازی شدند.']);
+    }
+
+    $limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 500) : 200;
+    if ($limit <= 0) $limit = 200;
     $logs = [];
     if ($pdo) {
         try {
-            $stmt = $pdo->query("SELECT * FROM sms_logs ORDER BY id DESC LIMIT 100");
+            $stmt = $pdo->prepare("SELECT * FROM sms_logs ORDER BY id DESC LIMIT ?");
+            $stmt->bindValue(1, $limit, PDO::PARAM_INT);
+            $stmt->execute();
             $rows = $stmt->fetchAll() ?: [];
             foreach ($rows as $row) {
                 $msg = $row['message'] ?? '';
@@ -4858,7 +4954,33 @@ if ($path === '/admin/gateways/sms/logs') {
             }
         } catch (Exception $e) {}
     }
-    sendJson(['data' => $logs, 'logs' => $logs]);
+    if (empty($logs)) {
+        $jdb = getJsonDatabase();
+        $raw = $jdb['smsLogs'] ?? [];
+        $logs = array_slice($raw, 0, $limit);
+    }
+    sendJson(['data' => $logs, 'logs' => $logs, 'total' => count($logs)]);
+}
+
+if (($path === '/admin/gateways/sms/logs/clear' && ($method === 'POST' || $method === 'DELETE'))) {
+    if ($pdo) {
+        try {
+            $pdo->exec("DELETE FROM sms_logs");
+        } catch (Exception $e) {}
+    }
+    logAudit($pdo, 'SMS_LOGS_CLEARED', 'CONFIGURATION_CHANGE', 'پاکسازی و حذف کلیه لاگ‌های پیامک توسط مدیر');
+    sendJson(['success' => true, 'message' => 'کلیه لاگ‌های پیامک با موفقیت پاکسازی شدند.']);
+}
+
+if (preg_match('#^/admin/gateways/sms/logs/([0-9a-zA-Z\-_]+)$#', $path, $mLog) && $method === 'DELETE') {
+    $logId = $mLog[1];
+    if ($pdo) {
+        try {
+            $delStmt = $pdo->prepare("DELETE FROM sms_logs WHERE id = ?");
+            $delStmt->execute([$logId]);
+        } catch (Exception $e) {}
+    }
+    sendJson(['success' => true, 'message' => 'لاگ پیامک موردنظر با موفقیت حذف گردید.']);
 }
 
 if ($path === '/admin/gateways/sms/test' && $method === 'POST') {
@@ -5903,6 +6025,14 @@ if (preg_match('#^/admin/users/(\d+)/subscriptions/(\d+)/modules$#', $path, $mat
                     $ordFields[] = 'subscription_id';
                     $ordValues[] = (int)$subId;
                 }
+                if (in_array('order_type', $existingCols)) {
+                    $ordFields[] = 'order_type';
+                    $ordValues[] = 'resource_upgrade';
+                }
+                if (in_array('is_resource_addon', $existingCols)) {
+                    $ordFields[] = 'is_resource_addon';
+                    $ordValues[] = 1;
+                }
 
                 $ordNames = implode(', ', $ordFields);
                 $ordMarks = implode(', ', array_fill(0, count($ordFields), '?'));
@@ -5995,30 +6125,91 @@ if (preg_match('#^/admin/users/(\d+)/subscriptions$#', $path, $matches) && $meth
 // ------------------------------------------------------------------------------
 // 15. AUDIT LOGS & ADMIN OVERVIEW
 // ------------------------------------------------------------------------------
-if ($path === '/admin/overview') {
-    $stats = [
-        'users' => 1,
-        'companies' => 1,
-        'revenue' => 0,
-        'active_subscriptions' => 0,
-        'trials' => 0
-    ];
+function getAdminOverviewPayload($pdo) {
+    $stats = ['users' => 1, 'companies' => 1, 'revenue' => 0, 'active_subscriptions' => 0, 'trials' => 0];
+    $transactions = [];
+    $orders = [];
+    $recentTickets = [];
 
     if ($pdo) {
         try {
-            $stats['users'] = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user'")->fetchColumn();
-            $stats['companies'] = (int)$pdo->query("SELECT COUNT(*) FROM companies")->fetchColumn();
-            $stats['revenue'] = (int)$pdo->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE status = 'successful'")->fetchColumn();
-            $stats['active_subscriptions'] = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'active'")->fetchColumn();
-            $stats['trials'] = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE source = 'trial'")->fetchColumn();
+            $stats['users'] = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role = 'user' AND deleted_at IS NULL")->fetchColumn();
+            $stats['companies'] = (int)$pdo->query("SELECT COUNT(*) FROM companies WHERE deleted_at IS NULL")->fetchColumn();
+            $stats['revenue'] = (int)$pdo->query("SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE (status = 'successful' OR status = 'paid' OR status = 'completed') AND deleted_at IS NULL")->fetchColumn();
+            $stats['active_subscriptions'] = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND (expires_at IS NULL OR expires_at > NOW()) AND deleted_at IS NULL")->fetchColumn();
+            $stats['trials'] = (int)$pdo->query("SELECT COUNT(*) FROM subscriptions WHERE (source = 'trial' OR title LIKE '%آزمایشی%' OR package_name LIKE '%آزمایشی%') AND deleted_at IS NULL")->fetchColumn();
         } catch (Exception $e) {}
+
+        try {
+            $sql = "SELECT t.*, COALESCE(t.order_number, o.order_number, CONCAT('ORD-', t.order_id)) AS resolved_ord_num, COALESCE(o.package_name, 'ماژول‌های ERP سازمانی') AS resolved_pkg_name, COALESCE(o.billing_period, 'monthly') AS resolved_period, COALESCE(o.user_count, 1) AS resolved_uc, o.module_ids, u.first_name, u.last_name, u.mobile, c.name AS company_name FROM transactions t LEFT JOIN orders o ON t.order_id = o.id LEFT JOIN users u ON t.user_id = u.id LEFT JOIN companies c ON t.user_id = c.user_id WHERE t.deleted_at IS NULL ORDER BY t.id DESC";
+            $txStmt = $pdo->query($sql);
+            foreach (($txStmt ? $txStmt->fetchAll(PDO::FETCH_ASSOC) : []) as $r) {
+                $uName = trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? ''));
+                $pkg = $r['resolved_pkg_name'] ?? 'ماژول‌های ERP سازمانی';
+                if (!empty($r['module_ids'])) {
+                    $m = is_string($r['module_ids']) ? json_decode($r['module_ids'], true) : $r['module_ids'];
+                    if (is_array($m) && count($m) > 0) $pkg = 'ماژول‌های ERP سازمانی (' . count($m) . ' ماژول)';
+                }
+                $st = strtolower($r['status'] ?? 'successful');
+                $transactions[] = [
+                    'id' => (int)$r['id'], 'order_id' => (int)($r['order_id'] ?? 0), 'user_id' => (int)($r['user_id'] ?? 0),
+                    'order_number' => $r['resolved_ord_num'] ?? ('ORD-' . ($r['order_id'] ?? $r['id'])),
+                    'amount' => (int)($r['amount'] ?? 0), 'status' => $st, 'transaction_status' => $st,
+                    'gateway' => $r['gateway'] ?? 'zibal', 'tracking_code' => $r['tracking_code'] ?? '—',
+                    'reference_id' => $r['reference_id'] ?? '—', 'paid_at' => $r['paid_at'] ?? $r['created_at'],
+                    'created_at' => $r['created_at'], 'package_name' => $pkg,
+                    'user_count' => (int)($r['resolved_uc'] ?? 1), 'billing_period' => $r['resolved_period'] ?? 'monthly',
+                    'user_name' => $uName ?: ($r['mobile'] ?? '—'), 'mobile' => $r['mobile'] ?? '—', 'company_name' => $r['company_name'] ?? '—'
+                ];
+            }
+        } catch (Exception $eTx) {}
+
+        try {
+            $rOrd = $pdo->query("SELECT * FROM orders WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 10");
+            $orders = $rOrd ? $rOrd->fetchAll(PDO::FETCH_ASSOC) : [];
+        } catch (Exception $eO) {}
+
+        try {
+            $rTk = $pdo->query("SELECT id, ticket_number, subject, priority, status, created_at FROM tickets WHERE deleted_at IS NULL ORDER BY id DESC LIMIT 5");
+            $recentTickets = $rTk ? $rTk->fetchAll(PDO::FETCH_ASSOC) : [];
+        } catch (Exception $eTk) {}
     }
 
-    sendJson([
+    if (!$pdo || empty($transactions)) {
+        $db = getJsonDatabase();
+        foreach (($db['transactions'] ?? []) as $t) {
+            $ord = null;
+            foreach (($db['orders'] ?? []) as $o) { if ($o['id'] == ($t['order_id'] ?? null)) { $ord = $o; break; } }
+            $u = null;
+            foreach (($db['users'] ?? []) as $usr) { if ($usr['id'] == ($t['user_id'] ?? null)) { $u = $usr; break; } }
+            $uName = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? ''));
+            $transactions[] = array_merge($t, [
+                'package_name' => $ord['package_name'] ?? 'ماژول‌های ERP سازمانی',
+                'user_count' => $ord['user_count'] ?? 1, 'billing_period' => $ord['billing_period'] ?? 'monthly',
+                'order_number' => $t['order_number'] ?? ($ord['order_number'] ?? ('ORD-' . ($t['order_id'] ?? $t['id']))),
+                'user_name' => $uName ?: ($u['mobile'] ?? '—'), 'mobile' => $u['mobile'] ?? '—'
+            ]);
+        }
+        if (empty($orders) && !empty($db['orders'])) $orders = array_slice($db['orders'], 0, 10);
+    }
+
+    $txRev = array_reduce($transactions, function($acc, $x) {
+        $st = strtolower($x['status'] ?? '');
+        return ($st === 'successful' || $st === 'paid' || $st === 'completed') ? $acc + (int)($x['amount'] ?? 0) : $acc;
+    }, 0);
+    if ($stats['revenue'] < $txRev) $stats['revenue'] = $txRev;
+
+    return [
         'stats' => $stats,
-        'recent_orders' => [],
-        'recent_tickets' => []
-    ]);
+        'transactions' => $transactions,
+        'orders' => $orders,
+        'recent_orders' => $orders,
+        'recent_tickets' => $recentTickets
+    ];
+}
+
+if ($path === '/admin/overview') {
+    sendJson(getAdminOverviewPayload($pdo));
 }
 
 if ($path === '/admin/audit-logs') {
@@ -6173,6 +6364,8 @@ if ($path === '/admin/push/broadcast' && $method === 'POST') {
 // ------------------------------------------------------------------------------
 // 17. OFFICIAL INVOICES, CONTRACTS & SLA AGREEMENTS
 // ------------------------------------------------------------------------------
+require_once __DIR__ . '/taxInvoiceHelper.php';
+
 
 if (!function_exists('gregorian_to_jalali')) {
     function gregorian_to_jalali($gy, $gm, $gd) {
@@ -6237,31 +6430,58 @@ if (!function_exists('numberToWordsPersian')) {
     }
 }
 
+if (!function_exists('generateTaxId')) {
+    function generateTaxId($orderId, $dateStr = null) {
+        $cleanId = is_numeric($orderId) ? (int)$orderId : (int)preg_replace('/\D/', '', (string)$orderId);
+        if ($cleanId <= 0) $cleanId = 1000;
+        $seed = $cleanId * 739;
+        $hex = strtoupper(str_pad(dechex($seed + 0x1A2B3C), 8, '0', STR_PAD_LEFT));
+        $ts = !empty($dateStr) ? strtotime($dateStr) : time();
+        $year = substr(date('Y', $ts), -2);
+        $dayOfYear = str_pad(date('z', $ts), 3, '0', STR_PAD_LEFT);
+        return "A10F-{$year}{$dayOfYear}-" . substr($hex, 0, 4) . '-' . substr($hex, 4, 4);
+    }
+}
+
 if (!function_exists('findOrderAndDetails')) {
     function findOrderAndDetails($pdo, $targetId) {
         $order = null; $tx = null; $company = null;
+        $targetStr = trim((string)$targetId);
+        $numId = is_numeric($targetStr) ? (int)$targetStr : 0;
+
         if ($pdo) {
             try {
-                $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.mobile, u.email, u.national_code, u.national_id FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
-                $stmt->execute([$targetId]);
+                if ($numId > 0) {
+                    $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.name as user_full_name, u.mobile, u.email, u.national_code FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? OR o.order_number = ? OR o.order_number LIKE ? OR o.tracking_code = ? LIMIT 1");
+                    $stmt->execute([$numId, $targetStr, '%-' . $numId, $targetStr]);
+                } else {
+                    $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.name as user_full_name, u.mobile, u.email, u.national_code FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.order_number = ? OR o.order_number LIKE ? OR o.tracking_code = ? LIMIT 1");
+                    $stmt->execute([$targetStr, '%' . $targetStr, $targetStr]);
+                }
                 $order = $stmt->fetch();
+
                 if ($order) {
-                    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE order_id = ? ORDER BY id DESC LIMIT 1");
-                    $stmt->execute([$order['id']]);
+                    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE order_id = ? OR order_number = ? ORDER BY id DESC LIMIT 1");
+                    $stmt->execute([$order['id'], $order['order_number'] ?? '']);
                     $tx = $stmt->fetch();
                 } else {
-                    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? LIMIT 1");
-                    $stmt->execute([$targetId]);
+                    if ($numId > 0) {
+                        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE id = ? OR order_id = ? OR reference_id = ? OR tracking_code = ? OR order_number = ? ORDER BY id DESC LIMIT 1");
+                        $stmt->execute([$numId, $numId, $targetStr, $targetStr, $targetStr]);
+                    } else {
+                        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE reference_id = ? OR tracking_code = ? OR order_number = ? ORDER BY id DESC LIMIT 1");
+                        $stmt->execute([$targetStr, $targetStr, $targetStr]);
+                    }
                     $tx = $stmt->fetch();
                     if ($tx && !empty($tx['order_id'])) {
-                        $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.mobile, u.email, u.national_code, u.national_id FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
+                        $stmt = $pdo->prepare("SELECT o.*, u.first_name, u.last_name, u.name as user_full_name, u.mobile, u.email, u.national_code FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE o.id = ? LIMIT 1");
                         $stmt->execute([$tx['order_id']]);
                         $order = $stmt->fetch();
                     }
                 }
                 $userId = $order['user_id'] ?? ($tx['user_id'] ?? 0);
                 if ($userId) {
-                    $stmt = $pdo->prepare("SELECT * FROM companies WHERE user_id = ? LIMIT 1");
+                    $stmt = $pdo->prepare("SELECT * FROM companies WHERE user_id = ? ORDER BY id DESC LIMIT 1");
                     $stmt->execute([$userId]);
                     $company = $stmt->fetch();
                 }
@@ -6271,12 +6491,20 @@ if (!function_exists('findOrderAndDetails')) {
             $jdb = getJsonDatabase();
             $orders = $jdb['orders'] ?? [];
             foreach ($orders as $o) {
-                if ($o['id'] == $targetId) { $order = $o; break; }
+                if ((string)$o['id'] === $targetStr || 
+                    ($numId > 0 && (int)$o['id'] === $numId) || 
+                    (!empty($o['order_number']) && ($o['order_number'] === $targetStr || substr($o['order_number'], -strlen($targetStr)) === $targetStr))) {
+                    $order = $o; 
+                    break; 
+                }
             }
             if (!$tx) {
                 $txs = $jdb['transactions'] ?? [];
                 foreach ($txs as $t) {
-                    if (($order && $t['order_id'] == $order['id']) || $t['id'] == $targetId) {
+                    if (($order && $t['order_id'] == $order['id']) || 
+                        (string)$t['id'] === $targetStr || 
+                        (!empty($t['reference_id']) && $t['reference_id'] === $targetStr) || 
+                        (!empty($t['tracking_code']) && $t['tracking_code'] === $targetStr)) {
                         $tx = $t;
                         if (!$order && !empty($t['order_id'])) {
                             foreach ($orders as $o) {
@@ -6294,22 +6522,35 @@ if (!function_exists('findOrderAndDetails')) {
                 }
             }
         }
-        if (!$order) {
+        if (!$order && $tx) {
             $order = [
-                'id' => $targetId,
-                'order_number' => 'ORD-20260919-' . $targetId,
+                'id' => $tx['order_id'] ?? $numId,
+                'order_number' => $tx['order_number'] ?? ('ORD-' . date('Ymd') . '-' . ($numId ?: '1001')),
                 'package_name' => 'اشتراک سامانه ابری کارویتا',
                 'amount' => (int)($tx['amount'] ?? 0),
                 'final_amount' => (int)($tx['amount'] ?? 0),
                 'user_count' => 1,
                 'billing_period' => 'yearly',
-                'created_at' => date('Y-m-d H:i:s'),
+                'created_at' => $tx['paid_at'] ?? ($tx['created_at'] ?? date('Y-m-d H:i:s')),
                 'first_name' => 'کاربر',
                 'last_name' => 'گرامی',
                 'mobile' => '',
                 'email' => ''
             ];
         }
+
+        // Amount synchronization to guarantee correct non-zero figures
+        if ($order && $tx) {
+            $ordAmt = (int)($order['amount'] ?? ($order['final_amount'] ?? 0));
+            $txAmt = (int)($tx['amount'] ?? 0);
+            if ($ordAmt <= 0 && $txAmt > 0) {
+                $order['amount'] = $txAmt;
+                $order['final_amount'] = $txAmt;
+            } elseif ($txAmt <= 0 && $ordAmt > 0) {
+                $tx['amount'] = $ordAmt;
+            }
+        }
+
         return [$order, $tx, $company];
     }
 }
@@ -6317,24 +6558,11 @@ if (!function_exists('findOrderAndDetails')) {
 // ------------------------------------------------------------------------------
 // 17.1 OFFICIAL CONTRACT & SLA DOCUMENT (HTML & PDF Auto-Download)
 // ------------------------------------------------------------------------------
-if (preg_match('#^/invoices/(\d+)/contract/?$#', $path, $matches)) {
-    $targetId = (int)$matches[1];
+if (preg_match('#^/invoices/([^/]+)/contract/?$#', $path, $matches)) {
+    $targetId = $matches[1];
     list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
 
-    $seller = [
-        'company_name' => 'شرکت معماران رشد و تحول کسب و کار (سهامی خاص)',
-        'brand_name' => 'کارویتا ابری (Karovita Cloud ERP)',
-        'registration_number' => '10506',
-        'national_id' => '14015285185',
-        'economic_code' => '3880354536',
-        'tax_payer_code' => 'TP-10506-TX',
-        'postal_code' => '1997985614',
-        'province' => 'تهران',
-        'city' => 'تهران',
-        'address' => 'تهران، خیابان ولیعصر، بالاتر از میدان ونک، برج فناوری و نوآوری ابری، طبقه ۸، واحد ۸۰۴',
-        'phone' => '021-88990011',
-        'email' => 'finance@karovita.ir'
-    ];
+    $seller = getOfficialSellerInfo($pdo);
 
     $orderNum = $order['order_number'] ?? ('ORD-' . $order['id']);
     $contractNum = 'KCT-' . (preg_replace('/\D/', '', $orderNum) ?: ($order['id'] ?? '1001'));
@@ -6351,7 +6579,17 @@ if (preg_match('#^/invoices/(\d+)/contract/?$#', $path, $matches)) {
 
     $buyerNationalId = trim($company['national_id'] ?? '') ?: (trim($company['economic_code'] ?? '') ?: (trim($order['national_code'] ?? '') ?: (trim($order['national_id'] ?? '') ?: ($order['mobile'] ?? 'ثبت نشده'))));
     $buyerPhone = ($company['phone'] ?? '') ?: ($order['mobile'] ?? '—');
-    $buyerAddress = ($company['address'] ?? '') ?: (!empty($company['province']) ? ($company['province'] . '، ' . ($company['city'] ?? '')) : 'اقامتگاه قانونی ثبت شده در سامانه کارویتا');
+    
+    $bProv = trim($company['province'] ?? '');
+    $bCity = trim($company['city'] ?? '');
+    $buyerAddress = trim($company['address'] ?? '');
+    if (empty($buyerAddress)) {
+        if (!empty($bProv)) {
+            $buyerAddress = $bProv . (!empty($bCity) ? '، ' . $bCity : '');
+        } else {
+            $buyerAddress = '—';
+        }
+    }
 
     $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
     $amountInWords = numberToWordsPersian($finalAmount);
@@ -6370,7 +6608,7 @@ if (preg_match('#^/invoices/(\d+)/contract/?$#', $path, $matches)) {
         $billingPeriodText = 'یک‌ماهه';
     }
 
-    $allModules = getDefaultModules();
+    $allModules = getDefaultModules($pdo);
     $modMap = [];
     foreach ($allModules as $m) { $modMap[$m['id']] = $m['title']; }
 
@@ -6538,8 +6776,8 @@ if (preg_match('#^/invoices/(\d+)/contract/?$#', $path, $matches)) {
 // ------------------------------------------------------------------------------
 // 17.2 INVOICE & CONTRACT JSON DATA
 // ------------------------------------------------------------------------------
-if (preg_match('#^/invoices/(\d+)/data/?$#', $path, $matches)) {
-    $targetId = (int)$matches[1];
+if (preg_match('#^/invoices/([^/]+)/data/?$#', $path, $matches)) {
+    $targetId = $matches[1];
     list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
 
     $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
@@ -6568,94 +6806,59 @@ if (preg_match('#^/invoices/(\d+)/data/?$#', $path, $matches)) {
 // ------------------------------------------------------------------------------
 // 17.3 OFFICIAL TAX INVOICE GENERATOR
 // ------------------------------------------------------------------------------
-if (preg_match('#^/invoices/(\d+)/?$#', $path, $matches)) {
-    $targetId = (int)$matches[1];
+if (preg_match('#^/invoices/([^/]+)/?$#', $path, $matches) || preg_match('#^/orders/([^/]+)/invoice/?$#', $path, $matches)) {
+    $targetId = $matches[1];
     list($order, $tx, $company) = findOrderAndDetails($pdo, $targetId);
 
-    $createdAt = !empty($order['created_at']) ? strtotime($order['created_at']) : time();
-    $gy = (int)date('Y', $createdAt);
-    $gm = (int)date('n', $createdAt);
-    $gd = (int)date('j', $createdAt);
-    list($jy, $jm, $jd) = gregorian_to_jalali($gy, $gm, $gd);
-    $dateFa = sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+    if (!$order && !$tx) {
+        http_response_code(404);
+        sendJson(['error' => true, 'message' => 'فاکتور یا سفارش مورد نظر یافت نشد.']);
+        exit;
+    }
 
-    $finalAmount = (int)($tx['amount'] ?? ($order['final_amount'] ?? ($order['amount'] ?? 0)));
-    $buyerName = ($company['company_name'] ?? '') ?: (($company['name'] ?? '') ?: trim(($order['first_name'] ?? '') . ' ' . ($order['last_name'] ?? '')));
-    if (empty($buyerName)) { $buyerName = $order['mobile'] ?? 'مشترک محترم'; }
-    $buyerNationalId = trim($company['national_id'] ?? '') ?: (trim($company['economic_code'] ?? '') ?: (trim($order['national_code'] ?? '') ?: (trim($order['national_id'] ?? '') ?: ($order['mobile'] ?? 'ثبت نشده'))));
+    $orderNum = $order['order_number'] ?? ('ORD-' . ($order['id'] ?? $targetId));
 
+    if (isset($_GET['download']) && $_GET['download'] === '1') {
+        header('Content-Disposition: attachment; filename="Official-Tax-Invoice-' . $orderNum . '.html"');
+    }
     header('Content-Type: text/html; charset=utf-8');
-    ?>
-    <!DOCTYPE html>
-    <html lang="fa" dir="rtl">
-    <head>
-        <meta charset="UTF-8">
-        <title>فاکتور رسمی فروش - <?php echo htmlspecialchars($order['order_number']); ?></title>
-        <style>
-            body { font-family: Tahoma, 'Vazirmatn', sans-serif; background: #f8fafc; color: #1e293b; padding: 24px; direction: rtl; }
-            .invoice-box { max-width: 850px; margin: auto; padding: 32px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #0284c7; padding-bottom: 16px; margin-bottom: 24px; }
-            .title { font-size: 20px; font-weight: bold; color: #0369a1; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: right; }
-            th { background-color: #f1f5f9; color: #334155; }
-            .total-row { font-weight: bold; background: #f8fafc; }
-            .print-btn { background: #0284c7; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: bold; }
-            .contract-btn { background: #10b981; color: #ffffff; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; }
-            @media print { .no-print { display: none !important; } }
-        </style>
-    </head>
-    <body>
-        <div class="invoice-box">
-            <div class="no-print" style="display: flex; gap: 10px; margin-bottom: 20px;">
-                <button class="print-btn" onclick="window.print()">چاپ فاکتور رسمی</button>
-                <a href="/api/invoices/<?php echo $order['id']; ?>/contract" target="_blank" class="contract-btn">مشاهده و چاپ قرارداد رسمی (PDF)</a>
-            </div>
-            <div class="header">
-                <div>
-                    <div class="title">صورتحساب رسمی فروش کالا و خدمات</div>
-                    <div>سامانه جامع ابری سازمانی کارویتا (KaroVita Cloud ERP)</div>
-                </div>
-                <div style="text-align: left;">
-                    <div>شماره فاکتور: <strong><?php echo htmlspecialchars($order['order_number']); ?></strong></div>
-                    <div>تاریخ صدور: <strong><?php echo htmlspecialchars($dateFa); ?></strong></div>
-                </div>
-            </div>
-            <table>
-                <tr>
-                    <td colspan="2"><strong>مشخصات خریدار:</strong> <?php echo htmlspecialchars($buyerName); ?></td>
-                    <td colspan="2"><strong>شناسه ملی / کد اقتصادی:</strong> <?php echo htmlspecialchars($buyerNationalId); ?></td>
-                </tr>
-                <tr>
-                    <th>ردیف</th>
-                    <th>شرح خدمات / ماژول‌های ابری</th>
-                    <th>مدت اشتراک</th>
-                    <th>مبلغ کل (تومان)</th>
-                </tr>
-                <tr>
-                    <td>۱</td>
-                    <td><?php echo htmlspecialchars($order['package_name'] ?? 'اشتراک سامانه ابری کارویتا'); ?></td>
-                    <td><?php echo htmlspecialchars($order['billing_period'] ?? 'سالانه'); ?></td>
-                    <td><?php echo number_format($finalAmount); ?> تومان</td>
-                </tr>
-                <tr class="total-row">
-                    <td colspan="3" style="text-align: left;">مبلغ قابل پرداخت نهایی:</td>
-                    <td><strong><?php echo number_format($finalAmount); ?> تومان</strong></td>
-                </tr>
-            </table>
-            <div style="margin-top: 32px; font-size: 12px; color: #64748b; text-align: center;">
-                این سند الکترونیکی معتبر و صادر شده از بستر ابری کارویتا می‌باشد.
-            </div>
-        </div>
-    </body>
-    </html>
-    <?php
+
+    echo renderOfficialTaxInvoiceHtml($order, $tx, $company, null, $pdo);
     exit;
+}
+
+// ------------------------------------------------------------------------------
+// 17.4 ADMIN SELLER SETTINGS (GET & POST/PUT)
+// ------------------------------------------------------------------------------
+if ($path === '/admin/settings/seller') {
+    $user = getCurrentUser($pdo);
+    if (!$user || !in_array($user['role'] ?? '', ['admin', 'support'])) {
+        sendError('دسترسی غیرمجاز. فقط مدیران سیستم مجاز به تغییر تنظیمات فروشنده رسمی هستند.', 403);
+    }
+
+    if ($method === 'POST' || $method === 'PUT') {
+        $updated = saveOfficialSellerInfo($pdo, $body);
+        sendJson([
+            'success' => true,
+            'message' => 'مشخصات و تنظیمات حقوقی فروشنده رسمی با موفقیت ذخیره گردید.',
+            'seller' => $updated
+        ]);
+    }
+
+    $currentSeller = getOfficialSellerInfo($pdo);
+    sendJson([
+        'success' => true,
+        'seller' => $currentSeller
+    ]);
 }
 
 // ------------------------------------------------------------------------------
 // 404 ROUTE NOT FOUND FALLBACK
 // ------------------------------------------------------------------------------
+if (defined('KAROVITA_TEST_MODE')) {
+    return;
+}
+
 sendJson([
     'error' => true,
     'message' => "مسیر API یافت نشد: {$method} {$path}",

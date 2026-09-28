@@ -9,14 +9,17 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
-import { TrendingUp, Calendar, DollarSign, ShoppingCart, Award, Sparkles, Filter, Inbox } from 'lucide-react';
+import { TrendingUp, Calendar, DollarSign, ShoppingCart, Award, Sparkles, Filter, Inbox, Receipt, CheckCircle2 } from 'lucide-react';
+import { SalesTransactionsTable } from './SalesTransactionsTable';
 
 const moneyFa = n => Number(n || 0).toLocaleString('fa-IR') + ' تومان';
 const numFa = n => Number(n || 0).toLocaleString('fa-IR');
 
 export function SalesPerformanceChartInner({ transactions = [], title = 'روند عملکرد فروش و درآمد ماهانه سامانه' }) {
-  const [viewMode, setViewMode] = useState('weekly'); // 'weekly' | 'daily' | 'plans'
+  const [viewMode, setViewMode] = useState('weekly'); // 'weekly' | 'daily' | 'plans' | 'transactions'
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
+  const [showTxTable, setShowTxTable] = useState(false);
+  const [txSearch, setTxSearch] = useState('');
 
   useEffect(() => {
     const handleTheme = (e) => {
@@ -40,7 +43,12 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
   // Filter only successful transactions
   const validTransactions = useMemo(() => {
     if (!Array.isArray(transactions)) return [];
-    return transactions.filter(t => (t.status === 'successful' || t.transaction_status === 'successful') && Number(t.amount) > 0);
+    return transactions.filter(t => {
+      const st = String(t.status || t.transaction_status || '').toLowerCase();
+      const isSuccess = st === 'successful' || st === 'paid' || st === 'completed' || st === 'success';
+      const amt = Number(String(t.amount || 0).replace(/,/g, ''));
+      return isSuccess && amt > 0;
+    });
   }, [transactions]);
 
   // Aggregate monthly sales performance data dynamically from real transactions in DB
@@ -83,9 +91,27 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
 
     if (hasData) {
       validTransactions.forEach(tx => {
-        const amt = Number(tx.amount) || 0;
-        const d = tx.created_at ? new Date(tx.created_at) : new Date();
-        const dayOfMonth = d.getDate(); // 1 - 31
+        const amt = Number(String(tx.amount || 0).replace(/,/g, '')) || 0;
+        const rawDate = tx.paid_at || tx.created_at;
+        let d = new Date();
+        if (rawDate) {
+          const parsed = new Date(typeof rawDate === 'string' ? rawDate.replace(' ', 'T') : rawDate);
+          if (!isNaN(parsed.getTime())) {
+            d = parsed;
+          }
+        }
+
+        // Get day of month (preferring Shamsi / Persian Solar Hijri calendar)
+        let dayOfMonth = d.getDate();
+        try {
+          const parts = new Intl.DateTimeFormat('fa-IR-u-nu-latn-ca-persian', { day: 'numeric' }).formatToParts(d);
+          const pDay = parts.find(p => p.type === 'day');
+          if (pDay && !isNaN(Number(pDay.value))) {
+            dayOfMonth = Number(pDay.value);
+          }
+        } catch (e) {
+          dayOfMonth = d.getDate();
+        }
 
         // Assign week
         if (dayOfMonth <= 7) {
@@ -103,7 +129,7 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
         }
 
         // Assign daily (nearest bucket)
-        const dailyIndex = Math.min(Math.floor((dayOfMonth - 1) / 3), dailyMap.length - 1);
+        const dailyIndex = Math.min(Math.max(0, Math.floor((dayOfMonth - 1) / 3)), dailyMap.length - 1);
         if (dailyMap[dailyIndex]) {
           dailyMap[dailyIndex].sales += amt;
           dailyMap[dailyIndex].orders += 1;
@@ -111,7 +137,7 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
 
         // Assign plan
         const pkgName = String(tx.package_name || '').toLowerCase();
-        if (pkgName.includes('ماژول') || pkgName.includes('erp') || pkgName.includes('سازمان')) {
+        if (pkgName.includes('ماژول') || pkgName.includes('erp') || pkgName.includes('سازمان') || pkgName.includes('اختصاصی') || pkgName.includes('ابری')) {
           planMap['ماژول‌های ERP سازمانی'].sales += amt;
           planMap['ماژول‌های ERP سازمانی'].orders += 1;
         } else if (pkgName.includes('پیشرفته') || pkgName.includes('enterprise')) {
@@ -244,6 +270,14 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
             <Filter size={14} />
             <span>تفکیک ماژول‌ها و پلن‌ها</span>
           </button>
+          <button
+            type="button"
+            className={`sales-toggle-btn ${viewMode === 'transactions' ? 'active' : ''}`}
+            onClick={() => setViewMode('transactions')}
+          >
+            <Receipt size={14} />
+            <span>لیست تراکنش‌ها ({numFa(validTransactions.length)})</span>
+          </button>
         </div>
       </div>
 
@@ -290,83 +324,117 @@ export function SalesPerformanceChartInner({ transactions = [], title = 'رون�
         </div>
       </div>
 
-      {/* Recharts Bar Chart or Dynamic Clean Status */}
-      <div className="sales-chart-canvas-wrap" style={{ width: '100%', height: 300, marginTop: '20px', position: 'relative' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={currentChartData}
-            margin={{ top: 20, right: 10, left: 10, bottom: 10 }}
-            barSize={viewMode === 'daily' ? 18 : 38}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke={themeColors.grid} vertical={false} />
-            <XAxis
-              dataKey="name"
-              stroke={themeColors.text}
-              fontSize={12}
-              tickLine={false}
-              axisLine={{ stroke: themeColors.grid }}
-            />
-            <YAxis
-              stroke={themeColors.text}
-              fontSize={11}
-              tickLine={false}
-              axisLine={{ stroke: themeColors.grid }}
-              tickFormatter={val => val === 0 ? '۰' : `${numFa(Math.round(val / 1000000))} م`}
-              orientation="right"
-              domain={[0, 'auto']}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(8,112,209,0.06)' }} />
-            <Bar
-              dataKey="sales"
-              name="درآمد محقق‌شده"
-              fill={themeColors.barPrimary}
-              radius={[8, 8, 0, 0]}
+      {/* View Content: Transactions Table OR Recharts Bar Chart */}
+      {viewMode === 'transactions' ? (
+        <SalesTransactionsTable transactions={validTransactions} isDark={isDark} />
+      ) : (
+        <div className="sales-chart-canvas-wrap" style={{ width: '100%', height: 300, marginTop: '20px', position: 'relative' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={currentChartData}
+              margin={{ top: 20, right: 10, left: 10, bottom: 10 }}
+              barSize={viewMode === 'daily' ? 18 : 38}
             >
-              {currentChartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.color || (index === currentChartData.length - 1 ? '#0046d4' : '#0870d1')}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+              <CartesianGrid strokeDasharray="3 3" stroke={themeColors.grid} vertical={false} />
+              <XAxis
+                dataKey="name"
+                stroke={themeColors.text}
+                fontSize={12}
+                tickLine={false}
+                axisLine={{ stroke: themeColors.grid }}
+              />
+              <YAxis
+                stroke={themeColors.text}
+                fontSize={11}
+                tickLine={false}
+                axisLine={{ stroke: themeColors.grid }}
+                tickFormatter={val => {
+                  if (!val || val === 0) return '۰';
+                  if (val >= 1000000) {
+                    const m = val / 1000000;
+                    return `${Number(m.toFixed(m >= 10 ? 0 : 1)).toLocaleString('fa-IR')} م`;
+                  }
+                  if (val >= 1000) return `${Number(Math.round(val / 1000)).toLocaleString('fa-IR')} هـ`;
+                  return Number(val).toLocaleString('fa-IR');
+                }}
+                orientation="right"
+                domain={[0, 'auto']}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(8,112,209,0.06)' }} />
+              <Bar
+                dataKey="sales"
+                name="درآمد محقق‌شده"
+                fill={themeColors.barPrimary}
+                radius={[8, 8, 0, 0]}
+              >
+                {currentChartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={entry.color || (index === currentChartData.length - 1 ? '#0046d4' : '#0870d1')}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
 
-        {!hasData && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.65)',
-            backdropFilter: 'blur(2px)',
-            borderRadius: '12px',
-            pointerEvents: 'none',
-            color: isDark ? '#94a3b8' : '#64748b',
-            gap: '8px'
-          }}>
-            <Inbox size={32} strokeWidth={1.5} />
-            <span style={{ fontSize: '13.5px', fontWeight: 600 }}>دیتابیس در وضعیت خام — هنوز تراکنشی ثبت نشده است</span>
-            <span style={{ fontSize: '11.5px', opacity: 0.8 }}>با ثبت اولین سفارش و تراکنش موفق در سامانه، این نمودار خودکار بر اساس خریدهای واقعی تکمیل خواهد شد.</span>
-          </div>
-        )}
-      </div>
+          {!hasData && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.65)',
+              backdropFilter: 'blur(2px)',
+              borderRadius: '12px',
+              pointerEvents: 'none',
+              color: isDark ? '#94a3b8' : '#64748b',
+              gap: '8px'
+            }}>
+              <Inbox size={32} strokeWidth={1.5} />
+              <span style={{ fontSize: '13.5px', fontWeight: 600 }}>دیتابیس در وضعیت خام — هنوز تراکنشی ثبت نشده است</span>
+              <span style={{ fontSize: '11.5px', opacity: 0.8 }}>با ثبت اولین سفارش و تراکنش موفق در سامانه، این نمودار خودکار بر اساس خریدهای واقعی تکمیل خواهد شد.</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Chart Footer Indicator */}
-      <div className="sales-chart-footer">
+      <div className="sales-chart-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginTop: '16px' }}>
         <div className="sales-growth-pill">
           <Sparkles size={14} />
           <span>
             {hasData ? (
-              <>مجموع درآمد حاصل از خریدهای ثبت‌شده: <strong>{moneyFa(summary.totalRevenue)}</strong></>
+              <>مجموع درآمد حاصل از خریدهای ثبت‌شده: <strong>{moneyFa(summary.totalRevenue)}</strong> ({numFa(summary.totalOrders)} تراکنش موفق)</>
             ) : (
               <span>وضعیت مالی: <strong>آماده دریافت اولین سفارشات و خریدها</strong></span>
             )}
           </span>
         </div>
-        <span className="sales-realtime-tag">همگام‌سازی لحظه‌ای با دیتابیس تراکنش‌ها</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {hasData && viewMode !== 'transactions' && (
+            <button
+              type="button"
+              onClick={() => setViewMode('transactions')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--blue-600)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Receipt size={14} />
+              <span>مشاهده ریز تراکنش‌ها</span>
+            </button>
+          )}
+          <span className="sales-realtime-tag">همگام‌سازی لحظه‌ای با دیتابیس تراکنش‌ها</span>
+        </div>
       </div>
     </section>
   );
