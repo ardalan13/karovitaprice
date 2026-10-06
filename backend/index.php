@@ -3759,7 +3759,8 @@ if (strpos($path, '/admin/') === 0) {
         strpos($path, '/admin/support-staff') === 0 ||
         strpos($path, '/admin/orders') === 0 ||
         strpos($path, '/admin/subscriptions') === 0 ||
-        strpos($path, '/admin/push/subscribers') === 0
+        strpos($path, '/admin/push/subscribers') === 0 ||
+        strpos($path, '/admin/users') === 0
     );
 
     if (!$isAdmin && !($isSupport && $supportAllowed)) {
@@ -5669,6 +5670,10 @@ if ($path === '/admin/users/lookup') {
 }
 
 if ($path === '/admin/users/toggle-role' && $method === 'POST') {
+    $curAdmin = getCurrentUser($pdo, false);
+    if (!$curAdmin || ($curAdmin['role'] !== 'admin' && ($curAdmin['mobile'] ?? '') !== '09111273476')) {
+        sendError('تنها مدیر ارشد سیستم اجازه تغییر سطح دسترسی و نقش کاربران را دارد.', 403);
+    }
     $uid = (int)($body['user_id'] ?? 0);
     $mobile = normalizeMobileNumber($body['mobile'] ?? '');
     $newRole = $body['role'] ?? 'support';
@@ -5709,6 +5714,10 @@ if ($path === '/admin/users/toggle-role' && $method === 'POST') {
 }
 
 if (preg_match('#^/admin/users/(\d+)/role$#', $path, $matches) && ($method === 'PUT' || $method === 'POST')) {
+    $curAdmin = getCurrentUser($pdo, false);
+    if (!$curAdmin || ($curAdmin['role'] !== 'admin' && ($curAdmin['mobile'] ?? '') !== '09111273476')) {
+        sendError('تنها مدیر ارشد سیستم اجازه تغییر سطح دسترسی و نقش کاربران را دارد.', 403);
+    }
     $uid = (int)$matches[1];
     $newRole = $body['role'] ?? 'user';
     if (!in_array($newRole, ['admin', 'support', 'user'])) {
@@ -5731,6 +5740,10 @@ if (preg_match('#^/admin/users/(\d+)/role$#', $path, $matches) && ($method === '
 }
 
 if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && $method === 'DELETE') {
+    $curAdmin = getCurrentUser($pdo, false);
+    if (!$curAdmin || ($curAdmin['role'] !== 'admin' && ($curAdmin['mobile'] ?? '') !== '09111273476')) {
+        sendError('تنها مدیر ارشد سیستم اجازه حذف کاربران را دارد.', 403);
+    }
     $uid = (int)$matches[1];
     if ($pdo && $uid > 1) { // Prevent deleting primary admin
         try {
@@ -5802,10 +5815,11 @@ if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && $method === 'DELETE
 }
 
 if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && in_array($method, ['PUT', 'POST', 'PATCH'])) {
-    $admin = getCurrentUser($pdo);
-    if (!$admin || ($admin['role'] !== 'admin' && $admin['mobile'] !== '09111273476')) {
+    $admin = getCurrentUser($pdo, false);
+    if (!$admin || ($admin['role'] !== 'admin' && $admin['role'] !== 'support' && ($admin['mobile'] ?? '') !== '09111273476')) {
         sendError('دسترسی مجاز نیست.', 403);
     }
+    $isSupportRole = ($admin['role'] === 'support');
     $uid = (int)$matches[1];
     $body = getRequestBody();
 
@@ -5840,9 +5854,9 @@ if (preg_match('#^/admin/users/(\d+)$#', $path, $matches) && in_array($method, [
                 $normalizedMobile = $existingUser['mobile'];
             }
 
-            // Role management (protect super admin)
+            // Role management (protect super admin, and prevent support from changing role)
             $newRole = $existingUser['role'] ?? 'user';
-            if (isset($body['role'])) {
+            if (isset($body['role']) && !$isSupportRole) {
                 $requestedRole = trim($body['role']);
                 if (in_array($requestedRole, ['user', 'admin', 'support'])) {
                     if ($existingUser['mobile'] === '09111273476' || (int)$existingUser['id'] === 1) {

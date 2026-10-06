@@ -1221,6 +1221,7 @@ function Shell({ admin = false, tab, setTab, children, name, role }) {
   const nav = admin ? (
     isSupport ? [
       ['tickets', 'مدیریت تیکت‌های پشتیبانی', Headphones],
+      ['users', 'کاربران و شرکت‌ها', Users],
       ['orders', 'خرید و تراکنش‌ها', CreditCard],
       ['subscriptions', 'اشتراک‌ها و آزمایشی', Clock3],
     ] : [
@@ -2111,9 +2112,9 @@ function Admin() {
     }
   }, [userRole, tab]);
 
-  // Restrict support role to tickets, orders, and subscriptions tabs
+  // Restrict support role to tickets, users, orders, and subscriptions tabs
   useEffect(() => {
-    if (isSupport && tab !== 'tickets' && tab !== 'orders' && tab !== 'subscriptions') {
+    if (isSupport && tab !== 'tickets' && tab !== 'users' && tab !== 'orders' && tab !== 'subscriptions') {
       setTab('tickets');
     }
   }, [isSupport, tab]);

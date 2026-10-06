@@ -35,8 +35,11 @@ import {
   Key
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { getStoredRole } from '../../services/authStorage';
 
 export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
+  const currentRole = getStoredRole();
+  const isSupportOnly = currentRole === 'support';
   const [activeTab, setActiveTab] = useState('subscriptions'); // 'profile' | 'subscriptions' | 'orders'
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1653,7 +1656,7 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
                         </label>
                         <select
                           value={profileForm.role}
-                          disabled={user?.mobile === '09111273476' || user?.is_owner}
+                          disabled={user?.mobile === '09111273476' || user?.is_owner || isSupportOnly}
                           onChange={e => setProfileForm(p => ({ ...p, role: e.target.value }))}
                           style={{
                             width: '100%',
@@ -1663,8 +1666,8 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
                             borderRadius: '8px',
                             fontSize: '13px',
                             fontFamily: 'inherit',
-                            background: (user?.mobile === '09111273476' || user?.is_owner) ? '#f8fafc' : '#ffffff',
-                            cursor: (user?.mobile === '09111273476' || user?.is_owner) ? 'not-allowed' : 'pointer',
+                            background: (user?.mobile === '09111273476' || user?.is_owner || isSupportOnly) ? '#f8fafc' : '#ffffff',
+                            cursor: (user?.mobile === '09111273476' || user?.is_owner || isSupportOnly) ? 'not-allowed' : 'pointer',
                             outline: 'none'
                           }}
                         >
@@ -1672,6 +1675,11 @@ export function AdminUserDetailsModal({ userId, onClose, onUserUpdated }) {
                           <option value="support">کارشناس پشتیبانی (Support)</option>
                           <option value="admin">مدیر سیستم (Admin)</option>
                         </select>
+                        {isSupportOnly && (
+                          <small style={{ display: 'block', marginTop: '4px', color: '#94a3b8', fontSize: '11px' }}>
+                            تغییر نقش تنها در اختیار مدیر ارشد سیستم می‌باشد.
+                          </small>
+                        )}
                       </div>
                     </div>
 

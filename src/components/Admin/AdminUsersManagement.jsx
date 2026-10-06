@@ -26,9 +26,12 @@ import {
   CreditCard
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { getStoredRole } from '../../services/authStorage';
 import { AdminUserDetailsModal } from './AdminUserDetailsModal';
 
 export function AdminUsersManagement({ data = [], reload }) {
+  const currentRole = getStoredRole();
+  const isSupportOnly = currentRole === 'support';
   const list = Array.isArray(data) ? data : [];
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all'); // all | admin | support | user
@@ -257,6 +260,7 @@ export function AdminUsersManagement({ data = [], reload }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
       {/* 1. Quick Mobile Role Switcher Card (Super Admin Feature) */}
+      {!isSupportOnly && (
       <div style={{
         background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         padding: '24px',
@@ -282,6 +286,7 @@ export function AdminUsersManagement({ data = [], reload }) {
             </div>
           </div>
 
+          {!isSupportOnly && (
           <button
             type="button"
             onClick={() => { setShowAddModal(true); setError(''); }}
@@ -303,6 +308,7 @@ export function AdminUsersManagement({ data = [], reload }) {
             <UserPlus size={16} />
             <span>افزودن کاربر یا مدیر با اطلاعات کامل</span>
           </button>
+          )}
         </div>
 
         {/* Quick Action Input & Role Toggles */}
@@ -521,6 +527,7 @@ export function AdminUsersManagement({ data = [], reload }) {
           </div>
         )}
       </div>
+      )}
 
       {/* Notifications */}
       {successMsg && (
@@ -707,7 +714,7 @@ export function AdminUsersManagement({ data = [], reload }) {
                 <th style={{ padding: '14px 16px' }}>نام و سمت سازمانی</th>
                 <th style={{ padding: '14px 16px' }}>شرکت / حوزه فعالیت</th>
                 <th style={{ padding: '14px 16px' }}>نقش و سطح دسترسی فعلی</th>
-                <th style={{ padding: '14px 16px' }}>تغییر مستقیم نقش</th>
+                {!isSupportOnly && <th style={{ padding: '14px 16px' }}>تغییر مستقیم نقش</th>}
                 <th style={{ padding: '14px 16px' }}>اشتراک‌ها</th>
                 <th style={{ padding: '14px 16px', textAlign: 'center' }}>عملیات</th>
               </tr>
@@ -715,7 +722,7 @@ export function AdminUsersManagement({ data = [], reload }) {
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
+                  <td colSpan={isSupportOnly ? 6 : 7} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>
                     هیچ کاربری با این مشخصات یافت نشد.
                   </td>
                 </tr>
@@ -870,6 +877,7 @@ export function AdminUsersManagement({ data = [], reload }) {
                       </td>
 
                       {/* Interactive Role Toggle */}
+                      {!isSupportOnly && (
                       <td style={{ padding: '14px 16px' }}>
                         {isOwner ? (
                           <span style={{ color: '#94a3b8', fontSize: '12px', fontWeight: 600 }}>غیرقابل تغییر</span>
@@ -934,6 +942,7 @@ export function AdminUsersManagement({ data = [], reload }) {
                           </div>
                         )}
                       </td>
+                      )}
 
                       {/* Subscriptions Count (Shows Active & Total Subscriptions) */}
                       <td style={{ padding: '14px 16px', color: '#475569' }}>
@@ -1050,7 +1059,7 @@ export function AdminUsersManagement({ data = [], reload }) {
                             <span>جزئیات و اشتراک</span>
                           </button>
 
-                          {!isOwner && (
+                          {!isOwner && !isSupportOnly && (
                             <button
                               type="button"
                               title="حذف کاربر از سامانه"
