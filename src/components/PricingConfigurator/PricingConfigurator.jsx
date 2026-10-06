@@ -480,6 +480,15 @@ export function PricingConfigurator({
         body: JSON.stringify(payload),
       });
 
+      // If directly settled (100% discount / free order)
+      if (res?.direct_settled || res?.data?.direct_settled || res?.data?.status === 'successful' || res?.order?.status === 'completed') {
+        window.dispatchEvent(new CustomEvent('payment-completed', { detail: res?.data || res }));
+        window.dispatchEvent(new CustomEvent('order-updated', { detail: res?.data || res }));
+        const redirectUrl = res?.redirect_url || res?.data?.redirect_url || '/dashboard?payment=success';
+        window.location.href = redirectUrl;
+        return;
+      }
+
       const paymentUrl = res?.data?.payment_url || res?.payment_url;
       if (paymentUrl) {
         window.location.href = paymentUrl;

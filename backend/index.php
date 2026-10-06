@@ -3056,7 +3056,7 @@ if ($path === '/orders' && $method === 'POST') {
     }
     $userCount = (int)($body['user_count'] ?? 0);
     $period = $body['billing_period'] ?? 'yearly';
-    $amount = (int)($body['amount'] ?? $body['final_amount'] ?? 0);
+    $amount = isset($body['amount']) ? (int)$body['amount'] : (isset($body['final_amount']) ? (int)$body['final_amount'] : -1);
     $couponCode = !empty($body['coupon_code']) ? trim($body['coupon_code']) : null;
 
     // Configurator settings
@@ -3082,8 +3082,8 @@ if ($path === '/orders' && $method === 'POST') {
         $userCount = $baseLimit;
     }
     
-    // Auto-calculate amount if not directly provided in payload or if <= 0
-    if ($amount <= 0) {
+    // Auto-calculate amount if not directly provided in payload
+    if ($amount < 0) {
         $modulesCatalog = [];
         if ($pdo) {
             try {
@@ -3277,6 +3277,68 @@ if ($path === '/orders' && $method === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO orders ({$ordNames}) VALUES ({$ordMarks})");
             $stmt->execute($ordValues);
             $orderId = $pdo->lastInsertId();
+
+            // -----------------------------------------------------------------
+            // 100% DISCOUNT / FREE ORDERS (Amount <= 0):
+            // Bypass banking gateway completely. Mark as paid/completed and activate subscription directly!
+            // -----------------------------------------------------------------
+            if ($amount <= 0) {
+                $stmt = $pdo->prepare("UPDATE orders SET status = 'completed', is_paid = 1, tracking_code = ?, paid_at = NOW() WHERE id = ?");
+                $freeTrack = 'FREE-' . strtoupper(substr(md5(uniqid()), 0, 10));
+                $stmt->execute([$freeTrack, $orderId]);
+
+                // Create transaction record as successful
+                try {
+                    $txColsStmt = $pdo->query("SHOW COLUMNS FROM transactions");
+                    $existingTxCols = array_map('strtolower', $txColsStmt->fetchAll(PDO::FETCH_COLUMN));
+                    $txFields = ['user_id', 'order_id', 'amount', 'status'];
+                    $txValues = [$userId, $orderId, 0, 'successful'];
+                    if (in_array('order_number', $existingTxCols)) { $txFields[] = 'order_number'; $txValues[] = $ordNum; }
+                    if (in_array('reference_id', $existingTxCols)) { $txFields[] = 'reference_id'; $txValues[] = $freeTrack; }
+                    if (in_array('tracking_code', $existingTxCols)) { $txFields[] = 'tracking_code'; $txValues[] = $freeTrack; }
+                    if (in_array('gateway', $existingTxCols)) { $txFields[] = 'gateway'; $txValues[] = 'free_coupon'; }
+
+                    $txNames = implode(', ', $txFields);
+                    $txMarks = implode(', ', array_fill(0, count($txFields), '?'));
+                    $pdo->prepare("INSERT INTO transactions ({$txNames}) VALUES ({$txMarks})")->execute($txValues);
+                } catch (Exception $eTxFree) {}
+
+                // Activate subscription
+                $orderRowStmt = $pdo->prepare("SELECT * FROM orders WHERE id = ? LIMIT 1");
+                $orderRowStmt->execute([$orderId]);
+                $freshOrder = $orderRowStmt->fetch(PDO::FETCH_ASSOC);
+                createSubscriptionForOrder($pdo, $freshOrder ?: [
+                    'id' => $orderId,
+                    'user_id' => $userId,
+                    'billing_period' => $period,
+                    'user_count' => $userCount,
+                    'module_ids' => $modIds,
+                    'order_number' => $ordNum,
+                    'amount' => 0,
+                    'final_amount' => 0,
+                    'order_type' => $orderType,
+                    'subscription_id' => $subscriptionId
+                ], 'purchase');
+
+                logAudit($pdo, 'ORDER_COMPLETED', 'FREE_CHECKOUT', "تکمیل و فعال‌سازی مستقیم اشتراک رایگان/تخفیف ۱۰۰٪ برای سفارش #{$ordNum}");
+
+                sendJson([
+                    'success' => true,
+                    'order' => [
+                        'id' => $orderId,
+                        'order_number' => $ordNum,
+                        'amount' => 0,
+                        'status' => 'completed'
+                    ],
+                    'order_id' => $orderId,
+                    'order_number' => $ordNum,
+                    'is_redirect' => false,
+                    'direct_settled' => true,
+                    'redirect_url' => '/dashboard?payment=success&order_number=' . urlencode($ordNum) . '&track_id=' . urlencode($freeTrack),
+                    'message' => 'سفارش با تخفیف ۱۰۰٪ با موفقیت تسویه و اشتراک شما فعال گردید.'
+                ], 201);
+                exit;
+            }
 
             // Initiate Zibal Payment Gateway
             $gw = getGatewaySettings($pdo);
@@ -3512,8 +3574,48 @@ if (preg_match('#^/orders/(\d+)/pay$#', $path, $matches) && $method === 'POST') 
     }
 
     $amount = (int)($order['amount'] ?? $order['final_amount'] ?? 0);
+    $ordNum = $order['order_number'] ?? ('ORD-' . $orderId);
+
+    // -------------------------------------------------------------------------
+    // 100% DISCOUNT / FREE INVOICE (Amount <= 0):
+    // Bypass gateway, mark completed, and activate subscription directly
+    // -------------------------------------------------------------------------
     if ($amount <= 0) {
-        sendError('مبلغ فاکتور نامعتبر است.', 400);
+        $freeTrack = 'FREE-' . strtoupper(substr(md5(uniqid()), 0, 10));
+        $stmt = $pdo->prepare("UPDATE orders SET status = 'completed', is_paid = 1, tracking_code = ?, paid_at = NOW() WHERE id = ?");
+        $stmt->execute([$freeTrack, $orderId]);
+
+        try {
+            $chkTx = $pdo->prepare("SELECT id FROM transactions WHERE order_id = ? ORDER BY id DESC LIMIT 1");
+            $chkTx->execute([$orderId]);
+            $existingTxId = $chkTx->fetchColumn();
+
+            if ($existingTxId) {
+                $upTx = $pdo->prepare("UPDATE transactions SET authority = ?, reference_id = ?, tracking_code = ?, gateway = 'free_coupon', status = 'successful', amount = 0 WHERE id = ?");
+                $upTx->execute([$freeTrack, $freeTrack, $freeTrack, $existingTxId]);
+            } else {
+                $insTx = $pdo->prepare("INSERT INTO transactions (user_id, order_id, order_number, amount, status, gateway, authority, tracking_code, reference_id) VALUES (?, ?, ?, 0, 'successful', 'free_coupon', ?, ?, ?)");
+                $insTx->execute([$order['user_id'], $orderId, $ordNum, $freeTrack, $freeTrack, $freeTrack]);
+            }
+        } catch (Exception $eTxFree) {}
+
+        createSubscriptionForOrder($pdo, $order, 'purchase');
+        logAudit($pdo, 'PAYMENT_SUCCESS', 'FREE_CHECKOUT', "تسویه فاکتور رایگان/تخفیف ۱۰۰٪ برای سفارش #{$ordNum}");
+
+        sendJson([
+            'success' => true,
+            'data' => [
+                'order_id' => $orderId,
+                'order_number' => $ordNum,
+                'is_redirect' => false,
+                'direct_settled' => true,
+                'status' => 'successful',
+                'amount' => 0,
+                'message' => 'فاکتور با تخفیف ۱۰۰٪ با موفقیت تسویه و اشتراک فعال شد.'
+            ],
+            'message' => 'فاکتور با تخفیف ۱۰۰٪ با موفقیت تسویه شد.'
+        ]);
+        exit;
     }
 
     $gw = getGatewaySettings($pdo);

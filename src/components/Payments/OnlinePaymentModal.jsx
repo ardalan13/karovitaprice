@@ -47,11 +47,12 @@ export function OnlinePaymentModal({ order, onClose, onSuccess }) {
       }
 
       // If no payment_url, only show direct settlement if explicitly successful and not a redirect
-      if (res && res.data && res.data.is_redirect === false && res.data.status === 'successful') {
-        setPaymentSuccessData(res.data);
-        if (onSuccess) onSuccess(res.data);
-        window.dispatchEvent(new CustomEvent('payment-completed', { detail: res.data }));
-        window.dispatchEvent(new CustomEvent('order-updated', { detail: res.data }));
+      const settlementData = res?.data || res;
+      if (settlementData && (settlementData.is_redirect === false || settlementData.direct_settled) && (settlementData.status === 'successful' || res?.success)) {
+        setPaymentSuccessData(settlementData);
+        if (onSuccess) onSuccess(settlementData);
+        window.dispatchEvent(new CustomEvent('payment-completed', { detail: settlementData }));
+        window.dispatchEvent(new CustomEvent('order-updated', { detail: settlementData }));
         return;
       }
 
